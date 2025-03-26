@@ -181,7 +181,7 @@ function RentalMethodPage( {scrollToSection} ) {
           position: 'relative',
           margin: '10px',
         }}>
-          <img src="/assets/classroom.png" alt="강의실 대여" style={{
+          <img src="/assets/Classroom.png" alt="강의실 대여" style={{
             width: '96px',
             height: '96px',
             position: 'absolute',

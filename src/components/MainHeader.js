@@ -246,7 +246,7 @@ function MainHeader({ scrollToSection }) {
             marginRight: "-900px",
             top: "765px"
           }}>
-            <img src="/assets/calendar.png" alt="Calendar Icon" style={{
+            <img src="/assets/Calendar.png" alt="Calendar Icon" style={{
               width: '35px',
               height: '35px'
             }} />

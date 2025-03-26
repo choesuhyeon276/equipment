@@ -23,7 +23,7 @@ const LongTermRentalPage = () => {
         overflow: 'hidden'
       }}>
         {/* 카메라 이미지 */}
-        <img src={`${process.env.PUBLIC_URL}/assets/camera.png`} alt="Camera" style={{
+        <img src={`${process.env.PUBLIC_URL}/assets/Camera.png`} alt="Camera" style={{
           position: 'absolute',
           top: '30px',
           left: '-10px',
