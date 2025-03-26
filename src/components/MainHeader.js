@@ -226,7 +226,7 @@ function MainHeader({ scrollToSection }) {
             alignItems: 'center',
             gap: '4px'
           }}>
-            <img src="/assets/Check Mark.png" alt="Reserve Icon" style={{
+            <img src="/assets/CheckMark.png" alt="Reserve Icon" style={{
               width: '40px',
               height: '40px'
             }} />
