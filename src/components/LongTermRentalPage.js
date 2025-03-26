@@ -77,7 +77,7 @@ const LongTermRentalPage = () => {
     fontWeight: 'bold', // 볼드체
     fontFamily: 'Pretendard, sans-serif', // 프리텐다드 폰트
   }}>
-    <img src={`${process.env.PUBLIC_URL}/assets/check Mark.png`} alt="예약하기" style={{
+    <img src={`${process.env.PUBLIC_URL}/assets/Check Mark.png`} alt="예약하기" style={{
       width: '36px', // 아이콘 크기도 맞춰줌
       height: '36px'
     }} />
