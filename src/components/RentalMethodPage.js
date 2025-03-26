@@ -1,8 +1,20 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 function RentalMethodPage( {scrollToSection} ) {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'instant'
+    });
+  }, []);
+
+  const navigateToReservation = () => {
+    window.location.href = "/ReservationMainPage"
+  };
 
   return (
     <div style={{
@@ -40,7 +52,7 @@ function RentalMethodPage( {scrollToSection} ) {
         gap: '73px'
       }}>
         {/* 단기 대여 */}
-        <div onClick={() => navigate("/ReservationMainPage")} style={{
+        <div onClick={navigateToReservation} style={{
           width: '383px',
           height: '383px',
           backgroundColor: '#24272C',

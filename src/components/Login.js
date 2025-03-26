@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";  // 라우터 사용
+import { useNavigate } from "react-router-dom";  
 import { auth, signInWithPopup, provider } from "../firebase/firebase";
 
 function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();  // 페이지 이동 훅
+  const navigate = useNavigate();  
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -16,11 +16,10 @@ function Login() {
       const user = result.user;
       console.log("로그인 성공:", user);
 
-      alert(`로그인 성공! 사용자: ${user.displayName}`);
+      // Directly navigate to MainHeader page after successful login
+      navigate("/mainheader");  // Updated navigation path
+      
       setLoading(false);
-
-      // React Router로 메인 페이지로 이동
-      navigate("/");
     } catch (err) {
       console.error("로그인 오류:", err.message);
       setLoading(false);

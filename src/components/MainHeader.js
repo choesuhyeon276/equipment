@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth, signInWithPopup, provider } from "../firebase/firebase";
 
 function MainHeader({ scrollToSection }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
 
   // 로그인 상태 확인
   useEffect(() => {
@@ -35,6 +37,16 @@ function MainHeader({ scrollToSection }) {
     } catch (error) {
       console.error("로그아웃 실패: ", error.message);
     }
+  };
+
+  // 예약 페이지로 이동하는 함수
+  const handleReservation = () => {
+    if (!isLoggedIn) {
+      // 로그인되지 않은 상태에서 예약 시도 시 알림
+      alert("예약을 위해서는 로그인이 필요합니다.");
+      return;
+    }
+    navigate('/ReservationMainPage');
   };
 
   return (
@@ -212,20 +224,23 @@ function MainHeader({ scrollToSection }) {
           gap: '20px',
           justifyContent: 'center'
         }}>
-          <button style={{
-            position: 'absolute',
-            right: '370px',
-            top: '765px',
-            backgroundColor: '#D3D3D3',
-            color: 'black',
-            padding: '5px 13px',
-            borderRadius: '8px',
-            fontSize: '30px',
-            fontWeight: '700',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
+          <button 
+            onClick={handleReservation}
+            style={{
+              position: 'absolute',
+              right: '370px',
+              top: '765px',
+              backgroundColor: '#D3D3D3',
+              color: 'black',
+              padding: '5px 13px',
+              borderRadius: '8px',
+              fontSize: '30px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
             <img src="/assets/CheckMark.png" alt="Reserve Icon" style={{
               width: '40px',
               height: '40px'
