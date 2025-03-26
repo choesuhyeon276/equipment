@@ -1,0 +1,22 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCROsbwnyiUjYSuAmdTq6NfuUX7NakhOko",
+  authDomain: "equipment-rental-system-838f0.firebaseapp.com",
+  databaseURL: "https://equipment-rental-system-838f0-default-rtdb.firebaseio.com",
+  projectId: "equipment-rental-system-838f0",
+  storageBucket: "equipment-rental-system-838f0.firebasestorage.app",
+  messagingSenderId: "71958410034",
+  appId: "1:71958410034:web:274a6798aa9d7ec5805d2b",
+  measurementId: "G-9YRB6XS4M5"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);

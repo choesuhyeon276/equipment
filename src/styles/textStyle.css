@@ -1,0 +1,14 @@
+/* 한글 전용 스타일 */
+.korean-bold {
+    font-weight: 600; /* Semi-bold로 한글은 살짝 굵게 */
+  }
+  
+  /* 영어 전용 스타일 */
+  .english-bold {
+    font-weight: 700; /* Bold로 영어는 더 굵게 */
+  }
+  
+  .custom-height {
+    height: 500px; /* 원하는 높이 */
+  }
+  
