@@ -1,5 +1,5 @@
-import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import React, { useRef } from "react";
+import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import Login from "./components/Login";
 import MainHeader from "./components/MainHeader";
 import Calendar from "./components/Calendar";
@@ -11,26 +11,30 @@ import AdminCameraManagement from "./components/AdminCameraManagement";
 import CartPage from "./components/CartPage";
 import Success from "./components/Success";
 
-function scrollToSection(id) {
-  const element = document.getElementById(id);
-  if (element) {
-    element.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-  }
-}
-
 function App() {
+  // 각 섹션에 대한 참조 생성
+  const calendarRef = useRef(null);
+  const rentalMethodRef = useRef(null);
+  const thingsNoteRef = useRef(null);
+  const longTermRentalRef = useRef(null);
+
+  // 스크롤 이동 함수
+  function scrollToSection(ref) {
+    if (ref && ref.current) {
+      ref.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }
+  }
+
   return (
     <Router>
       <Routes>
-        {/* 로그인 페이지 */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
-
-        {/* 메인 페이지를 root 경로로 */}
         <Route
-          path="/"
+          path="/main"
           element={
             <div style={{
               margin: '0',
@@ -40,27 +44,29 @@ function App() {
               overflowX: 'hidden',
               scrollBehavior: 'smooth'
             }}>
-              <MainHeader scrollToSection={scrollToSection} />
-              <div id="calendar-section">
+              {/* scrollToSection 함수를 MainHeader에 전달 */}
+              <MainHeader scrollToSection={scrollToSection} refs={{ calendarRef, rentalMethodRef, thingsNoteRef, longTermRentalRef }} />
+
+              <div ref={calendarRef} id="calendar-section">
                 <Calendar />
               </div>
-              <div id="rental-method-section">
-                <RentalMethodPage scrollToSection={scrollToSection} />
+              <div ref={rentalMethodRef} id="rental-method-section">
+                <RentalMethodPage scrollToSection={() => scrollToSection(thingsNoteRef)} />
               </div>
-              <div id="things-note-section">
+              <div ref={thingsNoteRef} id="things-note-section">
                 <ThingsNotePage />
               </div>
-              <div id="long-term-rental-section">
+              <div ref={longTermRentalRef} id="long-term-rental-section">
                 <LongTermRentalPage />
               </div>
             </div>
           }
         />
-
-        {/* 기존 라우트들 */}
         <Route path="/reservationMainPage" element={<ReservationMainPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/success" element={<Success />} />
+        <Route path="/reservation-main" element={<ReservationMainPage />} />
+        <Route path="/mainheader" element={<MainHeader />} />
         <Route
           path="/cameramanagement"
           element={

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage } from "../firebase/firebase";
+import { storage } from "../trash/firebase";
 
 function FileUpload() {
   const [progress, setProgress] = useState(0);

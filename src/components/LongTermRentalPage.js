@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getAuth } from 'firebase/auth';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -59,7 +60,11 @@ const FileUpload = ({ onFileSelect, onUploadComplete }) => {
           });
 
           setUploadStatus('파일 업로드 완료');
-          onUploadComplete(file.name);
+          
+          if (onUploadComplete) {
+            onUploadComplete(file.name);
+          }
+          
           setFile(null);
           setUploadProgress(0);
         }
@@ -73,11 +78,12 @@ const FileUpload = ({ onFileSelect, onUploadComplete }) => {
 
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
+      display: 'flex', 
+      flexDirection: 'column', 
       alignItems: 'center',
       width: '219px',
-      position: 'relative', // Added to prevent shifting
+      height: '180px',  // Fixed height to prevent layout shift
+      position: 'relative',
     }}>
       <input 
         type="file" 
@@ -101,23 +107,49 @@ const FileUpload = ({ onFileSelect, onUploadComplete }) => {
           cursor: 'pointer'
         }}
       >
+        <img src={`${process.env.PUBLIC_URL}/assets/Note.png`} alt="예약하기" style={{
+          marginRight: '10px',
+          width: '36px',
+          height: '36px'
+        }} />
         파일 첨부
       </label>
 
       {file && (
         <div style={{
-          position: 'absolute', // Positioning the file name to prevent shifting
-          top: '90%',
-          left: '0%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: '100%',
           marginTop: '10px',
-          fontSize: '16px',
-          color: '#333',
-          maxWidth: '219px',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
         }}>
-          {file.name}
+          <div style={{
+            fontSize: '16px',
+            color: '#333',
+            maxWidth: '219px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            textAlign: 'center'
+          }}>
+            {file.name}
+          </div>
+          
+          <button 
+            onClick={handleFileUpload}
+            style={{
+              marginTop: '10px',
+              width: '100px',
+              height: '30px',
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            업로드
+          </button>
         </div>
       )}
 
@@ -145,7 +177,8 @@ const FileUpload = ({ onFileSelect, onUploadComplete }) => {
         <div style={{
           marginTop: '10px',
           fontSize: '14px',
-          color: uploadStatus.includes('실패') ? 'red' : 'green'
+          color: uploadStatus.includes('실패') ? 'red' : 'green',
+          textAlign: 'center'
         }}>
           {uploadStatus}
         </div>
@@ -155,8 +188,25 @@ const FileUpload = ({ onFileSelect, onUploadComplete }) => {
 };
 
 const LongTermRentalPage = () => {
+  const navigate = useNavigate();
   const [selectedFileName, setSelectedFileName] = useState('');
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [isReservationEnabled, setIsReservationEnabled] = useState(false);
+
+  const handleReservation = async () => {
+    if (!isReservationEnabled) {
+      alert('파일을 먼저 업로드해주세요.');
+      return;
+    }
+    navigate('/reservation-main', { 
+      state: { 
+        uploadedFileName: uploadedFileName 
+      } 
+    });
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
+  };
 
   return (
     <div style={{
@@ -179,14 +229,14 @@ const LongTermRentalPage = () => {
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        margin : 'auto',
+        margin: 'auto',
         fontFamily: 'Pretendard, sans-serif',
         border: '2px solid #fff',
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}>
         <img src={`${process.env.PUBLIC_URL}/assets/Camera.png`} alt="Camera" style={{
           position: 'absolute',
-          top: '30px',
+          top: '-60px',
           left: '-10px',
           width: '800px',
         }} />
@@ -194,12 +244,12 @@ const LongTermRentalPage = () => {
         {/* 제목 및 설명 */}
         <div style={{
           position: 'absolute',
-          top: '260px',
+          top: '130px',
           right: '110px',
           textAlign: 'right'
         }}>
           <div style={{ fontSize: '66px', fontWeight: '900', lineHeight: '66px', textAlign: 'left' }}>Long-term<br />equipment rental.</div>
-          <div style={{ fontSize: '60px', fontWeight: '200', marginTop: '10px',textAlign: 'left', lineHeight: '60px' }}>김숭현 교수님의 승인이<br />필요합니다</div>
+          <div style={{ fontSize: '60px', fontWeight: '200', marginTop: '10px', textAlign: 'left', lineHeight: '60px' }}>김숭현 교수님의 승인이<br />필요합니다</div>
         </div>
 
         {/* 버튼 및 파일명 영역 */}
@@ -210,56 +260,64 @@ const LongTermRentalPage = () => {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-end',
-          gap: '10px'
+          gap: '20px'  // Increased gap for better spacing
         }}>
           <div style={{
             display: 'flex',
             gap: '20px',
-            alignItems: 'center'
+            alignItems: 'flex-start',  // Align to top to prevent shifting
+            height: '180px'  // Fixed height to match FileUpload
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '219px',
-              height: '73px',
-              backgroundColor: '#DFDFDF',
-              borderRadius: '8px',
-              fontSize: '36px',
-              fontWeight: 'bold',
-              fontFamily: 'Pretendard, sans-serif',
-            }}>
-              <FileUpload 
-                onFileSelect={(fileName) => setSelectedFileName(fileName)}
-                onUploadComplete={(fileName) => setUploadedFileName(fileName)}
+            <FileUpload 
+              onFileSelect={(fileName) => setSelectedFileName(fileName)}
+              onUploadComplete={(fileName) => {
+                setUploadedFileName(fileName);
+                setIsReservationEnabled(true);
+              }}
+            />
+            <button 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                width: '219px',
+                height: '73px',
+                backgroundColor: isReservationEnabled ? '#4CAF50' : '#DFDFDF',
+                borderRadius: '8px',
+                fontSize: '36px',
+                fontWeight: 'bold',
+                fontFamily: 'Pretendard, sans-serif',
+                cursor: isReservationEnabled ? 'pointer' : 'not-allowed',
+                color: isReservationEnabled ? 'white' : 'gray',
+                opacity: isReservationEnabled ? 1 : 0.5,
+                marginTop: '0'  // Remove any top margin to keep consistent position
+              }}
+              onClick={handleReservation}
+              disabled={!isReservationEnabled}
+            >
+              <img 
+                src={`${process.env.PUBLIC_URL}/assets/CheckMark.png`} 
+                alt="예약하기" 
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  filter: isReservationEnabled ? 'none' : 'grayscale(100%)'
+                }} 
               />
-            </div>
-            <button style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              width: '219px',
-              height: '73px',
-              backgroundColor: '#DFDFDF',
-              borderRadius: '8px',
-              fontSize: '36px',
-              fontWeight: 'bold',
-              fontFamily: 'Pretendard, sans-serif',
-            }}>
-              <img src={`${process.env.PUBLIC_URL}/assets/CheckMark.png`} alt="예약하기" style={{
-                width: '36px',
-                height: '36px'
-              }} />
               예약하기
             </button>
           </div>
           
           {uploadedFileName && (
             <div style={{
-              fontSize: '24px',
+              position: 'absolute',
+              left: "245px",
+              bottom: "82px",
+              fontSize: '14px',
+              fontWeight: '600',
               color: '#4CAF50',
-              maxWidth: '458px',
+              maxWidth: '300px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
@@ -272,7 +330,7 @@ const LongTermRentalPage = () => {
         {/* 하단 안내사항 */}
         <div style={{
           position: 'absolute',
-          bottom: '200px',
+          bottom: '320px',
           left: '70px',
           fontSize: '24px',
           lineHeight: '26px',
@@ -286,12 +344,12 @@ const LongTermRentalPage = () => {
         {/* 하단 연락처 */}
         <div style={{
           position: 'absolute',
-          bottom: '200px',
+          bottom: '330px',
           right: '293px',
           fontSize: '24px',
           lineHeight: '1',
-          fontWeight:"400",
-          textAlign:"right"
+          fontWeight: "400",
+          textAlign: "right"
         }}>
           TEL<br />
           E-MAIL
@@ -299,11 +357,11 @@ const LongTermRentalPage = () => {
 
         <div style={{
           position: 'absolute',
-          bottom: '223px',
+          bottom: '355px',
           right: '118px',
           fontSize: '24px',
           lineHeight: '1',
-          fontWeight:"200",
+          fontWeight: "200",
           letterSpacing: "-1.5px"
         }}>
           010 - 3034 - 3317<br />
@@ -311,11 +369,11 @@ const LongTermRentalPage = () => {
 
         <div style={{
           position: 'absolute',
-          bottom: '202px',
+          bottom: '330px',
           right: '115px',
           fontSize: '24px',
           lineHeight: '1',
-          fontWeight:"200",
+          fontWeight: "200",
           letterSpacing: "-1px"
         }}>
           soong@khu.ac.kr
@@ -324,7 +382,7 @@ const LongTermRentalPage = () => {
         {/* 흰색 가로선 */}
         <div style={{
           position: 'absolute',
-          bottom: '195px',
+          bottom: '320px',
           left: '985px',
           width: '340px',
           height: '2px',

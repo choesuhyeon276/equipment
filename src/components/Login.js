@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";  
-import { auth, signInWithPopup, provider } from "../firebase/firebase";
+import { auth, signInWithPopup, provider } from "../firebase/firebaseConfig";
 
 function Login() {
   const [error, setError] = useState("");
@@ -17,7 +17,7 @@ function Login() {
       console.log("로그인 성공:", user);
 
       // Directly navigate to MainHeader page after successful login
-      navigate("/mainheader");  // Updated navigation path
+      navigate("/Main");  // Updated navigation path
       
       setLoading(false);
     } catch (err) {

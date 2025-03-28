@@ -1,36 +1,133 @@
 import React, { useState, useEffect } from 'react';
 import { User, ShoppingCart, Trash2, CheckCircle } from 'lucide-react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase/firebaseConfig';
-import { getImageURL } from '../firebase/firebaseConfig';
+import { useLocation } from 'react-router-dom';
+import { gapi } from 'gapi-script';
+import {
+  auth, 
+  db, 
+  getImageURL,
+  app,
+  getAuth,
+  updateDoc,
+  doc,
+  getFirestore,
+  getDoc}
+  from '../firebase/firebaseConfig';
+
+
 
 const CartPage = () => {
+  const location = useLocation();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [imageUrls, setImageUrls] = useState({});
+  const [user, setUser] = useState(null);
+  
+  // Use the db and auth from the imported config or create them here
+  const firestore = getFirestore(app);
+  const authInstance = getAuth(app);
 
-  // Fetch cart items (simulated with Firestore for now)
-  const fetchCartItems = async () => {
+  // Firebase에서 장바구니 아이템 가져오는 함수 추가
+  const fetchFirebaseCartItems = async (userId) => {
     try {
-      const cartRef = collection(db, 'cart');
-      const snapshot = await getDocs(cartRef);
+      const userCartRef = doc(db, 'user_carts', userId);
+      const cartDoc = await getDoc(userCartRef);
       
-      const cartData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      setCartItems(cartData);
+      console.log('Firebase Cart Document:', cartDoc.exists());
+
+      if (cartDoc.exists()) {
+        const firebaseCartItems = cartDoc.data().items || [];
+
+        console.log('Firebase Cart Items:', firebaseCartItems);
+
+        setCartItems(firebaseCartItems);
+        localStorage.setItem('cart', JSON.stringify(firebaseCartItems));
+      }
       setLoading(false);
-    } catch (err) {
-      console.error("장바구니 데이터 로딩 중 오류:", err);
-      setError(err);
+    } catch (error) {
+      console.error('Firebase 장바구니 불러오기 실패:', error);
       setLoading(false);
     }
   };
 
-  // Image Loading Effect
+  // Google Calendar API configuration
+  const CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+  const API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
+  const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+
+  // Page load authentication and session maintenance
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+
+      console.log('Stored User:', parsedUser);
+    console.log('User UID:', parsedUser.uid);
+
+      // Firebase에서 장바구니 불러오기
+      fetchFirebaseCartItems(parsedUser.uid);
+    } else {
+      console.log('No user found in localStorage');
+    }
+
+
+
+
+
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.onload = initClient; // 수정됨: async와 defer 속성 제거
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  // Load cart items from localStorage or passed state
+  useEffect(() => {
+    // Check if items were passed through location state
+    const passedCartItems = location.state?.cartItems;
+    
+    if (passedCartItems) {
+      // If items passed from previous page, use those
+      setCartItems(passedCartItems);
+      localStorage.setItem('cart', JSON.stringify(passedCartItems));
+    } else {
+      // Otherwise, try to load from localStorage
+      const storedCart = JSON.parse(localStorage.getItem('cart')) || [];
+      setCartItems(storedCart);
+    }
+    
+    setLoading(false);
+  }, [location.state]);
+
+  const initClient = () => {
+    gapi.load('client:auth2', () => {
+      gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        scope: SCOPES
+      }).then(() => {
+        const authInstance = gapi.auth2.getAuthInstance() // 수정됨: null 검사 및 오류 처리 추가;
+        if (authInstance && authInstance.isSignedIn.get()) {
+          const currentUser = authInstance.currentUser.get();
+          const profile = currentUser.getBasicProfile();
+          const userInfo = {
+            name: profile.getName(),
+            email: profile.getEmail()
+          };
+          setUser(userInfo);
+          localStorage.setItem('user', JSON.stringify(userInfo));
+        }
+      }).catch((error) => {
+        console.error('Google API 초기화 실패:', error); 
+      });
+    });
+  };
+
+  // Image loading Effect
   useEffect(() => {
     const fetchImageUrls = async () => {
       const urls = {};
@@ -51,29 +148,108 @@ const CartPage = () => {
     }
   }, [cartItems]);
 
-  // Initial data loading
-  useEffect(() => {
-    fetchCartItems();
-  }, []);
+  const createGoogleCalendarEvent = async () => {
+    if (!user) {
+      alert('먼저 Google 계정으로 로그인해주세요.');
+      return;
+    }
 
-  // Calculate total price
-  const calculateTotalPrice = () => {
-    return cartItems.reduce((total, item) => {
-      return total + (item.dailyRentalPrice * item.rentalDays);
-    }, 0);
+    try {
+      // Create events for rental items
+      const batch = cartItems.map(item => {
+        return gapi.client.calendar.events.insert({
+          calendarId: 'primary',
+          resource: {
+            summary: `DIRT 장비 대여: ${item.name}`,
+            description: `대여 장비: ${item.name}\n카테고리: ${item.category}`,
+            start: {
+              dateTime: `${item.rentalDate}T${item.rentalTime}:00`,
+              timeZone: 'Asia/Seoul'
+            },
+            end: {
+              dateTime: `${item.returnDate}T${item.returnTime}:00`,
+              timeZone: 'Asia/Seoul'
+            },
+            attendees: [
+              { email: user.email }
+            ]
+          }
+        });
+      });
+
+      // Execute all event creation requests
+      await Promise.all(batch);
+
+      // Clear cart on success
+      localStorage.removeItem('cart');
+      setCartItems([]);
+      
+      alert('모든 장비가 Google 캘린더에 예약되었습니다!');
+    } catch (error) {
+      console.error('Google Calendar 이벤트 생성 중 오류:', error);
+      alert('캘린더 예약에 실패했습니다. 다시 시도해주세요.');
+    }
   };
 
-  // Remove item from cart
-  const removeFromCart = (itemId) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
+  // 기존의 removeFromCart 함수 수정
+  const removeFromCart = async (itemId) => {
+    const updatedCart = cartItems.filter(item => item.id !== itemId);
+    setCartItems(updatedCart);
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
+
+    // Firebase에서도 아이템 제거
+    if (user) {
+      try {
+        const userCartRef = doc(db, 'user_carts', user.uid);
+        await updateDoc(userCartRef, {
+          items: updatedCart
+        });
+      } catch (error) {
+        console.error('Firebase 장바구니에서 아이템 제거 실패:', error);
+      }
+    }
+  };
+  
+  // Render user info for header
+  const renderUserInfo = () => {
+    if (user) {
+      return (
+        <div style={{ 
+          position: 'absolute',
+          right: '200px',
+          top: '0px',
+          fontSize: '14px',
+          color: 'green',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <User size={16} />
+          {user.name}님
+        </div>
+      );
+    }
+    return null;
   };
 
-  // Update rental days
-  const updateRentalDays = (itemId, days) => {
-    setCartItems(prevItems => 
-      prevItems.map(item => 
-        item.id === itemId ? { ...item, rentalDays: Math.max(1, days) } : item
-      )
+  // Render rental details for each cart item
+  const renderRentalDetails = (item) => {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'flex-start', 
+        marginTop: '15px' 
+      }}>
+        <div style={{ marginBottom: '5px' }}>
+          <span style={{ fontWeight: 'bold', marginRight: '10px' }}>대여 시작:</span>
+          {item.rentalDate} {item.rentalTime}
+        </div>
+        <div>
+          <span style={{ fontWeight: 'bold', marginRight: '10px' }}>반납 예정:</span>
+          {item.returnDate} {item.returnTime}
+        </div>
+      </div>
     );
   };
 
@@ -87,7 +263,7 @@ const CartPage = () => {
       fontFamily: 'Pretendard, sans-serif',
       color: '#000000'
     }}>
-      {/* Header - Same as Reservation Page */}
+      {/* Header Section */}
       <div style={{
         position: 'absolute',
         top: '20px',
@@ -98,6 +274,16 @@ const CartPage = () => {
         alignItems: 'center',
         borderBottom: '0px solid #5F5F5F',
         paddingBottom: '45px'
+      }}>
+        {renderUserInfo()}
+      </div>
+
+      {/* Navigation and Logo Area */}
+      <div style={{
+        position: 'absolute',
+        top: '150px',
+        left: '50px',
+        right: '50px'
       }}>
         <div style={{ 
           display: 'flex',
@@ -170,7 +356,7 @@ const CartPage = () => {
       {/* Cart Content Area */}
       <div style={{
         position: 'absolute',
-        top: '150px',
+        top: '300px',
         left: '50px',
         right: '50px'
       }}>
@@ -184,8 +370,6 @@ const CartPage = () => {
 
         {loading ? (
           <div>로딩 중...</div>
-        ) : error ? (
-          <div>오류 발생: {error.message}</div>
         ) : cartItems.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
@@ -266,43 +450,14 @@ const CartPage = () => {
                       {item.category} | {item.condition}
                     </p>
 
-                    {/* Rental Duration */}
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      marginTop: '15px' 
-                    }}>
-                      <span style={{ marginRight: '10px' }}>대여 기간:</span>
-                      <input 
-                        type="number" 
-                        min="1" 
-                        value={item.rentalDays} 
-                        onChange={(e) => updateRentalDays(item.id, parseInt(e.target.value))}
-                        style={{
-                          width: '60px',
-                          padding: '5px',
-                          textAlign: 'center',
-                          border: '1px solid #ccc',
-                          borderRadius: '5px'
-                        }}
-                      />
-                      <span style={{ marginLeft: '10px' }}>일</span>
-                    </div>
-
-                    {/* Price */}
-                    <div style={{ 
-                      marginTop: '10px', 
-                      fontWeight: 'bold',
-                      fontSize: '16px' 
-                    }}>
-                      {(item.dailyRentalPrice * item.rentalDays).toLocaleString()}원
-                    </div>
+                    {/* Rental Details */}
+                    {renderRentalDetails(item)}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Order Summary */}
+            {/* Reservation Summary Section */}
             <div style={{ 
               flex: 1, 
               border: '1px solid #E0E0E0', 
@@ -315,30 +470,8 @@ const CartPage = () => {
                 fontWeight: 'bold', 
                 marginBottom: '20px' 
               }}>
-                주문 요약
+                예약 요약
               </h3>
-
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                marginBottom: '10px' 
-              }}>
-                <span>총 대여 금액</span>
-                <span style={{ fontWeight: 'bold' }}>
-                  {calculateTotalPrice().toLocaleString()}원
-                </span>
-              </div>
-
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                marginBottom: '20px',
-                paddingBottom: '10px',
-                borderBottom: '1px solid #E0E0E0'
-              }}>
-                <span>할인 금액</span>
-                <span style={{ color: 'red' }}>0원</span>
-              </div>
 
               <div style={{ 
                 display: 'flex', 
@@ -347,26 +480,29 @@ const CartPage = () => {
                 fontWeight: 'bold',
                 fontSize: '18px'
               }}>
-                <span>총 결제 금액</span>
-                <span>{calculateTotalPrice().toLocaleString()}원</span>
+                <span>총 예약 장비 수</span>
+                <span>{cartItems.length}개</span>
               </div>
 
-              <button style={{
-                width: '100%',
-                padding: '15px',
-                backgroundColor: 'black',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '18px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px'
-              }}>
+              <button 
+                onClick={createGoogleCalendarEvent}
+                style={{
+                  width: '100%',
+                  padding: '15px',
+                  backgroundColor: 'black',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px'
+                }}
+              >
                 <CheckCircle size={20} />
-                결제하기
+                예약하기
               </button>
             </div>
           </div>

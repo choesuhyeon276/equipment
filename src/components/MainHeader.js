@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, signInWithPopup, provider } from "../firebase/firebase";
+import { auth, signInWithPopup, provider } from "../firebase/firebaseConfig";
 
-function MainHeader({ scrollToSection }) {
+function MainHeader({ scrollToSection, refs }) {
+  
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [isVisible, setIsVisible] = useState(false);
+  
   const navigate = useNavigate();
 
   // 로그인 상태 확인
@@ -11,11 +15,31 @@ function MainHeader({ scrollToSection }) {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
         setIsLoggedIn(true);
+        setUserName(user.displayName || user.email.split('@')[0]);
       } else {
         setIsLoggedIn(false);
+        setUserName('');
       }
     });
     return () => unsubscribe();
+  }, []);
+
+  // 스크롤 위치 추적 및 버튼 표시 로직
+  useEffect(() => {
+    const toggleVisibility = () => {
+      // 화면 높이의 300px 이상 스크롤되면 버튼 표시
+      if (window.pageYOffset > 300) {
+        setIsVisible(true);
+      } else {
+        setIsVisible(false);
+      }
+    };
+
+    // 스크롤 이벤트 리스너 추가
+    window.addEventListener('scroll', toggleVisibility);
+
+    // 컴포넌트 언마운트 시 이벤트 리스너 제거
+    return () => window.removeEventListener('scroll', toggleVisibility);
   }, []);
 
   // 로그인 처리 함수
@@ -47,6 +71,18 @@ function MainHeader({ scrollToSection }) {
       return;
     }
     navigate('/ReservationMainPage');
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+      window.location.reload();
+    }, 100);
+  };
+
+  // 맨 위로 스크롤하는 함수
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
   };
 
   return (
@@ -59,7 +95,7 @@ function MainHeader({ scrollToSection }) {
       justifyContent: 'center',
       alignItems: 'center',
       overflow: 'hidden',
-      border: '3px solid black'
+      border: '0px solid black'
     }}>
       <div style={{
         minWidth: '1440px',
@@ -111,8 +147,20 @@ function MainHeader({ scrollToSection }) {
           fontSize: '18px',
           fontWeight: '400',
           cursor: 'pointer',
-          zIndex: '1'
+          zIndex: '1',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
         }}>
+           {isLoggedIn && (
+          <span style={{
+            marginRight: '10px',
+            fontWeight: '400'
+          }}>
+            {userName}
+          </span>
+        )}
+
           {isLoggedIn ? (
             <span onClick={handleLogout}>Log out</span>
           ) : (
@@ -247,7 +295,7 @@ function MainHeader({ scrollToSection }) {
             }} />
             예약하기
           </button>
-          <button onClick={() => scrollToSection('calendar-section')} style={{
+          <button onClick={() => scrollToSection(refs.calendar)} style={{
             position: 'absolute',
             backgroundColor: '#D3D3D3',
             color: 'black',
@@ -268,6 +316,32 @@ function MainHeader({ scrollToSection }) {
             캘린더
           </button>
         </div>
+
+        {/* 맨 위로 스크롤 버튼 */}
+        {isVisible && (
+          <button 
+            onClick={scrollToTop}
+            style={{
+              position: 'fixed',
+              bottom: '40px',
+              right: '40px',
+              backgroundColor: 'rgba(211, 211, 211, 0.8)', // 약간 투명한 회색
+              color: 'black',
+              borderRadius: '50%', // 원형 버튼
+              width: '60px',
+              height: '60px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              border: 'none',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)', // 약간의 그림자
+              cursor: 'pointer',
+              zIndex: 1000 // 다른 요소 위에 표시되도록
+            }}
+          >
+            ↑ {/* 위쪽 화살표 */}
+          </button>
+        )}
       </div>
     </div>
   );

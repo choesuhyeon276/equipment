@@ -1,10 +1,149 @@
+
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, ShoppingCart, CheckCircle2, X, AlertCircle } from 'lucide-react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase/firebaseConfig';
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  arrayUnion, 
+  setDoc,
+  getDoc
+} from 'firebase/firestore';
+import { 
+  db, 
+  auth 
+} from '../firebase/firebaseConfig';
 import { getImageURL } from '../firebase/firebaseConfig';
+import { useLocation } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+
+// 장바구니 관련 유틸리티 함수
+const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime) => {
+  // 로그인 상태 확인
+  const user = auth.currentUser;
+  if (!user) {
+    alert('장바구니에 추가하려면 로그인이 필요합니다.');
+    return false;
+  }
+  try {
+    // 사용자의 장바구니 문서 참조
+    const userCartRef = doc(db, 'user_carts', user.uid);
+    
+    // 장바구니 아이템 생성
+    const cartItem = {
+      ...camera,
+      rentalDate,
+      rentalTime,
+      returnDate,
+      returnTime,
+      addedAt: new Date().toISOString()
+    };
+
+    // 문서 존재 여부 확인
+    const cartDoc = await getDoc(userCartRef);
+    
+    if (cartDoc.exists()) {
+      // 중복 체크
+      const currentItems = cartDoc.data().items || [];
+      const isDuplicate = currentItems.some(
+        item => item.id === camera.id && 
+        item.rentalDate === rentalDate && 
+        item.rentalTime === rentalTime
+      );
+
+      if (isDuplicate) {
+        alert('이미 장바구니에 추가된 항목입니다.');
+        return false;
+      }
+
+      // 기존 문서에 아이템 추가
+      await updateDoc(userCartRef, {
+        items: arrayUnion(cartItem)
+      });
+    } else {
+      // 새 문서 생성
+      await setDoc(userCartRef, {
+        items: [cartItem]
+      });
+    }
+    return true;
+  } catch (error) {
+    console.error("장바구니 추가 중 오류:", error);
+    alert('장바구니에 추가할 수 없습니다.');
+    return false;
+  }
+};
+
+// 이미지 로딩 컴포넌트
+const ImageWithPlaceholder = ({ camera }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageSrc, setImageSrc] = useState(null);
+
+  useEffect(() => {
+    const loadImage = async () => {
+      try {
+        const url = await getImageURL(camera.image);
+        setImageSrc(url);
+      } catch (error) {
+        console.error(`Image load error for ${camera.name}:`, error);
+      }
+    };
+    loadImage();
+  }, [camera.image]);
+
+  return (
+    <div 
+      style={{
+        height: '250px',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: camera.status === 'rented' ? '#f0f0f0' : '#F5F5F5',
+        position: 'relative',
+        overflow: 'hidden'
+      }}
+    >
+      {!imageLoaded && (
+        <div 
+          style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            backgroundColor: '#E0E0E0',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            color: '#888'
+          }}
+        >
+          로딩 중...
+        </div>
+      )}
+      {imageSrc && (
+        <img 
+          src={imageSrc} 
+          alt={camera.name} 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'cover',
+            opacity: imageLoaded ? 1 : 0,
+            transition: 'opacity 0.3s ease-in-out'
+          }}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageLoaded(true)}
+        />
+      )}
+    </div>
+  );
+};
 
 const ReservationMainPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [user, setUser] = useState(null);
   const [cameras, setCameras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,9 +168,147 @@ const ReservationMainPage = () => {
 
   const [minReturnDate, setMinReturnDate] = useState('');
   const [maxReturnDate, setMaxReturnDate] = useState('');
-  const [imageUrls, setImageUrls] = useState({});
   const camerasPerPage = 12;
 
+  // 장바구니 아이템 수 및 애니메이션 상태
+  const [cartItemCount, setCartItemCount] = useState(0);
+  const [cartAnimation, setCartAnimation] = useState(false);
+
+  // 장바구니 아이템 수 가져오기
+  const fetchCartItemCount = async () => {
+    if (!user) return;
+    try {
+      const userCartRef = doc(db, 'user_carts', user.uid);
+      const cartDoc = await getDoc(userCartRef);
+      if (cartDoc.exists()) {
+        const items = cartDoc.data().items || [];
+        setCartItemCount(items.length);
+      }
+    } catch (error) {
+      console.error("장바구니 아이템 수 가져오기 실패:", error);
+    }
+  };
+
+  // 인증 상태 모니터링
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        fetchCartItemCount();
+      } else {
+        navigate('/login', { 
+          state: { 
+            from: location.pathname, 
+            message: '장바구니 및 예약 기능을 사용하려면 로그인이 필요합니다.' 
+          } 
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate, location]);
+
+  // 페이지 스크롤 이벤트
+  useEffect(() => {
+    if (location.state && location.state.scrollTo) {
+      const element = document.getElementById(location.state.scrollTo);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [location.state]);
+
+  // 장바구니 추가 핸들러
+  const handleAddToCart = async (camera) => {
+    if (!rentalDate || !rentalTime || !returnDate || !returnTime) {
+      alert('대여 및 반납 날짜와 시간을 먼저 선택해주세요.');
+      return;
+    }
+  
+    // 기존 addToCart 함수 사용
+    const added = await addToCart(camera, rentalDate, rentalTime, returnDate, returnTime);
+    if (added) {
+      // 장바구니 애니메이션
+      setCartAnimation(true);
+      setTimeout(() => setCartAnimation(false), 500);
+      
+      // 장바구니 아이템 수 업데이트
+      fetchCartItemCount(); // 이 함수를 사용해 Firebase에서 직접 카운트
+      
+      alert(`${camera.name}이(가) 장바구니에 추가되었습니다.`);
+    }
+  };
+
+  // 장바구니 아이콘 렌더링
+  const renderCartIcon = () => (
+    <div 
+      style={{ 
+        position: 'absolute',
+        right: '13px',
+        display: 'flex', 
+        top: '0px',
+        alignItems: 'center', 
+        gap: '5px', 
+        cursor: 'pointer',
+        padding: '5px 10px',
+        borderRadius: '20px',
+        backgroundColor: '#f0f0f0',
+        transition: 'transform 0.3s'
+      }}
+      onClick={handleCartNavigation}
+      className={cartAnimation ? 'cart-bounce' : ''}
+    >
+      <div style={{ position: 'relative' }}>
+        <ShoppingCart size={20}/>
+        {cartItemCount > 0 && (
+          <span style={{
+            position: 'absolute',
+            top: '-8px',
+            right: '-8px',
+            backgroundColor: 'red',
+            color: 'white',
+            borderRadius: '50%',
+            width: '16px',
+            height: '16px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            fontSize: '10px'
+          }}>
+            {cartItemCount}
+          </span>
+        )}
+      </div>
+      <span>Cart</span>
+    </div>
+  );
+
+  // CSS 애니메이션 스타일 추가
+  const additionalStyles = `
+    @keyframes cartBounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    .cart-bounce {
+      animation: cartBounce 0.5s ease-in-out;
+    }
+  `;
+
+  // 내비게이션 핸들러
+  const handleHomeNavigation = () => {
+    navigate('/main');
+  };
+
+  const handleCalendarNavigation = () => {
+    navigate('/main', { state: { scrollTo: 'calendar-section' } });
+  };
+
+  const handleNoteNavigation = () => {
+    navigate('/main', { state: { scrollTo: 'notes-section' } });
+  };
+
+  const handleCartNavigation = () => {
+    navigate('/cart');
+  };
 
   // Firestore에서 카메라 데이터 fetching
   const fetchCameras = async () => {
@@ -46,7 +323,6 @@ const ReservationMainPage = () => {
       
       setCameras(cameraData);
       
-      // 카테고리 카운트 업데이트
       const updatedCategories = [
         { name: 'All', count: cameraData.length },
         ...['Filming', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC'].map(catName => ({
@@ -64,32 +340,12 @@ const ReservationMainPage = () => {
     }
   };
 
-  // Image Loading Effect
-  useEffect(() => {
-    const fetchImageUrls = async () => {
-      const urls = {};
-      for (const camera of cameras) {
-        try {
-          const url = await getImageURL(camera.image);
-          urls[camera.id] = url;
-        } catch (error) {
-          console.error(`Error loading image for ${camera.name}:`, error);
-          urls[camera.id] = null;
-        }
-      }
-      setImageUrls(urls);
-    };
-
-    if (cameras.length > 0) {
-      fetchImageUrls();
-    }
-  }, [cameras]);
-
   // 초기 데이터 로딩
   useEffect(() => {
     fetchCameras();
   }, []);
 
+  // 시간 옵션 생성
   const generateTimeOptions = () => {
     const options = [];
     let hour = 9;
@@ -108,32 +364,30 @@ const ReservationMainPage = () => {
 
   const timeOptions = generateTimeOptions();
 
+  // 대여 날짜 변경 핸들러
   const handleRentalDateChange = (e) => {
     const selectedRentalDate = e.target.value;
     setRentalDate(selectedRentalDate);
 
-    // 최소 반납일자 설정 (대여일자와 같은 날)
     setMinReturnDate(selectedRentalDate);
 
-    // 최대 반납일자 설정 (대여일자로부터 8일 후)
     const maxDate = new Date(selectedRentalDate);
     maxDate.setDate(maxDate.getDate() + 8);
     
-    // 최대 반납일자를 YYYY-MM-DD 형식으로 변환
     const maxDateString = maxDate.toISOString().split('T')[0];
     setMaxReturnDate(maxDateString);
 
-    // 현재 반납일자가 최대 반납일자를 초과하면 초기화
     if (returnDate && new Date(returnDate) > maxDate) {
       setReturnDate('');
     }
   };
 
+  // 카테고리 토글
   const toggleCategory = (categoryName) => {
-    // 이미 선택된 카테고리를 다시 클릭하면 선택 해제
     setSelectedCategory(prev => prev === categoryName ? 'All' : categoryName);
   };
 
+  // 필터링된 카메라
   const filteredCameras = cameras
   .filter(camera => 
     (!availableOnly || camera.status === 'available') &&
@@ -147,6 +401,9 @@ const ReservationMainPage = () => {
 
   const totalPages = Math.ceil(filteredCameras.length / camerasPerPage);
 
+  // 로그인되지 않은 경우 null 또는 로딩 상태 반환
+
+
   return (
     <div style={{
       position: 'relative',
@@ -157,6 +414,8 @@ const ReservationMainPage = () => {
       fontFamily: 'Pretendard, sans-serif',
       color: '#000000'
     }}>
+      <style>{additionalStyles}</style>
+
       {/* Header */}
       <div style={{
         position: 'absolute',
@@ -178,10 +437,10 @@ const ReservationMainPage = () => {
           right: "16px",
           top: '45px'
         }}>
-          <span>Home</span>
-          <span>Calendar</span>
-          <span>Reservation</span>
-          <span>Note</span>
+          <span onClick={handleHomeNavigation} style={{ cursor: 'pointer' }}>Home</span>
+          <span onClick={handleCalendarNavigation} style={{ cursor: 'pointer' }}>Calendar</span>
+          <span style={{ color: '#888', cursor: 'default' }}>Reservation</span>
+          <span onClick={handleNoteNavigation} style={{ cursor: 'pointer' }}>Note</span>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ 
@@ -204,36 +463,7 @@ const ReservationMainPage = () => {
           }}>Digital content rental service</div>
         </div>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <div style={{ 
-            display: 'flex',
-            position: 'absolute',
-            right: '110px',
-            top: '0px',
-            alignItems: 'center', 
-            gap: '5px', 
-            cursor: 'pointer',
-            padding: '5px 10px',
-            borderRadius: '20px',
-            backgroundColor: '#f0f0f0'
-          }}>
-            <User size={20} />
-            <span>My page</span>
-          </div>
-          <div style={{ 
-            position: 'absolute',
-            right: '13px',
-            display: 'flex', 
-            top: '0px',
-            alignItems: 'center', 
-            gap: '5px', 
-            cursor: 'pointer',
-            padding: '5px 10px',
-            borderRadius: '20px',
-            backgroundColor: '#f0f0f0'
-          }}>
-            <ShoppingCart size={20} />
-            <span>Cart</span>
-          </div>
+          {renderCartIcon()}
         </div>
       </div>
 
@@ -262,44 +492,44 @@ const ReservationMainPage = () => {
           }}>
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>Categories</h3>
             {selectedCategory !== 'All' && (
-  <div 
-    style={{ 
-      cursor: 'pointer', 
-      color: '#888',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '5px'
-    }}
-    onClick={() => setSelectedCategory('All')}
-  >
-    Clear
-    <X size={16} />
-  </div>
-)}
+              <div 
+                style={{ 
+                  cursor: 'pointer', 
+                  color: '#888',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+                onClick={() => setSelectedCategory('All')}
+              >
+                Clear
+                <X size={16} />
+              </div>
+            )}
           </div>
           {categories.map((category) => (
-          <div 
-            key={category.name} 
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '10px 0',
-              cursor: 'pointer',
-              backgroundColor: selectedCategory === category.name ? '#f0f0f0' : 'transparent'
-            }}
-            onClick={() => toggleCategory(category.name)}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>{category.name}</span>
-              <span style={{ 
-                fontSize: '12px', 
-                color: '#888', 
-                marginLeft: '5px' 
-              }}>({category.count})</span>
+            <div 
+              key={category.name} 
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 0',
+                cursor: 'pointer',
+                backgroundColor: selectedCategory === category.name ? '#f0f0f0' : 'transparent'
+              }}
+              onClick={() => toggleCategory(category.name)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>{category.name}</span>
+                <span style={{ 
+                  fontSize: '12px', 
+                  color: '#888', 
+                  marginLeft: '5px' 
+                }}>({category.count})</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
         </div>
 
         {/* Reservation Section */}
@@ -443,63 +673,46 @@ const ReservationMainPage = () => {
 
           {/* Camera Grid */}
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '20px',
-            width: '100%'
-          }}>
-            {currentCameras.map((camera) => (
-              <div 
-                key={camera.id} 
-                style={{
-                  border: '1px solid #E0E0E0',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  position: 'relative',
-                  transition: 'transform 0.3s, box-shadow 0.3s',
-                  transform: selectedCameraId === camera.id ? 'scale(1.05)' : 'scale(1)',
-                  boxShadow: selectedCameraId === camera.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none'
-                }}
-                onMouseEnter={() => setSelectedCameraId(camera.id)}
-                onMouseLeave={() => setSelectedCameraId(null)}
-              >
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '20px',
+        width: '100%'
+      }}>
+        {currentCameras.map((camera) => (
+          <div 
+            key={camera.id} 
+            style={{
+              border: '1px solid #E0E0E0',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              position: 'relative',
+              transition: 'transform 0.3s, box-shadow 0.3s',
+              transform: selectedCameraId === camera.id ? 'scale(1.05)' : 'scale(1)',
+              boxShadow: selectedCameraId === camera.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none'
+            }}
+            onMouseEnter={() => setSelectedCameraId(camera.id)}
+            onMouseLeave={() => setSelectedCameraId(null)}
+          >
+                {/* Issues Overlay */}
+                {selectedCameraId === camera.id && camera.issues && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    color: 'white',
+                    padding: '10px',
+                    zIndex: 20,
+                    textAlign: 'center',
+                    fontSize: '14px'
+                  }}>
+                    주의: {camera.issues}
+                  </div>
+                )}
+
                 {/* Camera Image */}
-                <div 
-                  style={{
-                    height: '250px',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: camera.status === 'rented' ? '#f0f0f0' : '#F5F5F5',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                >
-                  {camera.status === 'rented' && (
-                    <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      backgroundColor: 'rgba(255,0,0,0.6)',
-                      color: 'white',
-                      padding: '5px',
-                      textAlign: 'center',
-                      zIndex: 10
-                    }}>
-                      대여 중
-                    </div>
-                  )}
-                  {imageUrls[camera.id] ? (
-                    <img 
-                      src={imageUrls[camera.id]} 
-                      alt={camera.name} 
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                    />
-                  ) : (
-                    camera.name
-                  )}
-                </div>
+                <ImageWithPlaceholder camera={camera} />
 
                 {/* Camera Details */}
                 <div style={{ 
@@ -521,28 +734,37 @@ const ReservationMainPage = () => {
                     color: '#666',
                     fontSize: '12px' 
                   }}>
-                    <AlertCircle size={14} style={{ marginRight: '5px' }} />
+                    <AlertCircle
+                     size={14} 
+                     style={{ 
+                       marginRight: '5px',
+                       color: camera.condition === '수리' ? 'red' : 
+                              camera.condition === '정상' ? 'green' : 
+                              camera.condition === '주의' ? 'yellow' : '#666' }} />
                     <span>상태: {camera.condition}</span>
                   </div>
                 </div>
 
                 {/* Cart Button on Hover */}
                 {selectedCameraId === camera.id && camera.status === 'available' && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    color: 'white',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    padding: '10px',
-                    cursor: 'pointer'
-                  }}>
-                    <ShoppingCart size={20} style={{ marginRight: '10px' }} />
-                    장바구니 담기
+              <div 
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  color: 'white',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '10px',
+                  cursor: 'pointer'
+                }}
+                onClick={() => handleAddToCart(camera)}
+              >
+                <ShoppingCart size={20} style={{ marginRight: '10px' }} />
+                장바구니 담기
                   </div>
                 )}
               </div>

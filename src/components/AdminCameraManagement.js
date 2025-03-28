@@ -98,10 +98,11 @@ const AdminEquipmentManagement = () => {
     name: '',
     category: '',
     brand: '',
+    issues: '',
     purpose: '',
     description: '',
     status: 'available',
-    condition: '좋음',
+    condition: '정상',
     dailyRentalPrice: '',
     image: ''
   });
@@ -113,13 +114,18 @@ const AdminEquipmentManagement = () => {
   }, []);
 
   const fetchEquipments = async () => {
-    const equipmentCollection = collection(db, 'cameras');
-    const snapshot = await getDocs(equipmentCollection);
-    const equipmentList = snapshot.docs.map(d => ({
-      id: d.id, 
-      ...d.data()
-    }));
-    setEquipments(equipmentList);
+    try {
+      const equipmentCollection = collection(db, 'cameras');
+      const snapshot = await getDocs(equipmentCollection);
+      const equipmentList = snapshot.docs.map(d => ({
+        id: d.id, 
+        ...d.data()
+      }));
+      setEquipments(equipmentList);
+    } catch (error) {
+      console.error("장비 목록 불러오기 중 오류:", error);
+      alert('장비 목록을 불러오는 중 오류가 발생했습니다.');
+    }
   };
 
   const handleImageUpload = async () => {
@@ -158,18 +164,15 @@ const AdminEquipmentManagement = () => {
     try {
       let imageUrl = null;
       
-      // 새 이미지가 선택되었거나 편집 중인 장비에 이미지가 없는 경우
       if (imageFile || (editingEquipment && !editingEquipment.image)) {
         const uploadResult = await handleImageUpload();
         
-        // 이미지 업로드 실패 시 알림
         if (!uploadResult) {
           return;
         }
         
         imageUrl = uploadResult.downloadURL;
         
-        // 기존 이미지가 있다면 삭제
         if (editingEquipment && editingEquipment.image) {
           try {
             const existingImageRef = ref(storage, editingEquipment.image);
@@ -200,10 +203,11 @@ const AdminEquipmentManagement = () => {
         name: '',
         category: '',
         brand: '',
+        issues: '',
         purpose: '',
         description: '',
         status: 'available',
-        condition: '좋음',
+        condition: '정상',
         dailyRentalPrice: '',
         image: ''
       });
@@ -216,17 +220,16 @@ const AdminEquipmentManagement = () => {
 
   const handleDelete = async (equipment) => {
     try {
-      // 이미지가 있다면 스토리지에서도 삭제
       if (equipment.image) {
         const imageRef = ref(storage, equipment.image);
         await deleteObject(imageRef);
       }
       
-      // Firestore에서 문서 삭제
       await deleteDoc(doc(db, 'cameras', equipment.id));
       fetchEquipments();
     } catch (error) {
       console.error("장비 삭제 중 오류:", error);
+      alert('장비 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -236,10 +239,11 @@ const AdminEquipmentManagement = () => {
       name: equipment.name,
       category: equipment.category,
       brand: equipment.brand || '',
+      issues: equipment.issues || '',
       purpose: equipment.purpose || '',
       description: equipment.description || '',
       status: equipment.status || 'available',
-      condition: equipment.condition || '좋음',
+      condition: equipment.condition || '정상',
       dailyRentalPrice: equipment.dailyRentalPrice || '',
       image: equipment.image || ''
     });
@@ -324,15 +328,15 @@ const AdminEquipmentManagement = () => {
             }}
           />
 
-          <input
-            type="text"
-            placeholder="사용 용도"
-            value={newEquipment.purpose}
-            onChange={(e) => setNewEquipment({...newEquipment, purpose: e.target.value})}
+          <textarea
+            placeholder="장비 특이사항"
+            value={newEquipment.issues}
+            onChange={(e) => setNewEquipment({...newEquipment, issues: e.target.value})}
             style={{
               padding: '10px',
               border: '1px solid #333',
               borderRadius: '5px',
+              minHeight: '100px',
               backgroundColor: 'white',
               color: 'black'
             }}
@@ -378,24 +382,10 @@ const AdminEquipmentManagement = () => {
               color: 'black'
             }}
           >
-            <option value="좋음">좋음</option>
-            <option value="최상">최상</option>
-            <option value="양호">양호</option>
+            <option value="정상">정상</option>
+            <option value="주의">주의</option>
+            <option value="수리">수리</option>
           </select>
-
-          <input
-            type="text"
-            placeholder="일일 대여 가격 (원)"
-            value={newEquipment.dailyRentalPrice}
-            onChange={(e) => setNewEquipment({...newEquipment, dailyRentalPrice: e.target.value})}
-            style={{
-              padding: '10px',
-              border: '1px solid #333',
-              borderRadius: '5px',
-              backgroundColor: 'white',
-              color: 'black'
-            }}
-          />
 
           <input
             type="file"
@@ -470,8 +460,10 @@ const AdminEquipmentManagement = () => {
               <p style={{ color: 'black' }}>카테고리: {equipment.category}</p>
               <p style={{ color: 'black' }}>상태: {equipment.status === 'available' ? '대여 가능' : '대여 중'}</p>
               <p style={{ color: 'black' }}>브랜드: {equipment.brand || '미입력'}</p>
+              <p style={{ color: 'black' }}>장비 특이사항: {equipment.issues || '미입력'}</p>
               <p style={{ color: 'black' }}>사용 용도: {equipment.purpose || '미입력'}</p>
               <p style={{ color: 'black' }}>일일 대여료: {equipment.dailyRentalPrice || '미입력'}</p>
+              <p style={{ color: 'black' }}>장비 상태: {equipment.condition}</p>
               <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
                 <button
                   onClick={() => handleEdit(equipment)}
