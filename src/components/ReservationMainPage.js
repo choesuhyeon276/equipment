@@ -19,6 +19,8 @@ import { getImageURL } from '../firebase/firebaseConfig';
 import { useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 
+
+
 // 장바구니 관련 유틸리티 함수
 const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime) => {
   // 로그인 상태 확인
@@ -298,12 +300,16 @@ const ReservationMainPage = () => {
     navigate('/main');
   };
 
+  const handleMyPageNavigation = () => {
+    navigate('/mypage'); // Or whatever route you want for the My page
+  };
+
   const handleCalendarNavigation = () => {
-    navigate('/main', { state: { scrollTo: 'calendar-section' } });
+    navigate('/calendar', { state: { scrollTo: 'calendar-section' } });
   };
 
   const handleNoteNavigation = () => {
-    navigate('/main', { state: { scrollTo: 'notes-section' } });
+    navigate('/thingsnote', { state: { scrollTo: 'notes-section' } });
   };
 
   const handleCartNavigation = () => {
@@ -415,7 +421,7 @@ const ReservationMainPage = () => {
       color: '#000000'
     }}>
       <style>{additionalStyles}</style>
-
+  
       {/* Header */}
       <div style={{
         position: 'absolute',
@@ -462,9 +468,31 @@ const ReservationMainPage = () => {
             fontWeight: '100'
           }}>Digital content rental service</div>
         </div>
+        
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          {/* My page button */}
+          <div style={{ 
+            display: 'flex',
+            position: 'absolute',
+            right: '110px',
+            top: '0px',
+            alignItems: 'center', 
+            gap: '5px', 
+            cursor: 'pointer',
+            padding: '5px 10px',
+            borderRadius: '20px',
+            backgroundColor: '#f0f0f0'
+          }}
+          onClick={handleMyPageNavigation}
+          >
+            <User size={20} />
+            <span>My page</span>
+          </div>
+          
           {renderCartIcon()}
         </div>
+
+        
       </div>
 
       {/* Main Content Area */}
@@ -761,8 +789,10 @@ const ReservationMainPage = () => {
                   padding: '10px',
                   cursor: 'pointer'
                 }}
+                
                 onClick={() => handleAddToCart(camera)}
               >
+            
                 <ShoppingCart size={20} style={{ marginRight: '10px' }} />
                 장바구니 담기
                   </div>

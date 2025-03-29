@@ -9,9 +9,16 @@ import {
   getDoc, 
   deleteDoc, 
   query, 
-  where
+  where,
+  serverTimestamp
 } from 'firebase/firestore';
-import { getStorage, ref, getDownloadURL, uploadBytes } from 'firebase/storage';
+import { 
+  getStorage, 
+  ref, 
+  getDownloadURL, 
+  uploadBytes,
+  uploadBytesResumable 
+} from 'firebase/storage';
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -68,7 +75,10 @@ provider.setCustomParameters({
 // Firestore Utility Functions
 export const createDocument = async (collectionName, data) => {
   try {
-    const docRef = await addDoc(collection(db, collectionName), data);
+    const docRef = await addDoc(collection(db, collectionName), {
+      ...data,
+      createdAt: serverTimestamp()
+    });
     return docRef.id;
   } catch (error) {
     console.error(`Error creating document in ${collectionName}:`, error);
@@ -79,7 +89,10 @@ export const createDocument = async (collectionName, data) => {
 export const updateDocument = async (collectionName, docId, data) => {
   try {
     const docRef = doc(db, collectionName, docId);
-    await updateDoc(docRef, data);
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: serverTimestamp()
+    });
     return docId;
   } catch (error) {
     console.error(`Error updating document in ${collectionName}:`, error);
@@ -148,6 +161,42 @@ export const getImageURL = async (imagePath) => {
   }
 };
 
+// File Upload with Progress Tracking
+export const uploadFileWithProgress = (file, path, onProgress) => {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error('No file provided'));
+      return;
+    }
+
+    const storageRef = ref(storage, path);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        if (onProgress) onProgress(progress);
+      },
+      (error) => {
+        console.error('Upload error:', error);
+        reject(error);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve({
+            url: downloadURL,
+            path: path
+          });
+        } catch (error) {
+          console.error('Error getting download URL:', error);
+          reject(error);
+        }
+      }
+    );
+  });
+};
+
 // Authentication Functions
 export const registerUser = async (email, password) => {
   try {
@@ -178,6 +227,8 @@ export const logoutUser = async () => {
   }
 };
 
+
+
 export { 
   app,
   db, 
@@ -190,9 +241,14 @@ export {
   collection,
   query,
   where,
-  getAuth,          // 그대로 유지
+  getAuth,
   getFirestore,
-  getDoc    // 그대로 유지
+  getDoc,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  serverTimestamp,
+  getDocs
 };
 
 export default app;

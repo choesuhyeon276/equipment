@@ -91,7 +91,7 @@ function Calendar() {
             fontSize: '90px',
             fontWeight: '100',
             color: 'white',
-          }}>C</h3>
+          }}></h3>
         </div>
 
         {/* 구글 캘린더 */}

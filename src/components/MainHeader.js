@@ -266,56 +266,56 @@ function MainHeader({ scrollToSection, refs }) {
         </div>
 
         {/* 버튼 그룹 */}
-        <div style={{
-          marginTop: '40px',
-          display: 'flex',
-          gap: '20px',
-          justifyContent: 'center'
-        }}>
-          <button 
-            onClick={handleReservation}
-            style={{
-              position: 'absolute',
-              right: '370px',
-              top: '765px',
-              backgroundColor: '#D3D3D3',
-              color: 'black',
-              padding: '5px 13px',
-              borderRadius: '8px',
-              fontSize: '30px',
-              fontWeight: '700',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <img src="/assets/CheckMark.png" alt="Reserve Icon" style={{
-              width: '40px',
-              height: '40px'
-            }} />
-            예약하기
-          </button>
-          <button onClick={() => scrollToSection(refs.calendar)} style={{
-            position: 'absolute',
-            backgroundColor: '#D3D3D3',
-            color: 'black',
-            padding: '5px 13px',
-            borderRadius: '8px',
-            fontSize: '30px',
-            fontWeight: '700',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginRight: "-900px",
-            top: "765px"
-          }}>
-            <img src="/assets/Calendar.png" alt="Calendar Icon" style={{
-              width: '35px',
-              height: '35px'
-            }} />
-            캘린더
-          </button>
-        </div>
+<div style={{
+  marginTop: '40px',
+  display: 'flex',
+  gap: '20px',
+  justifyContent: 'center'
+}}>
+  <button 
+    onClick={handleReservation}
+    style={{
+      position: 'absolute',
+      right: '370px',
+      top: '765px',
+      backgroundColor: '#D3D3D3',
+      color: 'black',
+      padding: '5px 13px',
+      borderRadius: '8px',
+      fontSize: '30px',
+      fontWeight: '700',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px'
+    }}
+  >
+    <img src="/assets/CheckMark.png" alt="Reserve Icon" style={{
+      width: '40px',
+      height: '40px'
+    }} />
+    예약하기
+  </button>
+  <button onClick={() => scrollToSection(refs.calendar)} style={{
+    position: 'absolute',
+    backgroundColor: '#D3D3D3',
+    color: 'black',
+    padding: '5px 13px',
+    borderRadius: '8px',
+    fontSize: '30px',
+    fontWeight: '700',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginRight: "-900px",
+    top: "765px"
+  }}>
+    <img src="/assets/Calendar.png" alt="Calendar Icon" style={{
+      width: '35px',
+      height: '35px'
+    }} />
+    캘린더
+  </button>
+</div>
 
         {/* 맨 위로 스크롤 버튼 */}
         {isVisible && (

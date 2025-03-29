@@ -163,25 +163,28 @@ const AdminEquipmentManagement = () => {
     e.preventDefault();
     try {
       let imageUrl = null;
-      
-      if (imageFile || (editingEquipment && !editingEquipment.image)) {
-        const uploadResult = await handleImageUpload();
-        
-        if (!uploadResult) {
-          return;
-        }
-        
-        imageUrl = uploadResult.downloadURL;
-        
-        if (editingEquipment && editingEquipment.image) {
-          try {
-            const existingImageRef = ref(storage, editingEquipment.image);
-            await deleteObject(existingImageRef);
-          } catch (deleteError) {
-            console.error("기존 이미지 삭제 중 오류:", deleteError);
-          }
-        }
+  
+if (imageFile) {
+  const uploadResult = await handleImageUpload();
+  if (uploadResult) {
+    imageUrl = uploadResult.downloadURL;
+    
+    // 기존 이미지가 있으면 삭제
+    if (editingEquipment && editingEquipment.image) {
+      try {
+        const existingImageRef = ref(storage, editingEquipment.image);
+        await deleteObject(existingImageRef);
+      } catch (deleteError) {
+        console.error("기존 이미지 삭제 중 오류:", deleteError);
       }
+    }
+  } else {
+    return; // 이미지 업로드 실패 시 함수 종료
+  }
+} else if (editingEquipment) {
+  // 수정 모드이고 새 이미지가 없으면 기존 이미지 유지
+  imageUrl = editingEquipment.image;
+}
 
       const equipmentData = {
         ...newEquipment,
@@ -461,8 +464,6 @@ const AdminEquipmentManagement = () => {
               <p style={{ color: 'black' }}>상태: {equipment.status === 'available' ? '대여 가능' : '대여 중'}</p>
               <p style={{ color: 'black' }}>브랜드: {equipment.brand || '미입력'}</p>
               <p style={{ color: 'black' }}>장비 특이사항: {equipment.issues || '미입력'}</p>
-              <p style={{ color: 'black' }}>사용 용도: {equipment.purpose || '미입력'}</p>
-              <p style={{ color: 'black' }}>일일 대여료: {equipment.dailyRentalPrice || '미입력'}</p>
               <p style={{ color: 'black' }}>장비 상태: {equipment.condition}</p>
               <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
                 <button

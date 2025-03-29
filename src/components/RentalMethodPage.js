@@ -1,7 +1,8 @@
+// RentalMethodPage.js
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-function RentalMethodPage( {scrollToSection} ) {
+function RentalMethodPage({ scrollToSection }) {
   const navigate = useNavigate();
 
   useEffect(() => {

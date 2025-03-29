@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, ShoppingCart, Trash2, CheckCircle } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation,useNavigate } from 'react-router-dom';
 import { gapi } from 'gapi-script';
 import {
   auth, 
@@ -14,14 +14,40 @@ import {
   getDoc}
   from '../firebase/firebaseConfig';
 
+   
 
+  
 
 const CartPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [imageUrls, setImageUrls] = useState({});
   const [user, setUser] = useState(null);
+
+  // 내비게이션 핸들러
+  const handleHomeNavigation = () => {
+    navigate('/main');
+  };
+
+  const handleCalendarNavigation = () => {
+    navigate('/calendar', { state: { scrollTo: 'calendar-section' } });
+  };
+
+  const handleNoteNavigation = () => {
+    navigate('/thingsnote', { state: { scrollTo: 'notes-section' } });
+  };
+
+  const handleCartNavigation = () => {
+    navigate('/cart');
+  };
+  
+  const handleReservateNavigation = () => {
+      navigate('/ReservationMainPage');
+
+    
+  };
   
   // Use the db and auth from the imported config or create them here
   const firestore = getFirestore(app);
@@ -281,9 +307,14 @@ const CartPage = () => {
       {/* Navigation and Logo Area */}
       <div style={{
         position: 'absolute',
-        top: '150px',
-        left: '50px',
-        right: '50px'
+        top: '20px',
+        left: '20px',
+        right: '20px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: '0px solid #5F5F5F',
+        paddingBottom: '45px'
       }}>
         <div style={{ 
           display: 'flex',
@@ -293,11 +324,13 @@ const CartPage = () => {
           fontWeight: '400',
           right: "16px",
           top: '45px'
+
         }}>
-          <span>Home</span>
-          <span>Calendar</span>
-          <span>Reservation</span>
-          <span>Note</span>
+          <span onClick={handleHomeNavigation} style={{ cursor: 'pointer' }}>Home</span>
+          <span onClick={handleCalendarNavigation} style={{ cursor: 'pointer' }}>Calendar</span>
+          <span onClick={handleReservateNavigation} style={{ cursor: 'pointer' }}>Reservation</span>
+          <span onClick={handleNoteNavigation} style={{ cursor: 'pointer' }}>Note</span>
+
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ 
@@ -356,14 +389,15 @@ const CartPage = () => {
       {/* Cart Content Area */}
       <div style={{
         position: 'absolute',
-        top: '300px',
+        top: '150px',
         left: '50px',
         right: '50px'
       }}>
         <h2 style={{ 
           fontSize: '24px', 
           fontWeight: 'bold', 
-          marginBottom: '20px' 
+          marginBottom: '20px', 
+          marginLeft: '40px'
         }}>
           장바구니
         </h2>
