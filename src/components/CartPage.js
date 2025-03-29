@@ -39,8 +39,8 @@ const CartPage = () => {
     navigate('/thingsnote', { state: { scrollTo: 'notes-section' } });
   };
 
-  const handleCartNavigation = () => {
-    navigate('/cart');
+  const handleMypageNavigation = () => {
+    navigate('/mypage');
   };
   
   const handleReservateNavigation = () => {
@@ -250,8 +250,8 @@ const CartPage = () => {
           alignItems: 'center',
           gap: '10px'
         }}>
-          <User size={16} />
-          {user.name}님
+          {/*<User size={16} />
+          {user.name}님 */}
         </div>
       );
     }
@@ -293,7 +293,7 @@ const CartPage = () => {
       <div style={{
         position: 'absolute',
         top: '20px',
-        left: '20px',
+        left: '10px',
         right: '20px',
         display: 'flex',
         justifyContent: 'space-between',
@@ -322,7 +322,7 @@ const CartPage = () => {
           gap: '20px',
           fontSize: '18px',
           fontWeight: '400',
-          right: "16px",
+          right: "-4px",
           top: '45px'
 
         }}>
@@ -330,16 +330,17 @@ const CartPage = () => {
           <span onClick={handleCalendarNavigation} style={{ cursor: 'pointer' }}>Calendar</span>
           <span onClick={handleReservateNavigation} style={{ cursor: 'pointer' }}>Reservation</span>
           <span onClick={handleNoteNavigation} style={{ cursor: 'pointer' }}>Note</span>
-
+          <span onClick={handleMypageNavigation} style={{ cursor: 'pointer' }}></span>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ 
+          <div onClick={handleHomeNavigation} style={{ 
             position: 'absolute',
             fontSize: '36px', 
             fontWeight: 'bold', 
             letterSpacing: '0px',
             top: '0px',
-            left: '70px'
+            left: '70px',
+            cursor: "pointer"
           }}>DIRT</div>
           <div style={{ 
             fontSize: '12px', 
@@ -366,7 +367,8 @@ const CartPage = () => {
             backgroundColor: '#f0f0f0'
           }}>
             <User size={20} />
-            <span>My page</span>
+            <span onClick={handleMypageNavigation} style={{ cursor: 'pointer' }}>My page</span>
+           
           </div>
           <div style={{ 
             position: 'absolute',
@@ -378,7 +380,7 @@ const CartPage = () => {
             cursor: 'pointer',
             padding: '5px 10px',
             borderRadius: '20px',
-            backgroundColor: '#f0f0f0'
+            backgroundColor: '#cccccc'
           }}>
             <ShoppingCart size={20} />
             <span>Cart</span>

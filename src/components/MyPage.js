@@ -59,18 +59,32 @@ const MyPage = () => {
 
   // Page load - authentication and data fetching
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      
-      // Fetch user data
-      fetchUserData(parsedUser.uid);
+    const auth = getAuth();
+  const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+    if (firebaseUser) {
+      // Firebase 유저 인증이 되어 있는 경우
+      const userData = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || '사용자'
+      };
+
+      setUser(userData);
+      fetchUserData(firebaseUser.uid);
+
+      // localStorage에도 다시 저장 (선택적)
+      localStorage.setItem('user', JSON.stringify(userData));
     } else {
-      console.log('No user found in localStorage');
+      console.log('Firebase 인증된 유저 없음');
+      setUser(null);
       setLoading(false);
+      // 로그인 페이지로 보낼 수도 있음
+      navigate('/login');
     }
-  }, []);
+  });
+
+  return () => unsubscribe();
+}, []);
 
   // Fetch all user data from Firebase
   const fetchUserData = async (userId) => {
@@ -225,16 +239,16 @@ const MyPage = () => {
       return (
         <div style={{ 
           position: 'absolute',
-          right: '200px',
+          right: '230px',
           top: '0px',
-          fontSize: '14px',
-          color: 'green',
+          fontSize: '12x',
+          color: 'black',
           display: 'flex',
           alignItems: 'center',
           gap: '10px'
         }}>
-          <User size={16} />
-          {user.name}님
+         {/* <User size={16} />
+          {user.name}님 */}
         </div>
       );
     }
@@ -427,13 +441,15 @@ const MyPage = () => {
           <span onClick={handleNoteNavigation} style={{ cursor: 'pointer' }}>Note</span>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ 
+          <div onClick={handleHomeNavigation}  style={{ 
             position: 'absolute',
             fontSize: '36px', 
             fontWeight: 'bold', 
             letterSpacing: '0px',
             top: '0px',
-            left: '70px'
+            left: '70px',
+            cursor : 'pointer'
+            
           }}>DIRT</div>
           <div style={{ 
             fontSize: '12px', 
@@ -457,7 +473,7 @@ const MyPage = () => {
             cursor: 'pointer',
             padding: '5px 10px',
             borderRadius: '20px',
-            backgroundColor: '#f0f0f0'
+            backgroundColor: '#cccccc'
           }}>
             <User size={20} />
             <span>My page</span>
@@ -473,8 +489,9 @@ const MyPage = () => {
             padding: '5px 10px',
             borderRadius: '20px',
             backgroundColor: '#f0f0f0',
-            onClick: handleCartNavigation
-          }}>
+          }}
+            onClick = {handleCartNavigation}
+          >
             <ShoppingCart size={20} />
             <span>Cart</span>
           </div>

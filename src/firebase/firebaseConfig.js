@@ -27,6 +27,8 @@ import {
   signInWithEmailAndPassword,
   signOut 
 } from 'firebase/auth';
+import { setPersistence, browserLocalPersistence } from 'firebase/auth';
+
 
 // Add validation for environment variables
 const validateEnvVariables = () => {
@@ -49,6 +51,8 @@ const validateEnvVariables = () => {
 
 // Validate environment variables before initializing Firebase
 validateEnvVariables();
+
+
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -196,6 +200,14 @@ export const uploadFileWithProgress = (file, path, onProgress) => {
     );
   });
 };
+
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log('로그인 상태 지속성이 설정되었습니다.');
+  })
+  .catch((error) => {
+    console.error('지속성 설정 오류:', error);
+  });
 
 // Authentication Functions
 export const registerUser = async (email, password) => {

@@ -52,7 +52,7 @@ const styles = {
     marginTop: '10px',
     width: '100px',
     height: '30px',
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#2d2d2d',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -69,7 +69,7 @@ const styles = {
   progressBar: (progress) => ({
     width: `${progress}%`,
     height: '100%',
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#2d2d2d',
     transition: 'width 0.5s ease-in-out'
   }),
   statusMessage: (isError) => ({
@@ -86,7 +86,7 @@ const styles = {
     gap: '10px',
     width: '219px',
     height: '73px',
-    backgroundColor: enabled ? '#4CAF50' : '#DFDFDF',
+    backgroundColor: enabled ? '#808080' : '#DFDFDF',
     borderRadius: '8px',
     fontSize: '36px',
     fontWeight: 'bold',
@@ -279,7 +279,7 @@ const FileUpload = ({ onFileSelect, onUploadComplete }) => {
             uploadedAt: serverTimestamp()
           });
 
-          setUploadStatus('파일 업로드 완료');
+          setUploadStatus('');
           
           if (onUploadComplete) {
             onUploadComplete(file.name);
@@ -313,17 +313,20 @@ const FileUpload = ({ onFileSelect, onUploadComplete }) => {
         파일 첨부
       </label>
 
+      
       {file && (
-        <div style={styles.fileInfo}>
-          <div style={styles.fileName}>{file.name}</div>
+        
           <button 
             onClick={handleFileUpload}
             style={styles.uploadButton}
           >
+
             업로드
           </button>
-        </div>
+       
       )}
+      
+
 
       {uploadProgress > 0 && (
         <div style={styles.progressContainer}>
@@ -403,7 +406,7 @@ const LongTermRentalPage = () => {
           
           {uploadedFileName && (
             <div style={styles.uploadedMessage}>
-              업로드 완료: {uploadedFileName}
+
             </div>
           )}
         </div>

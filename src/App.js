@@ -11,6 +11,9 @@ import AdminCameraManagement from "./components/AdminCameraManagement";
 import CartPage from "./components/CartPage";
 import Success from "./components/Success";
 import MyPage from "./components/MyPage";
+import { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase/firebaseConfig';
 
 function App() {
   // 각 섹션에 대한 참조 생성
@@ -18,6 +21,17 @@ function App() {
   const rentalMethodRef = useRef(null);
   const thingsNoteRef = useRef(null);
   const longTermRentalRef = useRef(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // 두 스크롤 함수를 하나로 통합
   // 1. ref 객체를 직접 받아서 처리하는 함수
@@ -48,11 +62,27 @@ function App() {
     }
   }
 
+  /* 로딩 중에는 로딩 표시
+  if (loading) {
+    return <div>로딩 중...</div>;
+  }*/
+
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={user ? <Navigate to="/main" /> : <Login />} />
+        
+        {/* 보호된 라우트 */}
+        <Route 
+          path="/reservation" 
+          element={user ? <ReservationMainPage /> : <Navigate to="/login" state={{ from: '/reservation' }} />} 
+        />
+        <Route 
+          path="/cart" 
+          element={user ? <CartPage /> : <Navigate to="/login" state={{ from: '/cart' }} />} 
+        />
+        
         <Route
           path="/main"
           element={
@@ -92,14 +122,12 @@ function App() {
           }
         />
         <Route path="/reservationMainPage" element={<ReservationMainPage />} />
-        <Route path="/cart" element={<CartPage />} />
         <Route path="/success" element={<Success />} />
         <Route path="/reservation-main" element={<ReservationMainPage />} />
         <Route path="/mainheader" element={<MainHeader />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/thingsnote" element={<ThingsNotePage/>} />
         <Route path="/mypage" element={<MyPage/>} />
-
 
         <Route
           path="/cameramanagement"

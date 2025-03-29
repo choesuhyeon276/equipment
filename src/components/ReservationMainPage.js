@@ -131,12 +131,31 @@ const ImageWithPlaceholder = ({ camera }) => {
             width: '100%', 
             height: '100%', 
             objectFit: 'cover',
-            opacity: imageLoaded ? 1 : 0,
-            transition: 'opacity 0.3s ease-in-out'
+            opacity: imageLoaded ? (camera.status === 'rented' ? 0.4 : 1) : 0,
+            transition: 'opacity 0.3s ease-in-out',
+            filter: camera.status === 'rented' ? 'grayscale(70%)' : 'none'
           }}
           onLoad={() => setImageLoaded(true)}
           onError={() => setImageLoaded(true)}
         />
+      )}
+    {camera.status === 'rented' && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: 'rgba(255, 0, 0, 0.7)',
+          color: 'white',
+          padding: '8px 15px',
+          borderRadius: '20px',
+          fontWeight: 'bold',
+          zIndex: 10,
+          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+          fontSize: '16px'
+        }}>
+          대여 중
+        </div>
       )}
     </div>
   );
@@ -152,8 +171,8 @@ const ReservationMainPage = () => {
   const [selectedCameraId, setSelectedCameraId] = useState(null);
   const [rentalDate, setRentalDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
-  const [rentalTime, setRentalTime] = useState('');
-  const [returnTime, setReturnTime] = useState('');
+  const [rentalTime, setRentalTime] = useState('09:00');
+  const [returnTime, setReturnTime] = useState('09:00');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -449,13 +468,15 @@ const ReservationMainPage = () => {
           <span onClick={handleNoteNavigation} style={{ cursor: 'pointer' }}>Note</span>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ 
+          <div onClick={handleHomeNavigation}  style={{ 
             position: 'absolute',
             fontSize: '36px', 
             fontWeight: 'bold', 
             letterSpacing: '0px',
             top: '0px',
-            left: '70px'
+            left: '70px',
+            cursor : 'pointer'
+
           }}>DIRT</div>
           <div style={{ 
             fontSize: '12px', 
@@ -701,77 +722,119 @@ const ReservationMainPage = () => {
 
           {/* Camera Grid */}
           <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '20px',
-        width: '100%'
-      }}>
-        {currentCameras.map((camera) => (
-          <div 
-            key={camera.id} 
-            style={{
-              border: '1px solid #E0E0E0',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              position: 'relative',
-              transition: 'transform 0.3s, box-shadow 0.3s',
-              transform: selectedCameraId === camera.id ? 'scale(1.05)' : 'scale(1)',
-              boxShadow: selectedCameraId === camera.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none'
-            }}
-            onMouseEnter={() => setSelectedCameraId(camera.id)}
-            onMouseLeave={() => setSelectedCameraId(null)}
-          >
+  display: 'grid',
+  gridTemplateColumns: 'repeat(4, 1fr)',
+  gap: '20px',
+  width: '100%'
+}}>
+  {currentCameras.map((camera) => (
+    <div 
+      key={camera.id} 
+      style={{
+        border: camera.status === 'rented' ? '1px solid #e74c3c' : '1px solid #E0E0E0',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        position: 'relative',
+        transition: 'transform 0.3s, box-shadow 0.3s',
+        transform: selectedCameraId === camera.id ? 'scale(1.05)' : 'scale(1)',
+        boxShadow: selectedCameraId === camera.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none',
+        // 대여 중인 장비 배경색 변경
+        backgroundColor: camera.status === 'rented' ? '#fef2f2' : 'white'
+      }}
+      onMouseEnter={() => setSelectedCameraId(camera.id)}
+      onMouseLeave={() => setSelectedCameraId(null)}
+    >
                 {/* Issues Overlay */}
                 {selectedCameraId === camera.id && camera.issues && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    color: 'white',
-                    padding: '10px',
-                    zIndex: 20,
-                    textAlign: 'center',
-                    fontSize: '14px'
-                  }}>
-                    주의: {camera.issues}
-                  </div>
-                )}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '10px',
+          zIndex: 20,
+          textAlign: 'center',
+          fontSize: '14px'
+        }}>
+          주의: {camera.issues}
+        </div>
+      )}
+      
+        {camera.status === 'rented' && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          right: '-30px',
+          backgroundColor: '#e74c3c',
+          color: 'white',
+          transform: 'rotate(45deg)',
+          padding: '5px 35px',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          zIndex: 10,
+          boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+        }}>
+          대여중
+        </div>
+      )}
 
                 {/* Camera Image */}
                 <ImageWithPlaceholder camera={camera} />
 
                 {/* Camera Details */}
                 <div style={{ 
-                  padding: '10px', 
-                  backgroundColor: selectedCameraId === camera.id ? '#f9f9f9' : 'white' 
-                }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center' 
-                  }}>
-                    <span style={{ fontWeight: 'bold' }}>{camera.name}</span>
-                    <span style={{ color: '#666', fontSize: '14px' }}>{camera.dailyRentalPrice}</span>
-                  </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    marginTop: '5px',
-                    color: '#666',
-                    fontSize: '12px' 
-                  }}>
-                    <AlertCircle
-                     size={14} 
-                     style={{ 
-                       marginRight: '5px',
-                       color: camera.condition === '수리' ? 'red' : 
-                              camera.condition === '정상' ? 'green' : 
-                              camera.condition === '주의' ? 'yellow' : '#666' }} />
-                    <span>상태: {camera.condition}</span>
-                  </div>
-                </div>
+        padding: '10px', 
+        backgroundColor: camera.status === 'rented' ? '#fef2f2' : 
+                         (selectedCameraId === camera.id ? '#f9f9f9' : 'white')
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center' 
+        }}>
+          <span style={{ 
+            fontWeight: 'bold',
+            color: camera.status === 'rented' ? '#e74c3c' : 'black'
+          }}>
+            {camera.name}
+          </span>
+          <span style={{ color: '#666', fontSize: '14px' }}>{camera.dailyRentalPrice}</span>
+        </div>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          marginTop: '5px',
+          color: '#666',
+          fontSize: '12px' 
+        }}>
+          <AlertCircle
+            size={14} 
+            style={{ 
+              marginRight: '5px',
+              color: camera.condition === '수리' ? 'red' : 
+                    camera.condition === '정상' ? 'green' : 
+                    camera.condition === '주의' ? 'yellow' : '#666' }} />
+          <span>상태: {camera.condition}</span>
+          
+          {/* 대여 상태 표시 추가 */}
+          {camera.status === 'rented' && (
+            <span style={{
+              marginLeft: '10px',
+              color: '#e74c3c',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              {/*<X size={14} style={{ marginRight: '3px' }} />
+              대여 불가
+              */}
+            </span>
+          )}
+        </div>
+      </div>
 
                 {/* Cart Button on Hover */}
                 {selectedCameraId === camera.id && camera.status === 'available' && (
