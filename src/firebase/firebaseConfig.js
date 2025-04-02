@@ -10,7 +10,10 @@ import {
   deleteDoc, 
   query, 
   where,
-  serverTimestamp
+  serverTimestamp,
+  setDoc,
+  WriteBatch,
+  writeBatch
 } from 'firebase/firestore';
 import { 
   getStorage, 
@@ -260,7 +263,10 @@ export {
   uploadBytesResumable,
   getDownloadURL,
   serverTimestamp,
-  getDocs
+  getDocs,
+  setDoc,
+  WriteBatch,
+  writeBatch
 };
 
 export default app;

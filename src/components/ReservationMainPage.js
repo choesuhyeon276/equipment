@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, ShoppingCart, CheckCircle2, X, AlertCircle } from 'lucide-react';
+import { User, ShoppingCart, CheckCircle2, X, AlertCircle, Calendar } from 'lucide-react';
 import { 
   collection, 
   getDocs, 
@@ -9,16 +8,17 @@ import {
   updateDoc, 
   arrayUnion, 
   setDoc,
-  getDoc
+  getDoc,
+  query,
+  where
 } from 'firebase/firestore';
 import { 
   db, 
   auth 
 } from '../firebase/firebaseConfig';
-import { getImageURL } from '../firebase/firebaseConfig';
+
 import { useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-
 
 
 // 장바구니 관련 유틸리티 함수
@@ -69,7 +69,7 @@ const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime)
       await setDoc(userCartRef, {
         items: [cartItem]
       });
-    }
+    } 
     return true;
   } catch (error) {
     console.error("장바구니 추가 중 오류:", error);
@@ -78,68 +78,287 @@ const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime)
   }
 };
 
+
+
+// 특정 날짜에 장비의 대여 가능 여부를 확인하는 함수
+const checkEquipmentAvailability = async (equipmentId, startDate, endDate) => {
+  const currentUser = auth.currentUser;
+  const currentUserId = currentUser ? currentUser.uid : null;
+  
+  try {
+    // 시작 및 종료 날짜/시간을 Date 객체로 변환
+    const startDateTime = new Date(startDate);
+    const endDateTime = new Date(endDate);
+    
+    // 대여 가능 여부 확인을 위한 변수들 초기화
+    let isAvailable = true;
+    let unavailablePeriods = [];
+    let myCartItems = [];
+    
+    // 모든 active 상태 예약 조회
+    const rentalsRef = collection(db, 'reservations');
+    const q = query(
+      rentalsRef, 
+      where('status', '==', 'active')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    // 디버깅을 위한 로그
+    console.log(`총 ${querySnapshot.size}개의 active 예약을 확인 중`);
+    
+    // 각 예약 문서를 확인
+    querySnapshot.forEach(doc => {
+      const reservationData = doc.data();
+      
+      // items 배열이 있는지 확인
+      if (!reservationData.items || !Array.isArray(reservationData.items)) {
+        console.log('items 배열이 없는 예약:', doc.id);
+        return;
+      }
+      
+      // 해당 장비가 포함된 예약인지 확인
+      const matchingItem = reservationData.items.find(item => item.id === equipmentId);
+      
+      if (matchingItem) {
+        console.log(`장비 ID ${equipmentId}가 예약 ${doc.id}에 포함됨`);
+        
+        // 예약의 시작/종료 시간
+        const reservationStart = new Date(reservationData.startDateTime);
+        const reservationEnd = new Date(reservationData.endDateTime);
+        
+        console.log('예약 기간:', reservationStart, '~', reservationEnd);
+        console.log('요청 기간:', startDateTime, '~', endDateTime);
+        
+        // 날짜가 겹치는지 확인
+        if (startDateTime < reservationEnd && endDateTime > reservationStart) {
+          console.log('날짜가 겹치므로 불가능 처리');
+          isAvailable = false;
+          unavailablePeriods.push({
+            start: reservationData.startDateTime,
+            end: reservationData.endDateTime,
+            isRental: true
+          });
+        } else {
+          console.log('날짜가 겹치지 않음');
+        }
+      }
+    });
+    
+    // 장바구니 확인 로직
+    const cartRef = collection(db, 'user_carts');
+    const cartSnapshot = await getDocs(cartRef);
+    
+    cartSnapshot.forEach(doc => {
+      const cartData = doc.data();
+      const items = cartData.items || [];
+      const isMyCart = doc.id === currentUserId;
+      
+      items.forEach(item => {
+        if (item.id === equipmentId) {
+          const cartStart = new Date(item.rentalDate + 'T' + item.rentalTime);
+          const cartEnd = new Date(item.returnDate + 'T' + item.returnTime);
+          
+          if (startDateTime < cartEnd && endDateTime > cartStart) {
+            // 내 장바구니에 있는 항목만 기록
+            if (isMyCart) {
+              myCartItems.push({
+                start: item.rentalDate,
+                end: item.returnDate,
+                inMyCart: true
+              });
+            } else {
+              // 다른 사용자의 장바구니 항목은 대여 불가능으로 처리
+              isAvailable = false;
+              unavailablePeriods.push({
+                start: item.rentalDate,
+                end: item.returnDate,
+                inCart: true
+              });
+            }
+          }
+        }
+      });
+    });
+    
+    console.log('최종 결과:', { available: isAvailable, periods: unavailablePeriods.length });
+    
+    return {
+      available: isAvailable,
+      unavailablePeriods,
+      myCartItems
+    };
+  } catch (error) {
+    console.error("대여 가능 여부 확인 중 오류:", error);
+    return { available: false, error: true };
+  }
+};
+
+// 날짜 선택 이벤트 리스너 추가하기
+const setupDateListeners = (equipmentId) => {
+  // 날짜 선택 입력 필드 가져오기
+  const startDateInput = document.getElementById('startDateInput');
+  const endDateInput = document.getElementById('endDateInput');
+  const startTimeInput = document.getElementById('startTimeInput');
+  const endTimeInput = document.getElementById('endTimeInput');
+  
+  // 결과 표시 요소
+  const availabilityResultElement = document.getElementById('availabilityResult');
+  
+  // 모든 날짜/시간 입력 필드에 이벤트 리스너 추가
+  [startDateInput, endDateInput, startTimeInput, endTimeInput].forEach(input => {
+    if (input) {
+      input.addEventListener('change', async () => {
+        // 모든 필드가 채워졌는지 확인
+        if (startDateInput.value && endDateInput.value && 
+            (startTimeInput ? startTimeInput.value : true) && 
+            (endTimeInput ? endTimeInput.value : true)) {
+          
+          // 시간 정보 포맷팅
+          const startTime = startTimeInput ? startTimeInput.value : '00:00';
+          const endTime = endTimeInput ? endTimeInput.value : '23:59';
+          
+          // 날짜 및 시간 문자열 생성
+          const startDateTime = `${startDateInput.value}T${startTime}`;
+          const endDateTime = `${endDateInput.value}T${endTime}`;
+          
+          // 로딩 상태 표시
+          if (availabilityResultElement) {
+            availabilityResultElement.innerHTML = '확인 중...';
+            availabilityResultElement.className = 'checking';
+          }
+          
+          // 대여 가능 여부 확인
+          const result = await checkEquipmentAvailability(equipmentId, startDateTime, endDateTime);
+          
+          // 결과 표시
+          if (availabilityResultElement) {
+            if (result.available) {
+              availabilityResultElement.innerHTML = '대여 가능합니다!';
+              availabilityResultElement.className = 'available';
+            } else {
+              let message = '해당 기간에는 대여가 불가능합니다.';
+              if (result.unavailablePeriods.length > 0) {
+                message += '<br>이미 예약된 기간:';
+                result.unavailablePeriods.forEach(period => {
+                  const startDate = new Date(period.start).toLocaleDateString();
+                  const endDate = new Date(period.end).toLocaleDateString();
+                  message += `<br>- ${startDate} ~ ${endDate}`;
+                });
+              }
+              availabilityResultElement.innerHTML = message;
+              availabilityResultElement.className = 'unavailable';
+            }
+          }
+        }
+      });
+    }
+  });
+};
+
+// 페이지 로드 시 실행
+document.addEventListener('DOMContentLoaded', () => {
+  // URL 파라미터에서 장비 ID 가져오기 (예시)
+  const urlParams = new URLSearchParams(window.location.search);
+  const equipmentId = urlParams.get('id');
+  
+  if (equipmentId) {
+    setupDateListeners(equipmentId);
+  }
+});
+
+const imageCache = {};
+
 // 이미지 로딩 컴포넌트
-const ImageWithPlaceholder = ({ camera }) => {
+const ImageWithPlaceholder = ({ camera, equipmentAvailability }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageSrc, setImageSrc] = useState(null);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    const loadImage = async () => {
-      try {
-        const url = await getImageURL(camera.image);
-        setImageSrc(url);
-      } catch (error) {
-        console.error(`Image load error for ${camera.name}:`, error);
-      }
-    };
-    loadImage();
-  }, [camera.image]);
+    // URL 디버깅
+    console.log(`카메라 ${camera.id}의 이미지 URL:`, camera.imageURL);
+    
+    if (!camera.imageURL) {
+      console.error(`카메라 ${camera.id}에 imageUrl이 없습니다`);
+      setHasError(true);
+      return;
+    }
+
+    // URL이 유효한지 기본 검사
+    try {
+      new URL(camera.imageURL); // URL이 유효한지 확인
+      setImageSrc(camera.imageURL);
+    } catch (e) {
+      console.error(`유효하지 않은 URL: ${camera.imageURL}`, e);
+      setHasError(true);
+    }
+  }, [camera.id, camera.imageURL]);
+
+  const handleImageLoad = () => {
+    console.log(`카메라 ${camera.id} 이미지 로드 성공:`, camera.imageURL);
+    setImageLoaded(true);
+  };
+
+  const handleImageError = () => {
+    console.error(`카메라 ${camera.id} 이미지 로드 실패:`, camera.imageURL);
+    setHasError(true);  
+    setImageLoaded(true); // 오류가 발생해도 "로드됨" 상태로 처리
+  };
 
   return (
-    <div 
-      style={{
-        height: '250px',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: camera.status === 'rented' ? '#f0f0f0' : '#F5F5F5',
-        position: 'relative',
-        overflow: 'hidden'
-      }}
-    >
-      {!imageLoaded && (
-        <div 
-          style={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            backgroundColor: '#E0E0E0',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            color: '#888'
-          }}
-        >
-          로딩 중...
+    <div style={{
+      height: '250px',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: equipmentAvailability?.[camera.id]?.available === false ? '#f0f0f0' : '#F5F5F5',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {!imageLoaded && !hasError && (
+        <div style={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          backgroundColor: '#E0E0E0',
+          animation: 'pulse 1.5s infinite',
+        }} />
+      )}
+      {hasError && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#888'
+        }}>
+          <AlertCircle size={40} />
+          <p style={{ marginTop: '10px' }}>이미지를 불러올 수 없습니다</p>
+          <p style={{ fontSize: '12px', color: '#aaa', maxWidth: '90%', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {camera.imageUrl?.substring(0, 50)}
+            {camera.imageUrl?.length > 50 ? '...' : ''}
+          </p>
         </div>
       )}
-      {imageSrc && (
+      {imageSrc && !hasError && (
         <img 
           src={imageSrc} 
-          alt={camera.name} 
+          alt={camera.name || '장비 이미지'}
+          loading="lazy"
           style={{ 
             width: '100%', 
             height: '100%', 
             objectFit: 'cover',
-            opacity: imageLoaded ? (camera.status === 'rented' ? 0.4 : 1) : 0,
+            opacity: imageLoaded ? (equipmentAvailability?.[camera.id]?.available === false ? 0.4 : 1) : 0,
             transition: 'opacity 0.3s ease-in-out',
             filter: camera.status === 'rented' ? 'grayscale(70%)' : 'none'
           }}
-          onLoad={() => setImageLoaded(true)}
-          onError={() => setImageLoaded(true)}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
         />
       )}
-    {camera.status === 'rented' && (
+      {equipmentAvailability?.[camera.id]?.available === false && (
         <div style={{
           position: 'absolute',
           top: '50%',
@@ -177,6 +396,9 @@ const ReservationMainPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [availableOnly, setAvailableOnly] = useState(false);
+  // 날짜 선택에 따른 장비 가용성 상태
+  const [equipmentAvailability, setEquipmentAvailability] = useState({});
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [categories, setCategories] = useState([
     { name: 'All', count: 0 },
     { name: 'Filming', count: 0 },
@@ -190,6 +412,63 @@ const ReservationMainPage = () => {
   const [minReturnDate, setMinReturnDate] = useState('');
   const [maxReturnDate, setMaxReturnDate] = useState('');
   const camerasPerPage = 12;
+
+
+  const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime) => {
+    // 1. 로그인 상태 확인
+    const user = auth.currentUser;
+    if (!user) {
+      alert('장바구니에 추가하려면 로그인이 필요합니다.');
+      return false;
+    }
+    try {
+      // 2. 사용자의 장바구니 문서 참조
+      const userCartRef = doc(db, 'user_carts', user.uid);
+      
+      // 3. 장바구니 아이템 생성
+      const cartItem = {
+        ...camera,
+        rentalDate,
+        rentalTime,
+        returnDate,
+        returnTime,
+        addedAt: new Date().toISOString()
+      };
+  
+      // 4. 사용자의 장바구니 문서 존재 여부 확인
+      const cartDoc = await getDoc(userCartRef);
+      
+      if (cartDoc.exists()) {
+        // 5. 이미 장바구니에 동일한 아이템이 있는지 중복 체크
+        const currentItems = cartDoc.data().items || [];
+        const isDuplicate = currentItems.some(
+          item => item.id === camera.id && 
+          item.rentalDate === rentalDate && 
+          item.rentalTime === rentalTime
+        );
+  
+        if (isDuplicate) {
+          alert('이미 장바구니에 추가된 항목입니다.');
+          return false;
+        }
+  
+        // 6. 기존 장바구니에 아이템 추가
+        await updateDoc(userCartRef, {
+          items: arrayUnion(cartItem)
+        });
+      } else {
+        // 7. 장바구니가 없으면 새 문서 생성
+        await setDoc(userCartRef, {
+          items: [cartItem]
+        });
+      }
+      return true;
+    } catch (error) {
+      console.error("장바구니 추가 중 오류:", error);
+      alert('장바구니에 추가할 수 없습니다.');
+      return false;
+    }
+  };
 
   // 장바구니 아이템 수 및 애니메이션 상태
   const [cartItemCount, setCartItemCount] = useState(0);
@@ -228,6 +507,39 @@ const ReservationMainPage = () => {
     return () => unsubscribe();
   }, [navigate, location]);
 
+// 대여 날짜 및 반납 날짜가 모두 선택되었을 때 장비 가용성 확인
+useEffect(() => {
+  const checkAvailability = async () => {
+    if (rentalDate && returnDate) {
+      setCheckingAvailability(true);
+      const startDate = `${rentalDate}T${rentalTime}`;
+      const endDate = `${returnDate}T${returnTime}`;
+  
+      // 👉 병렬로 호출하는 방식
+      const results = await Promise.all(
+        cameras.map(async (camera) => {
+          const result = await checkEquipmentAvailability(camera.id, startDate, endDate);
+          return { id: camera.id, result };
+        })
+      );
+  
+      // 결과 재구성
+      const availabilityData = {};
+      results.forEach(({ id, result }) => {
+        availabilityData[id] = result;
+      });
+  
+      setEquipmentAvailability(availabilityData);
+      setCheckingAvailability(false);
+    }
+  };
+  
+
+  checkAvailability();
+}, [rentalDate, returnDate, rentalTime, returnTime, cameras]);
+
+
+
   // 페이지 스크롤 이벤트
   useEffect(() => {
     if (location.state && location.state.scrollTo) {
@@ -245,6 +557,13 @@ const ReservationMainPage = () => {
       return;
     }
   
+// 해당 장비의 선택 날짜 가용성 확인
+const availability = equipmentAvailability[camera.id];
+if (availability && !availability.available) {
+  alert('선택하신 날짜에는 이 장비를 대여할 수 없습니다.');
+  return;
+}
+
     // 기존 addToCart 함수 사용
     const added = await addToCart(camera, rentalDate, rentalTime, returnDate, returnTime);
     if (added) {
@@ -255,6 +574,19 @@ const ReservationMainPage = () => {
       // 장바구니 아이템 수 업데이트
       fetchCartItemCount(); // 이 함수를 사용해 Firebase에서 직접 카운트
       
+      
+    // ✅ 새로 추가된 장비에 대한 가용성 정보를 즉시 다시 조회
+    const startDate = `${rentalDate}T${rentalTime}`;
+    const endDate = `${returnDate}T${returnTime}`;
+    const updatedAvailability = await checkEquipmentAvailability(camera.id, startDate, endDate);
+
+
+      // 가용성 정보 업데이트
+      setEquipmentAvailability(prev => ({
+        ...prev,
+        [camera.id]: updatedAvailability
+      }));
+
       alert(`${camera.name}이(가) 장바구니에 추가되었습니다.`);
     }
   };
@@ -330,6 +662,8 @@ const ReservationMainPage = () => {
   const handleNoteNavigation = () => {
     navigate('/thingsnote', { state: { scrollTo: 'notes-section' } });
   };
+  
+  
 
   const handleCartNavigation = () => {
     navigate('/cart');
@@ -389,6 +723,7 @@ const ReservationMainPage = () => {
 
   const timeOptions = generateTimeOptions();
 
+  
   // 대여 날짜 변경 핸들러
   const handleRentalDateChange = (e) => {
     const selectedRentalDate = e.target.value;
@@ -414,20 +749,63 @@ const ReservationMainPage = () => {
 
   // 필터링된 카메라
   const filteredCameras = cameras
-  .filter(camera => 
-    (!availableOnly || camera.status === 'available') &&
-    (selectedCategory === 'All' || camera.category === selectedCategory) &&
-    camera.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    .filter(camera => {
+      // 기본 필터
+      const categoryMatch = selectedCategory === 'All' || camera.category === selectedCategory;
+      const nameMatch = camera.name.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // 가용성 필터
+      let availabilityMatch = true;
+      if (availableOnly && rentalDate && returnDate) {
+        const availability = equipmentAvailability[camera.id];
+        
+        // 📌 카메라 문서의 상태는 무시하고 reservation 기준으로만 판단
+        availabilityMatch = !availability || availability.available;
+      }
+      
+      return categoryMatch && nameMatch && availabilityMatch;
+    });
 
-  const indexOfLastCamera = currentPage * camerasPerPage;
-  const indexOfFirstCamera = indexOfLastCamera - camerasPerPage;
-  const currentCameras = filteredCameras.slice(indexOfFirstCamera, indexOfLastCamera);
+    const indexOfLastCamera = currentPage * camerasPerPage;
+    const indexOfFirstCamera = indexOfLastCamera - camerasPerPage;
+    const currentCameras = filteredCameras.slice(indexOfFirstCamera, indexOfLastCamera);
+  
+    const totalPages = Math.ceil(filteredCameras.length / camerasPerPage);
 
-  const totalPages = Math.ceil(filteredCameras.length / camerasPerPage);
-
-  // 로그인되지 않은 경우 null 또는 로딩 상태 반환
-
+    useEffect(() => {
+      if (cameras.length > 0 && rentalDate && returnDate) {
+        const refreshAvailability = async () => {
+          setCheckingAvailability(true);
+          const startDate = `${rentalDate}T${rentalTime}`;
+          const endDate = `${returnDate}T${returnTime}`;
+          const newAvailability = {};
+          for (const camera of cameras) {
+            const result = await checkEquipmentAvailability(camera.id, startDate, endDate);
+            newAvailability[camera.id] = result;
+          }
+          setEquipmentAvailability(newAvailability);
+          setCheckingAvailability(false);
+        };
+        refreshAvailability();
+      }
+    }, [cameras]); // ✅ 카메라 데이터가 로드된 직후에 실행
+    
+  
+    {/* 로딩 상태 확인
+    if (loading) {
+      return (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          fontSize: '20px'
+        }}>
+          데이터를 불러오는 중...
+        </div>
+      );
+    }
+      */}
 
   return (
     <div style={{
@@ -525,6 +903,9 @@ const ReservationMainPage = () => {
         display: 'flex',
         gap: '20px'
       }}>
+
+
+        
         {/* Categories Cart */}
         <div style={{
           width: '300px',
@@ -533,12 +914,15 @@ const ReservationMainPage = () => {
           padding: '20px',
           height: 'fit-content'
         }}>
+
+      
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: '20px'
           }}>
+            
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>Categories</h3>
             {selectedCategory !== 'All' && (
               <div 
@@ -555,6 +939,7 @@ const ReservationMainPage = () => {
                 <X size={16} />
               </div>
             )}
+            
           </div>
           {categories.map((category) => (
             <div 
@@ -580,6 +965,9 @@ const ReservationMainPage = () => {
             </div>
           ))}
         </div>
+        
+
+
 
         {/* Reservation Section */}
         <div style={{
@@ -727,23 +1115,70 @@ const ReservationMainPage = () => {
   gap: '20px',
   width: '100%'
 }}>
+  
   {currentCameras.map((camera) => (
-    <div 
-      key={camera.id} 
-      style={{
-        border: camera.status === 'rented' ? '1px solid #e74c3c' : '1px solid #E0E0E0',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        position: 'relative',
-        transition: 'transform 0.3s, box-shadow 0.3s',
-        transform: selectedCameraId === camera.id ? 'scale(1.05)' : 'scale(1)',
-        boxShadow: selectedCameraId === camera.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none',
-        // 대여 중인 장비 배경색 변경
-        backgroundColor: camera.status === 'rented' ? '#fef2f2' : 'white'
-      }}
-      onMouseEnter={() => setSelectedCameraId(camera.id)}
-      onMouseLeave={() => setSelectedCameraId(null)}
-    >
+  <div 
+    key={camera.id} 
+    style={{
+      border: camera.status === 'rented' ? '1px solid #e74c3c' : 
+             (equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available) ? 
+             '1px solid #f39c12' : '1px solid #E0E0E0',
+      borderRadius: '8px',
+      overflow: 'hidden',
+      position: 'relative',
+      transition: 'transform 0.3s, box-shadow 0.3s',
+      transform: selectedCameraId === camera.id ? 'scale(1.05)' : 'scale(1)',
+      boxShadow: selectedCameraId === camera.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none',
+      backgroundColor: equipmentAvailability?.[camera.id]?.available === false ? '#fef2f2' : 
+                      (equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available) ? 
+                      '#fff9e6' : 'white'
+    }}
+    onMouseEnter={() => setSelectedCameraId(camera.id)}
+    onMouseLeave={() => setSelectedCameraId(null)}
+  >
+
+ {/* 장비 가용성 표시 */}
+ {rentalDate && returnDate && equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available && (
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        right: '-30px',
+        backgroundColor: '#f39c12',
+        color: 'white',
+        transform: 'rotate(45deg)',
+        padding: '5px 35px',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        zIndex: 10,
+        boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+      }}>
+        선택 날짜 불가
+      </div>
+    )}
+
+    {/* 내 장바구니에 있는 항목 표시 */}
+    {equipmentAvailability[camera.id] && 
+     equipmentAvailability[camera.id].myCartItems && 
+     equipmentAvailability[String(camera.id)].myCartItems.length > 0 && ( 
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '10px',
+        backgroundColor: '#3498db',
+        color: 'white',
+        padding: '5px 10px',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        zIndex: 10,
+        borderRadius: '5px',
+        boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+      }}>
+        장바구니에 있음
+      </div>
+    )}
+
+
+
                 {/* Issues Overlay */}
                 {selectedCameraId === camera.id && camera.issues && (
         <div style={{
@@ -758,7 +1193,7 @@ const ReservationMainPage = () => {
           textAlign: 'center',
           fontSize: '14px'
         }}>
-          주의: {camera.issues}
+          특이사항: {camera.issues}
         </div>
       )}
       
@@ -781,13 +1216,14 @@ const ReservationMainPage = () => {
       )}
 
                 {/* Camera Image */}
-                <ImageWithPlaceholder camera={camera} />
+                <ImageWithPlaceholder camera={camera} 
+                equipmentAvailability={equipmentAvailability}/>
 
                 {/* Camera Details */}
                 <div style={{ 
         padding: '10px', 
         backgroundColor: camera.status === 'rented' ? '#fef2f2' : 
-                         (selectedCameraId === camera.id ? '#f9f9f9' : 'white')
+          (selectedCameraId === camera.id ? '#f9f9f9' : 'white')
       }}>
         <div style={{ 
           display: 'flex', 
@@ -815,7 +1251,7 @@ const ReservationMainPage = () => {
               marginRight: '5px',
               color: camera.condition === '수리' ? 'red' : 
                     camera.condition === '정상' ? 'green' : 
-                    camera.condition === '주의' ? 'yellow' : '#666' }} />
+                    camera.condition === '주의' ? 'orange' : '#666' }} />
           <span>상태: {camera.condition}</span>
           
           {/* 대여 상태 표시 추가 */}
@@ -836,7 +1272,7 @@ const ReservationMainPage = () => {
         </div>
       </div>
 
-                {/* Cart Button on Hover */}
+ {/* Cart Button on Hover */}
                 {selectedCameraId === camera.id && camera.status === 'available' && (
               <div 
                 style={{
@@ -864,78 +1300,107 @@ const ReservationMainPage = () => {
             ))}
           </div>
 
+
+
+
+
+
+
+
+
+
+
+
           {/* Pagination */}
-          <div style={{
-            marginTop: '20px',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <button 
-              onClick={() => setCurrentPage(1)}
-              style={{
-                padding: '5px 10px',
-                border: '1px solid #ccc',
-                backgroundColor: 'white',
-                cursor: 'pointer'
-              }}
-            >
-              {'<<'}
-            </button>
-            <button 
-              onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
-              disabled={currentPage === 1}
-              style={{
-                padding: '5px 10px',
-                border: '1px solid #ccc',
-                backgroundColor: currentPage === 1 ? '#f0f0f0' : 'white',
-                cursor: currentPage === 1 ? 'default' : 'pointer'
-              }}
-            >
-              {'<'}
-            </button>
-            {[...Array(Math.min(totalPages, 3)).keys()].map((index) => {
-              const page = index + 1;
-              return (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  style={{
-                    padding: '5px 10px',
-                    border: '1px solid #ccc',
-                    backgroundColor: currentPage === page ? 'black' : 'white',
-                    color: currentPage === page ? 'white' : 'black'
-                  }}
-                >
-                  {page}
-                </button>
-              );
-            })}
-            <button 
-              onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
-              disabled={currentPage === totalPages}
-              style={{
-                padding: '5px 10px',
-                border: '1px solid #ccc',
-                backgroundColor: currentPage === totalPages ? '#f0f0f0' : 'white',
-                cursor: currentPage === totalPages ? 'default' : 'pointer'
-              }}
-            >
-              {'>'}
-            </button>
-            <button 
-              onClick={() => setCurrentPage(totalPages)}
-              style={{
-                padding: '5px 10px',
-                border: '1px solid #ccc',
-                backgroundColor: 'white',
-                cursor: 'pointer'
-              }}
-            >
-              {'>>'}
-            </button>
-          </div>
+<div style={{
+  marginTop: '20px',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: '10px'
+}}>
+  {/* 처음 페이지로 */}
+  <button 
+    onClick={() => setCurrentPage(1)}
+    style={{
+      padding: '5px 10px',
+      border: '1px solid #ccc',
+      backgroundColor: 'white',
+      cursor: 'pointer'
+    }}
+  >
+    {'<<'}
+  </button>
+
+  {/* 이전 페이지로 */}
+  <button 
+    onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+    disabled={currentPage === 1}
+    style={{
+      padding: '5px 10px',
+      border: '1px solid #ccc',
+      backgroundColor: currentPage === 1 ? '#f0f0f0' : 'white',
+      cursor: currentPage === 1 ? 'default' : 'pointer'
+    }}
+  >
+    {'<'}
+  </button>
+
+  {/* 동적 페이지 번호 */}
+  {[...Array(3)].map((_, index) => {
+    let startPage = Math.max(1, currentPage - 1);
+    let endPage = Math.min(totalPages, startPage + 2);
+    if (endPage - startPage < 2) {
+      startPage = Math.max(1, endPage - 2);
+    }
+    const page = startPage + index;
+    if (page > totalPages) return null;
+
+    return (
+      <button
+        key={page}
+        onClick={() => setCurrentPage(page)}
+        style={{
+          padding: '5px 10px',
+          border: '1px solid #ccc',
+          backgroundColor: currentPage === page ? 'black' : 'white',
+          color: currentPage === page ? 'white' : 'black',
+          cursor: 'pointer'
+        }}
+      >
+        {page}
+      </button>
+    );
+  })}
+
+  {/* 다음 페이지로 */}
+  <button 
+    onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+    disabled={currentPage === totalPages}
+    style={{
+      padding: '5px 10px',
+      border: '1px solid #ccc',
+      backgroundColor: currentPage === totalPages ? '#f0f0f0' : 'white',
+      cursor: currentPage === totalPages ? 'default' : 'pointer'
+    }}
+  >
+    {'>'}
+  </button>
+
+  {/* 마지막 페이지로 */}
+  <button 
+    onClick={() => setCurrentPage(totalPages)}
+    style={{
+      padding: '5px 10px',
+      border: '1px solid #ccc',
+      backgroundColor: 'white',
+      cursor: 'pointer'
+    }}
+  >
+    {'>>'}
+  </button>
+</div>
+
         </div>
       </div>
     </div>

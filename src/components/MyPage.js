@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, ShoppingCart, Clock, FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, ShoppingCart, Clock, FileText, AlertTriangle, ChevronDown, ChevronUp, CheckCircle, Edit, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   app,
@@ -35,7 +35,46 @@ const MyPage = () => {
   const [expandedItems, setExpandedItems] = useState({});
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [studentId, setStudentId] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
+  const groupHistoryByDateTime = (items) => {
+    const grouped = {};
+  
+    items.forEach(item => {
+      const key = `${item.rentalDate || item.startDateTime}_${item.rentalTime || ''}_${item.returnDate || item.endDateTime}_${item.returnTime || ''}`;
+      
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(item);
+    });
+  
+    return grouped;
+  };
+
+  const handleReturnRequest = async (itemId) => {
+    try {
+      const itemRef = doc(db, 'reservations', itemId); // rentals일 수도 있음
+      await updateDoc(itemRef, {
+        status: 'return_requested',
+        returnRequestedAt: serverTimestamp(),
+      });
+      alert('반납 요청이 제출되었습니다.');
+      // UI 반영 위해 fetchUserData 재호출
+      if (user) fetchUserData(user.uid);
+    } catch (err) {
+      console.error('반납 요청 실패:', err);
+      alert('반납 요청에 실패했습니다.');
+    }
+  };
+   
+  
+
+
+
+  
   // 내비게이션 핸들러
   const handleHomeNavigation = () => {
     navigate('/main');
@@ -60,31 +99,31 @@ const MyPage = () => {
   // Page load - authentication and data fetching
   useEffect(() => {
     const auth = getAuth();
-  const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-    if (firebaseUser) {
-      // Firebase 유저 인증이 되어 있는 경우
-      const userData = {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        name: firebaseUser.displayName || '사용자'
-      };
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      if (firebaseUser) {
+        // Firebase 유저 인증이 되어 있는 경우
+        const userData = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          name: firebaseUser.displayName || '사용자'
+        };
 
-      setUser(userData);
-      fetchUserData(firebaseUser.uid);
+        setUser(userData);
+        fetchUserData(firebaseUser.uid);
 
-      // localStorage에도 다시 저장 (선택적)
-      localStorage.setItem('user', JSON.stringify(userData));
-    } else {
-      console.log('Firebase 인증된 유저 없음');
-      setUser(null);
-      setLoading(false);
-      // 로그인 페이지로 보낼 수도 있음
-      navigate('/login');
-    }
-  });
+        // localStorage에도 다시 저장 (선택적)
+        localStorage.setItem('user', JSON.stringify(userData));
+      } else {
+        console.log('Firebase 인증된 유저 없음');
+        setUser(null);
+        setLoading(false);
+        // 로그인 페이지로 보낼 수도 있음
+        navigate('/login');
+      }
+    });
 
-  return () => unsubscribe();
-}, []);
+    return () => unsubscribe();
+  }, []);
 
   // Fetch all user data from Firebase
   const fetchUserData = async (userId) => {
@@ -97,17 +136,21 @@ const MyPage = () => {
         const profileData = userProfileDoc.data();
         setPenaltyPoints(profileData.penaltyPoints || 0);
         setAgreementSubmitted(profileData.agreementSubmitted || false);
+        setStudentId(profileData.studentId || '');
+        setPhoneNumber(profileData.phoneNumber || '');
       } else {
         // Create profile if it doesn't exist
         await updateDoc(userProfileRef, {
           penaltyPoints: 0,
           agreementSubmitted: false,
+          studentId: '',
+          phoneNumber: '',
           createdAt: serverTimestamp()
         });
       }
       
       // Fetch current rentals
-      const currentRentalsRef = collection(db, 'rentals');
+      const currentRentalsRef = collection(db, 'reservations');
       const currentRentalsQuery = query(
         currentRentalsRef, 
         where('userId', '==', userId),
@@ -119,10 +162,20 @@ const MyPage = () => {
         id: doc.id,
         ...doc.data()
       }));
+
+
       setCurrentRentals(currentRentalsData);
       
+// 기존 currentRentalsData와 reservationsData를 합쳐서 중복 제거
+const allUniqueRentals = [...currentRentalsData, ...reservationsData].filter(
+  (item, index, self) =>
+    index === self.findIndex((t) => t.id === item.id)
+);
+setCurrentRentals(allUniqueRentals);
+
+      
       // Fetch rental history
-      const historyRef = collection(db, 'rentals');
+      const historyRef = collection(db, 'reservations');
       const historyQuery = query(
         historyRef, 
         where('userId', '==', userId),
@@ -134,13 +187,87 @@ const MyPage = () => {
         id: doc.id,
         ...doc.data()
       }));
-      setRentalHistory(historyData);
+
+      const groupedRentalHistory = {};
+rentalHistory.forEach(item => {
+  const start = item.rentalDate || item.startDateTime?.split('T')[0];
+  const end = item.returnDate || item.endDateTime?.split('T')[0];
+  const key = `${start} ~ ${end}`;
+
+  if (!groupedRentalHistory[key]) {
+    groupedRentalHistory[key] = [];
+  }
+  groupedRentalHistory[key].push(item);
+});
+
+
+
+
+
+const flatHistoryItems = Object.values(groupedHistory).flat();
+await fetchItemImages(flatHistoryItems);
+
+// 그룹화된 데이터 저장
+setRentalHistory(groupedHistory);
+
+
+// Fetch reservation-based return history
+const reservationHistoryRef = collection(db, 'reservations');
+const reservationHistoryQuery = query(
+  reservationHistoryRef,
+  where('userId', '==', userId),
+  where('status', '==', 'returned')
+);
+
+const reservationHistorySnapshot = await getDocs(reservationHistoryQuery);
+const reservationHistoryData = reservationHistorySnapshot.docs.flatMap(doc => {
+  const data = doc.data();
+  return (data.items || []).map(subItem => ({
+    ...subItem,
+    parentId: doc.id,
+    status: data.status,
+    returnDate: data.returnDate,
+    returnStatus: data.returnStatus,
+    penaltyPoints: data.penaltyPoints,
+    reservationDate: data.reservationDate,
+    reservationTime: data.reservationTime,
+    createdAt: data.createdAt
+  }));
+});
+
+// rentalHistory를 rentals + reservations 이력으로 합치기
+setRentalHistory([...historyData, ...reservationHistoryData]);
+      
+
+
+
+
+
+
+
+      // Fetch active reservations that should be shown in current rentals
+      const reservationsRef = collection(db, 'reservations');
+      const reservationsQuery = query(
+        reservationsRef,
+        where('userId', '==', userId),
+        where('status', '==', 'active')
+      );
+      
+      const reservationsSnapshot = await getDocs(reservationsQuery);
+      const reservationsData = reservationsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Add current active reservations to current rentals
+      setCurrentRentals(prevRentals => [...prevRentals, ...reservationsData]);
       
       // Combine all items for image fetching
-      const allItems = [...currentRentalsData, ...historyData];
-      if (allItems.length > 0) {
-        fetchItemImages(allItems);
-      }
+      const allItems = [...currentRentalsData, ...historyData, ...reservationsData];
+if (allItems.length > 0) {
+  fetchItemImages(allItems);
+}
+
       
       setLoading(false);
     } catch (error) {
@@ -149,22 +276,63 @@ const MyPage = () => {
     }
   };
 
+  // Update student ID and phone number in Firebase
+  const updateProfileData = async () => {
+    if (!user) return;
+    
+    try {
+      const userProfileRef = doc(db, 'user_profiles', user.uid);
+      await updateDoc(userProfileRef, {
+        studentId: studentId,
+        phoneNumber: phoneNumber,
+        updatedAt: serverTimestamp()
+      });
+      
+      alert('프로필 정보가 업데이트되었습니다.');
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating profile data:', error);
+      alert('프로필 정보 업데이트에 실패했습니다.');
+    }
+  };
+
   // Fetch images for all items
   const fetchItemImages = async (items) => {
     const urls = {};
+  
     for (const item of items) {
-      if (item.image) {
-        try {
-          const url = await getImageURL(item.image);
-          urls[item.id] = url;
-        } catch (error) {
-          console.error(`Error loading image for ${item.name}:`, error);
-          urls[item.id] = null;
+      // 예약 데이터인 경우, item.items 배열이 존재함
+      if (item.items && Array.isArray(item.items)) {
+        for (const subItem of item.items) {
+          console.log("렌탈 항목 image 확인:", subItem.name, subItem.image);
+          if (subItem.image) {
+            try {
+              const url = await getImageURL(subItem.image);
+              urls[subItem.id] = url;
+            } catch (error) {
+              console.error(`Error loading image for ${subItem.name}:`, error);
+              urls[subItem.id] = null;
+            }
+          }
+        }
+      } else {
+        // 일반 rental 문서 (name, image 바로 있음)
+        console.log("렌탈 항목 image 확인:", item.name, item.image);
+        if (item.image) {
+          try {
+            const url = await getImageURL(item.image);
+            urls[item.id] = url;
+          } catch (error) {
+            console.error(`Error loading image for ${item.name}:`, error);
+            urls[item.id] = null;
+          }
         }
       }
     }
+  
     setImageUrls(urls);
   };
+  
 
   // Handle file selection for agreement
   const handleFileChange = (e) => {
@@ -255,6 +423,8 @@ const MyPage = () => {
     return null;
   };
 
+
+  
   // Render a single rental item card
   const renderRentalItem = (item, isHistory = false) => {
     const isExpanded = expandedItems[item.id] || false;
@@ -327,7 +497,8 @@ const MyPage = () => {
           {/* Item Basic Info */}
           <div style={{ flex: 1 }}>
             <p style={{ color: '#666' }}>
-              {item.category} | {item.condition || '상태 정보 없음'}
+              {item.brand && `${item.brand} | `}
+              {item.category || ''} | {item.condition || '상태 정보 없음'}
             </p>
             
             <div style={{ 
@@ -337,11 +508,11 @@ const MyPage = () => {
             }}>
               <div style={{ marginBottom: '5px' }}>
                 <span style={{ fontWeight: 'bold', marginRight: '10px' }}>대여 시작:</span>
-                {formatDate(item.rentalDate, item.rentalTime)}
+                {formatDate(item.rentalDate || item.startDateTime, item.rentalTime)}
               </div>
               <div>
                 <span style={{ fontWeight: 'bold', marginRight: '10px' }}>반납 예정:</span>
-                {formatDate(item.returnDate, item.returnTime)}
+                {formatDate(item.returnDate || item.endDateTime, item.returnTime)}
               </div>
               
               {isHistory && (
@@ -361,10 +532,32 @@ const MyPage = () => {
             paddingTop: '15px',
             borderTop: '1px solid #e0e0e0'
           }}>
-            <p><strong>장비 ID:</strong> {item.equipmentId || 'ID 정보 없음'}</p>
-            <p><strong>예약 일시:</strong> {formatDate(item.reservationDate, item.reservationTime) || '정보 없음'}</p>
+            <p><strong>장비 ID:</strong> {item.equipmentId || item.id || 'ID 정보 없음'}</p>
+            <p><strong>예약 일시:</strong> {formatDate(item.createdAt?.toDate?.().toISOString?.().split('T')[0] || item.reservationDate, item.reservationTime)}</p>
+            {item.purpose && <p><strong>대여 목적:</strong> {item.purpose}</p>}
+            {item.description && <p><strong>설명:</strong> {item.description}</p>}
             {item.notes && <p><strong>비고:</strong> {item.notes}</p>}
             
+            
+{/* 렌탈 카드 내 버튼 표시 조건 */}
+{item.status === 'active' && (
+  <button
+    onClick={() => handleReturnRequest(item.id)}
+    style={{
+      marginTop: '10px',
+      padding: '8px 12px',
+      backgroundColor: '#4285f4',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '5px',
+      cursor: 'pointer'
+    }}
+  >
+    반납 요청
+  </button>
+)}
+
+
             {isHistory && item.returnStatus === 'late' && (
               <div style={{
                 marginTop: '10px',
@@ -391,17 +584,18 @@ const MyPage = () => {
     <div style={{
       position: 'relative',
       width: '1440px',
-      height: 'auto',
+      height: '100%',
       minHeight: '1000px',
       background: '#FFFFFF',
       margin: '0 auto',
       fontFamily: 'Pretendard, sans-serif',
       color: '#000000',
-      paddingBottom: '80px'
+      paddingBottom: '180px',
+      overflow: 'auto'
     }}>
       {/* Header Section - Same as CartPage */}
       <div style={{
-        position: 'absolute',
+        position: 'sticky',
         top: '20px',
         left: '20px',
         right: '20px',
@@ -409,7 +603,8 @@ const MyPage = () => {
         justifyContent: 'space-between',
         alignItems: 'center',
         borderBottom: '0px solid #5F5F5F',
-        paddingBottom: '45px'
+        paddingBottom: '45px',
+        
       }}>
         {renderUserInfo()}
       </div>
@@ -557,7 +752,87 @@ const MyPage = () => {
                   </div>
                 </div>
 
-                <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '15px' }}>
+                {/* Student ID and Phone Number Fields */}
+                <div style={{ marginBottom: '20px', borderBottom: '1px solid #e0e0e0', paddingBottom: '15px' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginBottom: '10px' 
+                  }}>
+                    <h4 style={{ fontSize: '16px', fontWeight: 'bold' }}>프로필 정보</h4>
+                    <button 
+                      onClick={() => isEditing ? updateProfileData() : setIsEditing(true)}
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        color: '#4285f4',
+                        padding: '5px'
+                      }}
+                    >
+                      {isEditing ? (
+                        <>
+                          <Save size={16} style={{ marginRight: '4px' }} />
+                          저장
+                        </>
+                      ) : (
+                        <>
+                          <Edit size={16} style={{ marginRight: '4px' }} />
+                          수정
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#666' }}>
+                      학번
+                    </label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={studentId}
+                        onChange={(e) => setStudentId(e.target.value)}
+                        placeholder="학번을 입력하세요"
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px'
+                        }}
+                      />
+                    ) : (
+                      <p style={{ fontSize: '14px' }}>{studentId || '미입력'}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#666' }}>
+                      전화번호
+                    </label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="전화번호를 입력하세요"
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px'
+                        }}
+                      />
+                    ) : (
+                      <p style={{ fontSize: '14px' }}>{phoneNumber || '미입력'}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                     <span>현재 대여 장비</span>
                     <span style={{ fontWeight: 'bold' }}>{currentRentals.length}개</span>
@@ -670,7 +945,7 @@ const MyPage = () => {
               <div style={{ 
                 display: 'flex', 
                 borderBottom: '1px solid #e0e0e0',
-                marginBottom: '20px' 
+                marginBottom: '20px'
               }}>
                 <div 
                   style={{ 
@@ -705,10 +980,10 @@ const MyPage = () => {
                       textAlign: 'center',
                       color: '#666',
                       backgroundColor: '#f5f5f5',
+                      backgroundColor: '#f5f5f5',
                       borderRadius: '8px'
                     }}>
-                      <Clock size={40} style={{ margin: '0 auto 15px', color: '#999' }} />
-                      <p>현재 대여 중인 장비가 없습니다.</p>
+                      현재 대여 중인 장비가 없습니다.
                     </div>
                   ) : (
                     <div>
@@ -729,8 +1004,7 @@ const MyPage = () => {
                       backgroundColor: '#f5f5f5',
                       borderRadius: '8px'
                     }}>
-                      <FileText size={40} style={{ margin: '0 auto 15px', color: '#999' }} />
-                      <p>대여 이력이 없습니다.</p>
+                      대여 이력이 없습니다.
                     </div>
                   ) : (
                     <div>
@@ -744,6 +1018,7 @@ const MyPage = () => {
         )}
       </div>
     </div>
+    
   );
 };
 

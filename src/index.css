@@ -30,3 +30,11 @@ input::placeholder {
 
 /* 커스텀 스타일 추가 */
 @import './styles/textStyle.css';
+
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+

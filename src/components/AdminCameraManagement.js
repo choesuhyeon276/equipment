@@ -188,7 +188,7 @@ if (imageFile) {
 
       const equipmentData = {
         ...newEquipment,
-        image: imageUrl || (editingEquipment ? editingEquipment.image : ''),
+        imageURL: imageUrl || (editingEquipment ? editingEquipment.image : ''),
         createdAt: editingEquipment ? editingEquipment.createdAt : new Date()
       };
 
@@ -248,7 +248,7 @@ if (imageFile) {
       status: equipment.status || 'available',
       condition: equipment.condition || '정상',
       dailyRentalPrice: equipment.dailyRentalPrice || '',
-      image: equipment.image || ''
+      imageURL: equipment.imageURL || ''
     });
   };
 
@@ -448,7 +448,7 @@ if (imageFile) {
             >
               {equipment.image && (
                 <img 
-                  src={equipment.image} 
+                  src={equipment.imageURL} 
                   alt={equipment.name}
                   style={{
                     width: '100%',
