@@ -21,6 +21,54 @@ import {
   getDownloadURL
 } from '../firebase/firebaseConfig';
 
+const formatKoreanDateTime = (isoString) => {
+  if (!isoString) return '날짜 없음';
+  const date = new Date(isoString);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // 0부터 시작함
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}년 ${month}월 ${day}일 ${hour}시 ${minute}분`;
+};
+
+const formatFullKoreanDateTime = (timestamp) => {
+  if (!timestamp || !timestamp.toDate) return '날짜 없음';
+  
+  const date = timestamp.toDate(); // Firebase Timestamp → JS Date
+
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+
+  let hour = date.getHours();
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  const ampm = hour < 12 ? '오전' : '오후';
+  hour = hour % 12 || 12; // 0시는 12시로 표시
+
+  return `${year}년 ${month}월 ${day}일 ${ampm} ${hour}시 ${minute}분 ${second}초`;
+};
+
+const getUserRentalCount = async (userId) => {
+  try {
+    const rentalQuery = query(
+      collection(db, 'reservations'),
+      where('userId', '==', userId),
+      where('status', 'in', ['returned', 'active', 'pending', 'return_requested'])
+    );
+    const snapshot = await getDocs(rentalQuery);
+    return snapshot.size;
+  } catch (error) {
+    console.error('대여 횟수 조회 실패:', error);
+    return 0;
+  }
+};
+
+
+
 const MyPage = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -222,6 +270,7 @@ const reservationHistoryQuery = query(
 const reservationHistorySnapshot = await getDocs(reservationHistoryQuery);
 const reservationHistoryData = reservationHistorySnapshot.docs.flatMap(doc => {
   const data = doc.data();
+  
   return (data.items || []).map(subItem => ({
     ...subItem,
     parentId: doc.id,
@@ -245,19 +294,26 @@ setRentalHistory([...historyData, ...reservationHistoryData]);
 
 
 
-      // Fetch active reservations that should be shown in current rentals
-      const reservationsRef = collection(db, 'reservations');
-      const reservationsQuery = query(
-        reservationsRef,
-        where('userId', '==', userId),
-        where('status', '==', 'active')
-      );
-      
-      const reservationsSnapshot = await getDocs(reservationsQuery);
-      const reservationsData = reservationsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+     // Fetch active reservations that should be shown in current rentals
+const reservationsRef = collection(db, 'reservations');
+const reservationsQuery = query(
+  reservationsRef,
+  where('userId', '==', userId),
+  where('status', '==', 'active')
+);
+
+const reservationsSnapshot = await getDocs(reservationsQuery);
+const reservationsData = await Promise.all(
+  reservationsSnapshot.docs.map(async (doc) => {
+    const data = doc.data();
+    const rentalCount = await getUserRentalCount(data.userId); // 대여 횟수 가져오기
+    return {
+      id: doc.id,
+      ...data,
+      rentalCount,
+    };
+  })
+);
       
       // Add current active reservations to current rentals
       setCurrentRentals(prevRentals => [...prevRentals, ...reservationsData]);
@@ -428,6 +484,8 @@ if (allItems.length > 0) {
   // Render a single rental item card
   const renderRentalItem = (item, isHistory = false) => {
     const isExpanded = expandedItems[item.id] || false;
+
+    
     
     return (
       <div 
@@ -508,11 +566,11 @@ if (allItems.length > 0) {
             }}>
               <div style={{ marginBottom: '5px' }}>
                 <span style={{ fontWeight: 'bold', marginRight: '10px' }}>대여 시작:</span>
-                {formatDate(item.rentalDate || item.startDateTime, item.rentalTime)}
+                {formatKoreanDateTime(item.startDateTime)}
               </div>
               <div>
                 <span style={{ fontWeight: 'bold', marginRight: '10px' }}>반납 예정:</span>
-                {formatDate(item.returnDate || item.endDateTime, item.returnTime)}
+                {formatKoreanDateTime(item.endDateTime)}
               </div>
               
               {isHistory && (
@@ -527,17 +585,52 @@ if (allItems.length > 0) {
         
         {/* Extended information when expanded */}
         {isExpanded && (
+
+          
+          
           <div style={{
             marginTop: '15px',
             paddingTop: '15px',
             borderTop: '1px solid #e0e0e0'
           }}>
-            <p><strong>장비 ID:</strong> {item.equipmentId || item.id || 'ID 정보 없음'}</p>
-            <p><strong>예약 일시:</strong> {formatDate(item.createdAt?.toDate?.().toISOString?.().split('T')[0] || item.reservationDate, item.reservationTime)}</p>
+
+        
+<p><strong>예약 일시:</strong> {formatFullKoreanDateTime(item.approvedAt)}</p>
             {item.purpose && <p><strong>대여 목적:</strong> {item.purpose}</p>}
             {item.description && <p><strong>설명:</strong> {item.description}</p>}
             {item.notes && <p><strong>비고:</strong> {item.notes}</p>}
             
+
+            {item.items && item.items.length > 0 && (
+  <div style={{ marginTop: '15px' }}>
+    <h4 style={{ marginBottom: '10px', fontSize: '16px' }}>장비 리스트</h4>
+    {item.items.map((equip, idx) => (
+      <div key={idx} style={{ display: 'flex', marginBottom: '20px' }}>
+        <div style={{ marginRight: '20px' }}>
+          {equip.imageURL ? (
+            <img 
+              src={equip.imageURL}
+              alt={equip.name}
+              style={{ width: '160px', height: '160px', objectFit: 'cover', borderRadius: '4px' }}
+            />
+          ) : (
+            <div style={{ 
+              width: '160px', height: '160px',
+              backgroundColor: '#E0E0E0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px'
+            }}>
+              <span>이미지 없음</span>
+            </div>
+          )}
+        </div>
+        <div>
+          <p><strong>장비 이름:</strong> {equip.name}</p>
+          {equip.condition && <p><strong>상태:</strong> {equip.condition}</p>}
+          {equip.category && <p><strong>분류:</strong> {equip.category}</p>}
+        </div>
+      </div>
+    ))}
+  </div>
+)}
             
 {/* 렌탈 카드 내 버튼 표시 조건 */}
 {item.status === 'active' && (

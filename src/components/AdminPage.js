@@ -25,6 +25,18 @@ import {
 
 import { Home, Calendar } from 'lucide-react';
 
+const formatKoreanDateTime = (isoString) => {
+  if (!isoString) return '날짜 없음';
+  const date = new Date(isoString);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // 0부터 시작함
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}년 ${month}월 ${day}일 ${hour}시 ${minute}분`;
+};
 
 
 const AdminPage = () => {
@@ -201,6 +213,8 @@ const AdminPage = () => {
         id: doc.id,
         ...doc.data()
       }));
+
+      console.log('Pending data:', pendingData);
       
       // 유저 정보 추가 로드 (필요한 경우)
       const enhancedPendingData = await Promise.all(pendingData.map(async (rental) => {
@@ -256,9 +270,7 @@ const AdminPage = () => {
       
       // 모든 아이템 이미지 로드
       const allItems = [...enhancedPendingData, ...activeData, ...returnData];
-      if (allItems.length > 0) {
-        fetchItemImages(allItems);
-      }
+
       
       setLoading(false);
     } catch (error) {
@@ -299,22 +311,7 @@ const AdminPage = () => {
     }
   };
 
-  // 모든 아이템 이미지 로드
-  const fetchItemImages = async (items) => {
-    const urls = {};
-    for (const item of items) {
-      if (item.image) {
-        try {
-          const url = await getImageURL(item.image);
-          urls[item.id] = url;
-        } catch (error) {
-          console.error(`Error loading image for ${item.name}:`, error);
-          urls[item.id] = null;
-        }
-      }
-    }
-    setImageUrls(urls);
-  };
+  
 
   // 선택된 아이템 토글
   const toggleSelectItem = (itemId) => {
@@ -326,6 +323,8 @@ const AdminPage = () => {
       }
     });
   };
+
+  
 
   // 모든 아이템 선택/해제
   const toggleSelectAll = (items) => {
@@ -693,7 +692,7 @@ const approveRental = async (rentalId) => {
         backgroundColor: '#f5f5f5',
         borderRadius: '4px'
       }}>
-        <span style={{ marginRight: '15px', fontWeight: 'bold' }}>정렬:</span>
+        <span style={{ marginRight: '15px', fontWeight: 'bold', color:'#000000' }}>정렬:</span>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button 
             onClick={() => handleSortChange('userName')}
@@ -754,6 +753,8 @@ const approveRental = async (rentalId) => {
 
   // 대여 아이템 렌더링
   const renderRentalItem = (item, type) => {
+    console.log("렌더링되는 item:", item); // 여기!
+    console.log("items 배열 내부:", item.items);
     const isExpanded = expandedItems[item.id] || false;
     const isSelected = selectedItems.includes(item.id);
     
@@ -785,11 +786,13 @@ const approveRental = async (rentalId) => {
               fontSize: '18px', 
               fontWeight: 'bold',
               cursor: 'pointer',
-              margin: 0
+              margin: 0,
+              color: '#000000'
             }}
             onClick={() => toggleExpand(item.id)}
             >
-              {item.name}
+              {item.userName || '신청자'} - 장비 {item.items?.length || 0}개
+
             </h3>
           </div>
           
@@ -844,7 +847,7 @@ const approveRental = async (rentalId) => {
                   gap: '5px',
                   padding: '5px 10px',
                   backgroundColor: '#2196f3',
-                  color: 'white',
+                  color:'#000000',
                   border: 'none',
                   borderRadius: '4px',
                   marginRight: '10px',
@@ -879,41 +882,91 @@ const approveRental = async (rentalId) => {
             borderRadius: '4px',
             marginTop: '10px'
           }}>
+
+{isExpanded && (
+  <div style={{ 
+    padding: '10px', 
+    backgroundColor: '#f9f9f9', 
+    color: '#000', 
+    borderRadius: '4px',
+    marginTop: '10px'
+  }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
+      <p><strong>이름:</strong> {item.userName}</p>
+      <p><strong>학번:</strong> {item.userStudentId}</p>
+      <p><strong>연락처:</strong> {item.userPhone}</p>
+      <p><strong>이메일:</strong> {item.userEmail}</p>
+      <p><strong>대여일자:</strong> {formatKoreanDateTime(item.startDateTime)}</p>
+      <p><strong>반납일자:</strong> {formatKoreanDateTime(item.endDateTime)}</p>
+    </div>
+
+    {item.items && item.items.length > 0 ? (
+      item.items.map((equip, idx) => (
+        <div key={idx} style={{ display: 'flex', marginBottom: '30px' }}>
+          <div style={{ marginRight: '20px' }}>
+            {equip.imageURL ? (
+              <img 
+                src={equip.imageURL}
+                alt={equip.name}
+                style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }}
+              />
+            ) : (
+              <div style={{ 
+                width: '240px', height: '240px',
+                backgroundColor: '#E0E0E0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px'
+              }}>
+                <span>이미지 없음</span>
+              </div>
+            )}
+          </div>
+          <div>
+            <p><strong>장비 이름:</strong> {equip.name}</p>
+          </div>
+        </div>
+      ))
+    ) : (
+      <p>장비 정보 없음</p>
+    )}
+
+    {item.notes && (
+      <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#fffde7', borderRadius: '4px' }}>
+        <p><strong>추가 메모:</strong></p>
+        <p>{item.notes}</p>
+      </div>
+    )}
+  </div>
+)}
+
             <div style={{ display: 'flex', marginBottom: '15px' }}>
             <div style={{ flex: '0 0 200px', marginRight: '20px' }}>
-                {imageUrls[item.id] ? (
-                  <img 
-                    src={imageUrls[item.id]} 
-                    alt={item.name} 
-                    style={{ 
-                      width: '180px', 
-                      height: '180px', 
-                      objectFit: 'cover',
-                      borderRadius: '4px' 
-                    }} 
-                  />
-                ) : (
-                  <div style={{ 
-                    width: '180px', 
-                    height: '180px', 
-                    backgroundColor: '#E0E0E0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '4px'
-                  }}>
-                    <span>이미지 없음</span>
-                  </div>
-                )}
+            {item.image ? (
+  <img 
+    src={item.imageURL} 
+    alt={item.name} 
+    style={{ 
+      width: '180px', 
+      height: '180px', 
+      objectFit: 'cover',
+      borderRadius: '4px' 
+    }} 
+  />
+) : (
+  <div style={{ 
+    width: '1px', 
+    height: '1px', 
+    backgroundColor: '#E0E0E0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '4px'
+  }}>
+    <span></span>
+  </div>
+)}
               </div>
               
               <div style={{ flex: '1' }}>
-                <p><strong>사용자:</strong> {item.userName || '이름 없음'}</p>
-                <p><strong>사용자 ID:</strong> {item.userId}</p>
-                <p><strong>이메일:</strong> {item.userEmail || '이메일 없음'}</p>
-                <p><strong>대여 날짜:</strong> {formatDate(item.rentalDate, item.rentalTime)}</p>
-                <p><strong>반납 예정:</strong> {formatDate(item.returnDate, item.returnTime)}</p>
-                {item.purpose && <p><strong>사용 목적:</strong> {item.purpose}</p>}
+                
                 {item.status === 'active' && (
                   <p><strong>대여 기간:</strong> {item.rentalPeriod || '1일'}</p>
                 )}
@@ -944,7 +997,7 @@ const approveRental = async (rentalId) => {
       case 'pending':
         return (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', color:'#000000 '}}>
               <div>
                 <h3>대기 중인 신청 ({pendingRentals.length})</h3>
               </div>
@@ -998,7 +1051,10 @@ const approveRental = async (rentalId) => {
             
             {pendingRentals.length > 0 ? (
               pendingRentals.map(item => renderRentalItem(item, 'pending'))
+              
             ) : (
+              
+
               <div style={{ 
                 padding: '30px', 
                 textAlign: 'center', 
@@ -1075,7 +1131,8 @@ const approveRental = async (rentalId) => {
                 padding: '30px', 
                 textAlign: 'center', 
                 backgroundColor: '#f5f5f5',
-                borderRadius: '8px'
+                borderRadius: '8px',
+                color:'#000000'
               }}>
                 <p>처리 대기 중인 반납 요청이 없습니다.</p>
               </div>
@@ -1129,7 +1186,8 @@ const approveRental = async (rentalId) => {
         marginBottom: '20px', 
         backgroundColor: '#f5f5f5',
         borderRadius: '8px',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        color:'#000000'
       }}>
         <button 
           onClick={handleHomeNavigation}
