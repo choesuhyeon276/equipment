@@ -33,6 +33,18 @@ function FileUpload() {
     );
   };
 
+  // FileUpload.jsx
+onUploadComplete && onUploadComplete(downloadURL); // ✅ 여기서 URL 넘김
+
+<FileUpload 
+  onFileSelect={(fileName) => setSelectedFileName(fileName)}
+  onUploadComplete={(fileURL) => {
+    setUploadedFileName(fileURL);
+    setIsReservationEnabled(true);
+  }}
+/>
+
+
   // 첨부하기 버튼 클릭 시 파일 선택 창 열기
   const triggerFileInput = () => {
     if (fileInputRef.current) {

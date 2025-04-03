@@ -2,8 +2,12 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";  
 import { auth, provider } from "../firebase/firebaseConfig";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
+import { onAuthStateChanged } from 'firebase/auth';
+
+
+
 
 function Login() {
   const [error, setError] = useState("");
@@ -33,16 +37,35 @@ function Login() {
       photoURL: user.photoURL || "",
     }, { merge: true });
 
-      // ✅ 로그인 후 메인 페이지 이동
-      navigate("/Main");
 
-      setLoading(false);
-    } catch (err) {
-      console.error("로그인 오류:", err.message);
-      setLoading(false);
-      setError("로그인 실패: " + err.message);
+    
+
+        // ✅ Firestore에서 추가 정보 확인
+    const profileSnap = await getDoc(userRef);
+    const profileData = profileSnap.data();
+
+    const isIncomplete = 
+      !profileData.phoneNumber || 
+      !profileData.studentId || 
+      !profileData.agreementURL;
+
+    if (isIncomplete) {
+      console.log("정보 누락 → MyPage로 리디렉션");
+      navigate("/mypage", {
+        state: { showAgreementReminder: true },
+      });
+    } else {
+      console.log("정보 완전 → 메인으로 이동");
+      navigate("/Main");
     }
-  };
+
+    setLoading(false);
+  } catch (err) {
+    console.error("로그인 오류:", err.message);
+    setLoading(false);
+    setError("로그인 실패: " + err.message);
+  }
+};
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-primary">

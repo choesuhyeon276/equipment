@@ -10,3 +10,57 @@ node_modules/
 *.local
 
 .env
+
+# ✅ Node.js 관련
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# ✅ 환경 변수 (절대 공개 X)
+.env
+.env.local
+.env.development
+.env.production
+.firebase/
+
+# ✅ Firebase Emulators
+firebase-debug.log
+.firebaserc
+
+# ✅ Vercel (배포 캐시)
+.vercel
+.vercel_build_output/
+
+# ✅ macOS
+.DS_Store
+
+# ✅ Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ✅ VSCode 설정 (선택)
+.vscode/
+
+# ✅ 로그 및 캐시
+*.log
+.cache/
+.next/
+out/
+coverage/
+
+# ✅ 빌드 파일
+dist/
+build/
+
+# ✅ 백엔드 Firebase Functions (있는 경우)
+functions/node_modules/
+functions/lib/
+functions/.env
+functions/.env.local
+functions/.env.production
+functions/.env.development
+functions/package-lock.json
+functions/.DS_Store

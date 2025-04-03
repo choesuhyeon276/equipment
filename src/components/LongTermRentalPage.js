@@ -4,6 +4,8 @@ import { getAuth } from 'firebase/auth';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
+
+
 // 스타일을 객체로 분리
 const styles = {
   uploadContainer: {
@@ -357,7 +359,7 @@ const LongTermRentalPage = () => {
     }
     navigate('/reservation-main', { 
       state: { 
-        uploadedFileName: uploadedFileName 
+        long_imageURL: uploadedFileName || ''
       } 
     });
     setTimeout(() => {

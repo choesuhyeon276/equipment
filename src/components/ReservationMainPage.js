@@ -721,6 +721,21 @@ if (availability && !availability.available) {
     return options;
   };
 
+// ⭐ 추가 함수 (반납 시간용 - 1시간 단위, 24시간)
+const generateReturnTimeOptions = () => {
+  const options = [];
+  for (let hour = 0; hour < 24; hour++) {
+    const time = `${String(hour).padStart(2, '0')}:00`;
+    options.push(time);
+  }
+
+  options.push('23:59');
+
+  return options;
+};
+
+
+const returnTimeOptions = generateReturnTimeOptions();
   const timeOptions = generateTimeOptions();
 
   
@@ -1056,9 +1071,9 @@ if (availability && !availability.available) {
                   borderRadius: '5px'
                 }}
               >
-                {timeOptions.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                {returnTimeOptions.map((t) => (
+    <option key={t} value={t}>{t}</option>
+  ))}
               </select>
             </div>
 

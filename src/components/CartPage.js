@@ -201,6 +201,11 @@ const CartPage = () => {
         userStudentId: userProfile?.studentId || '',
         userEmail: userProfile?.email || ''
       });
+
+      if (uploadedFileName) {
+        reservationData.long_imageURL = uploadedFileName;
+      }
+      await addDoc(collection(db, 'reservations'), reservationData);
       
       // 성공 시 장바구니 비우기
       if (user) {
@@ -246,11 +251,19 @@ const CartPage = () => {
     // location state에서 아이템 전달 여부 확인
     const passedCartItems = location.state?.cartItems;
     
+  
     if (passedCartItems) {
       // 이전 페이지에서 전달된 아이템이 있으면 사용
       setCartItems(passedCartItems);
       localStorage.setItem('cart', JSON.stringify(passedCartItems));
+
+      if (passedFileName) {
+        setUploadedFileName(passedFileName); // 👈 따로 useState 만들어줘야 함
+      }
+
       setLoading(false);
+
+
     } else if (!user) {
       // 유저가 없고 전달된 아이템도 없으면 로컬스토리지에서 로드
       const storedCart = JSON.parse(localStorage.getItem('cart')) || [];
@@ -259,6 +272,8 @@ const CartPage = () => {
     }
     // user가 있는 경우에는 fetchFirebaseCartItems에서 loading 상태를 업데이트함
   }, [location.state]);
+  
+  const [uploadedFileName, setUploadedFileName] = useState('');
 
   // 이미지 로딩
   useEffect(() => {

@@ -21,6 +21,10 @@ import {
   getDownloadURL
 } from '../firebase/firebaseConfig';
 
+
+
+
+
 const formatKoreanDateTime = (isoString) => {
   if (!isoString) return '날짜 없음';
   const date = new Date(isoString);
@@ -76,6 +80,7 @@ const MyPage = () => {
   const [rentalHistory, setRentalHistory] = useState([]);
   const [agreementSubmitted, setAgreementSubmitted] = useState(false);
   const [agreementFile, setAgreementFile] = useState(null);
+  const [agreementURL, setAgreementURL] = useState('');
   const [penaltyPoints, setPenaltyPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [imageUrls, setImageUrls] = useState({});
@@ -83,9 +88,36 @@ const MyPage = () => {
   const [expandedItems, setExpandedItems] = useState({});
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadedReturnImages, setUploadedReturnImages] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [studentId, setStudentId] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [pendingRentals, setPendingRentals] = useState([]);
+  const [returnRequestedRentals, setReturnRequestedRentals] = useState([]);
+
+  const cancelReservation = async (reservationId) => {
+    try {
+      await updateDoc(doc(db, 'reservations', reservationId), {
+        status: 'cancelled',
+        cancelledAt: serverTimestamp()
+      });
+      alert('예약이 취소되었습니다.');
+    } catch (err) {
+      console.error('예약 취소 실패:', err);
+      alert('예약 취소에 실패했습니다.');
+      return; // ❗ 실패했으면 더 이상 진행 안 해도 돼
+    }
+  
+    // ✅ 별도로 fetchUserData 실행
+    if (user) {
+      try {
+        await fetchUserData(user.uid);
+      } catch (fetchErr) {
+        console.error('유저 데이터 리프레시 실패:', fetchErr);
+      }
+    }
+  };
+
 
   const groupHistoryByDateTime = (items) => {
     const grouped = {};
@@ -173,10 +205,11 @@ const MyPage = () => {
     return () => unsubscribe();
   }, []);
 
+
   // Fetch all user data from Firebase
   const fetchUserData = async (userId) => {
     try {
-      // Fetch user profile including penalties and agreement status
+      // 사용자 프로필 데이터 불러오기
       const userProfileRef = doc(db, 'user_profiles', userId);
       const userProfileDoc = await getDoc(userProfileRef);
       
@@ -186,8 +219,12 @@ const MyPage = () => {
         setAgreementSubmitted(profileData.agreementSubmitted || false);
         setStudentId(profileData.studentId || '');
         setPhoneNumber(profileData.phoneNumber || '');
+        if (profileData.agreementUrl) {
+          setAgreementURL(profileData.agreementUrl);
+        }
+      
+
       } else {
-        // Create profile if it doesn't exist
         await updateDoc(userProfileRef, {
           penaltyPoints: 0,
           agreementSubmitted: false,
@@ -196,135 +233,91 @@ const MyPage = () => {
           createdAt: serverTimestamp()
         });
       }
-      
-      // Fetch current rentals
-      const currentRentalsRef = collection(db, 'reservations');
+  
+      // 모든 예약 데이터 불러와서 순번 매기기
+      const allReservationsQuery = query(
+        collection(db, 'reservations'),
+        where('userId', '==', userId),
+        where('status', 'in', ['returned', 'active', 'pending', 'return_requested'])
+      );
+      const allReservationsSnapshot = await getDocs(allReservationsQuery);
+  
+      const sortedReservations = allReservationsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => {
+          const aTime = a.createdAt?.toDate?.() ?? new Date(0);
+          const bTime = b.createdAt?.toDate?.() ?? new Date(0);
+          return aTime - bTime;
+        });
+  
+      const reservationCountMap = {};
+      sortedReservations.forEach((reservation, index) => {
+        reservationCountMap[reservation.id] = index + 1;
+      });
+  
+      // 현재 대여 가져오기
       const currentRentalsQuery = query(
-        currentRentalsRef, 
+        collection(db, 'reservations'),
         where('userId', '==', userId),
         where('status', '==', 'active')
       );
-      
       const currentRentalsSnapshot = await getDocs(currentRentalsQuery);
       const currentRentalsData = currentRentalsSnapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
+        rentalCount: reservationCountMap[doc.id] || 0
       }));
-
-
       setCurrentRentals(currentRentalsData);
-      
-// 기존 currentRentalsData와 reservationsData를 합쳐서 중복 제거
-const allUniqueRentals = [...currentRentalsData, ...reservationsData].filter(
-  (item, index, self) =>
-    index === self.findIndex((t) => t.id === item.id)
-);
-setCurrentRentals(allUniqueRentals);
 
-      
-      // Fetch rental history
-      const historyRef = collection(db, 'reservations');
+// 대여 신청 중
+const pendingQuery = query(
+  collection(db, 'reservations'),
+  where('userId', '==', userId),
+  where('status', '==', 'pending')
+);
+const pendingSnapshot = await getDocs(pendingQuery);
+const pendingData = pendingSnapshot.docs.map(doc => ({
+  id: doc.id,
+  ...doc.data(),
+  rentalCount: reservationCountMap[doc.id] || 0
+}));
+setPendingRentals(pendingData);
+
+// 반납 요청 중
+const returnRequestedQuery = query(
+  collection(db, 'reservations'),
+  where('userId', '==', userId),
+  where('status', '==', 'return_requested')
+);
+const returnRequestedSnapshot = await getDocs(returnRequestedQuery);
+const returnRequestedData = returnRequestedSnapshot.docs.map(doc => ({
+  id: doc.id,
+  ...doc.data(),
+  rentalCount: reservationCountMap[doc.id] || 0
+}));
+setReturnRequestedRentals(returnRequestedData);
+
+  
+      // 이력 불러오기
       const historyQuery = query(
-        historyRef, 
+        collection(db, 'reservations'),
         where('userId', '==', userId),
         where('status', '==', 'returned')
       );
-      
       const historySnapshot = await getDocs(historyQuery);
       const historyData = historySnapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
+        rentalCount: reservationCountMap[doc.id] || 0
       }));
-
-      const groupedRentalHistory = {};
-rentalHistory.forEach(item => {
-  const start = item.rentalDate || item.startDateTime?.split('T')[0];
-  const end = item.returnDate || item.endDateTime?.split('T')[0];
-  const key = `${start} ~ ${end}`;
-
-  if (!groupedRentalHistory[key]) {
-    groupedRentalHistory[key] = [];
-  }
-  groupedRentalHistory[key].push(item);
-});
-
-
-
-
-
-const flatHistoryItems = Object.values(groupedHistory).flat();
-await fetchItemImages(flatHistoryItems);
-
-// 그룹화된 데이터 저장
-setRentalHistory(groupedHistory);
-
-
-// Fetch reservation-based return history
-const reservationHistoryRef = collection(db, 'reservations');
-const reservationHistoryQuery = query(
-  reservationHistoryRef,
-  where('userId', '==', userId),
-  where('status', '==', 'returned')
-);
-
-const reservationHistorySnapshot = await getDocs(reservationHistoryQuery);
-const reservationHistoryData = reservationHistorySnapshot.docs.flatMap(doc => {
-  const data = doc.data();
   
-  return (data.items || []).map(subItem => ({
-    ...subItem,
-    parentId: doc.id,
-    status: data.status,
-    returnDate: data.returnDate,
-    returnStatus: data.returnStatus,
-    penaltyPoints: data.penaltyPoints,
-    reservationDate: data.reservationDate,
-    reservationTime: data.reservationTime,
-    createdAt: data.createdAt
-  }));
-});
-
-// rentalHistory를 rentals + reservations 이력으로 합치기
-setRentalHistory([...historyData, ...reservationHistoryData]);
-      
-
-
-
-
-
-
-
-     // Fetch active reservations that should be shown in current rentals
-const reservationsRef = collection(db, 'reservations');
-const reservationsQuery = query(
-  reservationsRef,
-  where('userId', '==', userId),
-  where('status', '==', 'active')
-);
-
-const reservationsSnapshot = await getDocs(reservationsQuery);
-const reservationsData = await Promise.all(
-  reservationsSnapshot.docs.map(async (doc) => {
-    const data = doc.data();
-    const rentalCount = await getUserRentalCount(data.userId); // 대여 횟수 가져오기
-    return {
-      id: doc.id,
-      ...data,
-      rentalCount,
-    };
-  })
-);
-      
-      // Add current active reservations to current rentals
-      setCurrentRentals(prevRentals => [...prevRentals, ...reservationsData]);
-      
-      // Combine all items for image fetching
-      const allItems = [...currentRentalsData, ...historyData, ...reservationsData];
-if (allItems.length > 0) {
-  fetchItemImages(allItems);
-}
-
-      
+      // 이미지 통합해서 로딩
+      const allItems = [...currentRentalsData, ...historyData, ...pendingData, ...returnRequestedData];
+      if (allItems.length > 0) {
+        fetchItemImages(allItems);
+      }
+  
+      setRentalHistory(historyData);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -352,42 +345,24 @@ if (allItems.length > 0) {
     }
   };
 
-  // Fetch images for all items
-  const fetchItemImages = async (items) => {
+  const fetchItemImages = (items) => {
     const urls = {};
   
     for (const item of items) {
-      // 예약 데이터인 경우, item.items 배열이 존재함
-      if (item.items && Array.isArray(item.items)) {
-        for (const subItem of item.items) {
-          console.log("렌탈 항목 image 확인:", subItem.name, subItem.image);
-          if (subItem.image) {
-            try {
-              const url = await getImageURL(subItem.image);
-              urls[subItem.id] = url;
-            } catch (error) {
-              console.error(`Error loading image for ${subItem.name}:`, error);
-              urls[subItem.id] = null;
-            }
-          }
-        }
-      } else {
-        // 일반 rental 문서 (name, image 바로 있음)
-        console.log("렌탈 항목 image 확인:", item.name, item.image);
-        if (item.image) {
-          try {
-            const url = await getImageURL(item.image);
-            urls[item.id] = url;
-          } catch (error) {
-            console.error(`Error loading image for ${item.name}:`, error);
-            urls[item.id] = null;
-          }
+      if (item.items && item.items.length > 0) {
+        const firstItem = item.items[0];
+        if (firstItem.imageURL) {
+          urls[item.id] = firstItem.imageURL;
+        } else {
+          urls[item.id] = null;
         }
       }
     }
   
     setImageUrls(urls);
   };
+  
+  
   
 
   // Handle file selection for agreement
@@ -449,6 +424,74 @@ if (allItems.length > 0) {
       [itemId]: !prev[itemId]
     }));
   };
+  
+  // ✅ 여기 아래에 붙이세요
+  const handleReturnImageUpload = async (e, reservationId) => {
+    const file = e.target.files[0];
+    if (!file || !reservationId) return;
+  
+    const compressedBlob = await compressImage(file, 800, 0.7);
+  
+    const storageRef = ref(storage, `returnImages/${reservationId}/${file.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, compressedBlob);
+
+  
+  
+    uploadTask.on('state_changed',
+      null,
+      (error) => {
+        console.error('이미지 업로드 실패:', error);
+        alert('이미지 업로드에 실패했습니다.');
+      },
+      async () => {
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        await updateDoc(doc(db, 'reservations', reservationId), {
+          returnImageURL: downloadURL,
+          returnImageUploadedAt: serverTimestamp(),
+        });
+  
+        // ✅ 업로드 완료 상태 저장
+        setUploadedReturnImages(prev => ({
+          ...prev,
+          [reservationId]: true
+        }));
+  
+        alert('반납 사진이 성공적으로 업로드되었습니다.');
+      }
+    );
+  };
+  
+  
+  const compressImage = (file, maxWidth = 800, quality = 0.7) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      img.src = e.target.result;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const scaleFactor = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = img.height * scaleFactor;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Blob 생성 실패'));
+      }, 'image/jpeg', quality);
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+  
 
   // Format date for readable display
   const formatDate = (dateString, timeString) => {
@@ -525,39 +568,48 @@ if (allItems.length > 0) {
           alignItems: isExpanded ? 'flex-start' : 'center'
         }}>
           {/* Item Image */}
-          <div style={{ 
-            width: '100px', 
-            height: '100px', 
-            marginRight: '20px',
-            backgroundColor: '#F5F5F5',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            flexShrink: 0
-          }}>
-            {imageUrls[item.id] ? (
-              <img 
-                src={imageUrls[item.id]} 
-                alt={item.name} 
-                style={{ 
-                  width: '100%', 
-                  height: '100%', 
-                  objectFit: 'cover' 
-                }} 
-              />
-            ) : (
-              <div style={{ textAlign: 'center', color: '#999' }}>
-                No Image
-              </div>
-            )}
-          </div>
+<div style={{ 
+  width: '100px', 
+  height: '100px', 
+  marginRight: '20px',
+  backgroundColor: '#F5F5F5',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  flexShrink: 0
+}}>
+  {imageUrls[item.id] ? (
+    <img 
+      src={imageUrls[item.id]} 
+      alt={item.name} 
+      style={{ 
+        width: '100%', 
+        height: '100%', 
+        objectFit: 'cover' 
+      }} 
+    />
+  ) : (
+    <div style={{ textAlign: 'center', color: '#999' }}>
+      No Image
+    </div>
+  )}
+</div>
+
 
           {/* Item Basic Info */}
           <div style={{ flex: 1 }}>
+          {item.rentalCount !== undefined && (
+  <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>
+   
+  </p>
+)}
+
+📦 이 사용자의 {item.rentalCount}번째 대여입니다
             <p style={{ color: '#666' }}>
-              {item.brand && `${item.brand} | `}
-              {item.category || ''} | {item.condition || '상태 정보 없음'}
-            </p>
+  {item.brand && `${item.brand} | `}
+  {item.category}
+  {item.condition && ` | ${item.condition}`}
+</p>
             
             <div style={{ 
               display: 'flex', 
@@ -574,81 +626,144 @@ if (allItems.length > 0) {
               </div>
               
               {isHistory && (
-                <div style={{ marginTop: '5px', color: item.returnStatus === 'late' ? '#e53935' : '#4caf50' }}>
-                  <span style={{ fontWeight: 'bold', marginRight: '10px' }}>반납 상태:</span>
-                  {item.returnStatus === 'late' ? '연체' : '정상 반납'}
-                </div>
-              )}
+  <div style={{
+    marginTop: '5px',
+    color:
+      item.returnStatus === 'late' ? '#e53935' :
+      item.returnStatus === 'damaged' ? '#ff9800' :
+      '#4caf50'
+  }}>
+    <span style={{ fontWeight: 'bold', marginRight: '10px' }}>반납 상태:</span>
+    {item.returnStatus === 'late' && '연체'}
+    {item.returnStatus === 'damaged' && '벌점 부과'}
+    {item.returnStatus === 'normal' && '정상 반납'}
+  </div>
+)}
+
             </div>
           </div>
         </div>
         
         {/* Extended information when expanded */}
         {isExpanded && (
+  <div style={{
+    marginTop: '15px',
+    paddingTop: '15px',
+    borderTop: '1px solid #e0e0e0'
+  }}>
+    <p><strong>예약 일시:</strong> {formatFullKoreanDateTime(item.approvedAt)}</p>
+    {item.purpose && <p><strong>대여 목적:</strong> {item.purpose}</p>}
+    {item.description && <p><strong>설명:</strong> {item.description}</p>}
+    {item.notes && <p><strong>비고:</strong> {item.notes}</p>}
 
-          
-          
-          <div style={{
-            marginTop: '15px',
-            paddingTop: '15px',
-            borderTop: '1px solid #e0e0e0'
-          }}>
-
-        
-<p><strong>예약 일시:</strong> {formatFullKoreanDateTime(item.approvedAt)}</p>
-            {item.purpose && <p><strong>대여 목적:</strong> {item.purpose}</p>}
-            {item.description && <p><strong>설명:</strong> {item.description}</p>}
-            {item.notes && <p><strong>비고:</strong> {item.notes}</p>}
-            
-
-            {item.items && item.items.length > 0 && (
-  <div style={{ marginTop: '15px' }}>
-    <h4 style={{ marginBottom: '10px', fontSize: '16px' }}>장비 리스트</h4>
-    {item.items.map((equip, idx) => (
-      <div key={idx} style={{ display: 'flex', marginBottom: '20px' }}>
-        <div style={{ marginRight: '20px' }}>
-          {equip.imageURL ? (
-            <img 
-              src={equip.imageURL}
-              alt={equip.name}
-              style={{ width: '160px', height: '160px', objectFit: 'cover', borderRadius: '4px' }}
-            />
-          ) : (
-            <div style={{ 
-              width: '160px', height: '160px',
-              backgroundColor: '#E0E0E0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px'
-            }}>
-              <span>이미지 없음</span>
+    {/* 장비 리스트 */}
+    {item.items && item.items.length > 0 && (
+      <div style={{ marginTop: '15px' }}>
+        <h4 style={{ marginBottom: '10px', fontSize: '16px' }}>장비 리스트</h4>
+        {item.items.map((equip, idx) => (
+          <div key={idx} style={{ display: 'flex', marginBottom: '20px' }}>
+            <div style={{ marginRight: '20px' }}>
+              {equip.imageURL ? (
+                <img 
+                  src={equip.imageURL}
+                  alt={equip.name}
+                  style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
+                />
+              ) : (
+                <div style={{ 
+                  width: '100px', height: '100px',
+                  backgroundColor: '#E0E0E0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px'
+                }}>
+                  <span>이미지 없음</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <div>
-          <p><strong>장비 이름:</strong> {equip.name}</p>
-          {equip.condition && <p><strong>상태:</strong> {equip.condition}</p>}
-          {equip.category && <p><strong>분류:</strong> {equip.category}</p>}
-        </div>
+            <div>
+              <p><strong>장비 이름:</strong> {equip.name}</p>
+              {equip.condition && <p><strong>상태:</strong> {equip.condition}</p>}
+              {equip.category && <p><strong>분류:</strong> {equip.category}</p>}
+            </div>
+          </div>
+        ))}
       </div>
-    ))}
-  </div>
-)}
-            
-{/* 렌탈 카드 내 버튼 표시 조건 */}
-{item.status === 'active' && (
+    )}
+
+{item.status === 'pending' && (
   <button
-    onClick={() => handleReturnRequest(item.id)}
+    onClick={() => cancelReservation(item.id)}
     style={{
-      marginTop: '10px',
       padding: '8px 12px',
-      backgroundColor: '#4285f4',
-      color: '#fff',
+      backgroundColor: '#ff5252',
+      color: 'white',
       border: 'none',
       borderRadius: '5px',
+      marginTop: '10px',
       cursor: 'pointer'
     }}
   >
-    반납 요청
+    대여 신청 취소
   </button>
 )}
+
+
+
+            
+
+{/* 기존 반납 상태 표시 */}
+{item.status === 'returned' && item.returnStatus && (
+        <div style={{ 
+          padding: '8px 12px', 
+          backgroundColor: item.returnStatus === 'late' ? '#ffebee' : '#e8f5e9',
+          color: item.returnStatus === 'late' ? '#d32f2f' : '#2e7d32',
+          borderRadius: '5px'
+        }}>
+          <strong>반납 상태:</strong> {item.returnStatus === 'late' ? '연체' : '정상 반납'}
+        </div>
+      )}
+
+      
+
+            
+{/* 렌탈 카드 내 버튼 표시 조건 */}
+{item.status === 'active' && (
+  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+    
+    {/* ✅ 이미지 업로드 먼저 */}
+    <label style={{
+      padding: '8px 12px',
+      backgroundColor: '#e0e0e0',
+      color: '#333',
+      borderRadius: '5px',
+      cursor: 'pointer',
+      display: 'inline-block'
+    }}>
+      반납 사진 업로드
+      <input 
+        type="file" 
+        accept="image/*"
+        onChange={(e) => handleReturnImageUpload(e, item.id)} 
+        style={{ display: 'none' }}
+      />
+    </label>
+
+    {/* ✅ 반납 요청 버튼: 이미지 업로드 전엔 비활성화 */}
+    <button
+      onClick={() => handleReturnRequest(item.id)}
+      disabled={!uploadedReturnImages[item.id]}
+      style={{
+        padding: '8px 12px',
+        backgroundColor: uploadedReturnImages[item.id] ? '#4285f4' : '#cccccc',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '5px',
+        cursor: uploadedReturnImages[item.id] ? 'pointer' : 'not-allowed'
+      }}
+    >
+      반납 요청
+    </button>
+  </div>
+)}
+
 
 
             {isHistory && item.returnStatus === 'late' && (
@@ -662,9 +777,13 @@ if (allItems.length > 0) {
                   <AlertTriangle size={16} style={{ marginRight: '5px', verticalAlign: 'middle' }} />
                   연체 정보: {item.lateDays || 0}일 연체
                 </p>
-                {item.penaltyPoints > 0 && (
-                  <p style={{ color: '#c62828' }}>부과된 벌점: {item.penaltyPoints}점</p>
-                )}
+                {Number(item.penaltyPoints) > 0 && (
+  <p style={{ color: '#c62828' }}>
+    부과된 벌점: {item.penaltyPoints}점
+  </p>
+)}
+
+
               </div>
             )}
           </div>
@@ -947,89 +1066,109 @@ if (allItems.length > 0) {
               </div>
 
               {/* Agreement upload section */}
-              <div style={{ 
-                border: '1px solid #E0E0E0', 
-                borderRadius: '10px',
-                padding: '20px'
-              }}>
-                <h3 style={{ 
-                  fontSize: '16px', 
-                  fontWeight: 'bold', 
-                  marginBottom: '15px',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}>
-                  <FileText size={18} style={{ marginRight: '8px' }} />
-                  대여 서약서
-                </h3>
+<div style={{ 
+  border: '1px solid #E0E0E0', 
+  borderRadius: '10px',
+  padding: '20px'
+}}>
+  <h3 style={{ 
+    fontSize: '16px', 
+    fontWeight: 'bold', 
+    marginBottom: '15px',
+    display: 'flex',
+    alignItems: 'center'
+  }}>
+    <FileText size={18} style={{ marginRight: '8px' }} />
+    대여 서약서
+  </h3>
 
-                {agreementSubmitted ? (
-                  <div style={{
-                    backgroundColor: '#e8f5e9',
-                    color: '#2e7d32',
-                    padding: '10px',
-                    borderRadius: '5px',
-                    marginTop: '10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <CheckCircle size={16} style={{ marginRight: '8px' }} />
-                    서약서가 등록되었습니다
-                  </div>
-                ) : (
-                  <div>
-                    <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-                      장비 대여를 위해 서약서를 등록해주세요. 한 번만 등록하면 됩니다.
-                    </p>
-                    
-                    <input 
-                      type="file" 
-                      onChange={handleFileChange}
-                      style={{ marginBottom: '15px', width: '100%' }}
-                      accept=".pdf,.doc,.docx"
-                    />
-                    
-                    {isUploading && (
-                      <div style={{ marginBottom: '15px' }}>
-                        <div style={{ 
-                          width: '100%', 
-                          height: '5px', 
-                          backgroundColor: '#e0e0e0',
-                          borderRadius: '3px',
-                          overflow: 'hidden'
-                        }}>
-                          <div style={{ 
-                            height: '100%', 
-                            width: `${uploadProgress}%`,
-                            backgroundColor: '#4caf50',
-                            transition: 'width 0.3s'
-                          }} />
-                        </div>
-                        <p style={{ fontSize: '12px', color: '#666', marginTop: '5px', textAlign: 'center' }}>
-                          {Math.round(uploadProgress)}% 업로드 중...
-                        </p>
-                      </div>
-                    )}
-                    
-                    <button 
-                      onClick={uploadAgreement}
-                      disabled={!agreementFile || isUploading}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        backgroundColor: agreementFile && !isUploading ? '#4caf50' : '#e0e0e0',
-                        color: agreementFile && !isUploading ? 'white' : '#666',
-                        border: 'none',
-                        borderRadius: '5px',
-                        cursor: agreementFile && !isUploading ? 'pointer' : 'not-allowed'
-                      }}
-                    >
-                      서약서 등록하기
-                    </button>
-                  </div>
-                )}
-              </div>
+  <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+    장비 대여를 위해 서약서를 등록해주세요. 한 번만 등록하면 됩니다.
+  </p>
+
+  {agreementSubmitted && agreementURL && (
+    <div style={{
+      backgroundColor: '#e8f5e9',
+      color: '#2e7d32',
+      padding: '10px',
+      borderRadius: '5px',
+      marginBottom: '15px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <CheckCircle size={16} style={{ marginRight: '8px' }} />
+        서약서가 등록되었습니다.
+      </div>
+      <a 
+        href={agreementURL} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        style={{ 
+          marginLeft: '10px', 
+          fontSize: '14px', 
+          color: '#2e7d32',
+          textDecoration: 'underline'
+        }}
+      >
+        보기
+      </a>
+    </div>
+  )}
+
+  {agreementSubmitted && (
+    <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+      잘못 등록하셨나요?
+    </p>
+  )}
+
+<input 
+  type="file" 
+  onChange={handleFileChange}
+  style={{ marginBottom: '10px', width: '100%' }}
+  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.bmp,.gif,.webp,.heic"
+/>
+
+  {isUploading && (
+    <div style={{ marginBottom: '10px' }}>
+      <div style={{ 
+        width: '100%', 
+        height: '5px', 
+        backgroundColor: '#e0e0e0',
+        borderRadius: '3px',
+        overflow: 'hidden'
+      }}>
+        <div style={{ 
+          height: '100%', 
+          width: `${uploadProgress}%`,
+          backgroundColor: '#4caf50',
+          transition: 'width 0.3s'
+        }} />
+      </div>
+      <p style={{ fontSize: '12px', color: '#666', marginTop: '5px', textAlign: 'center' }}>
+        {Math.round(uploadProgress)}% 업로드 중...
+      </p>
+    </div>
+  )}
+
+  <button 
+    onClick={uploadAgreement}
+    disabled={!agreementFile || isUploading}
+    style={{
+      width: '100%',
+      padding: '10px',
+      backgroundColor: agreementFile && !isUploading ? '#4caf50' : '#e0e0e0',
+      color: agreementFile && !isUploading ? 'white' : '#666',
+      border: 'none',
+      borderRadius: '5px',
+      cursor: agreementFile && !isUploading ? 'pointer' : 'not-allowed'
+    }}
+  >
+    {agreementSubmitted ? '서약서 다시 등록하기' : '서약서 등록하기'}
+  </button>
+</div>
+
             </div>
 
             {/* Main content area */}
@@ -1051,6 +1190,37 @@ if (allItems.length > 0) {
                 >
                   현재 대여 장비
                 </div>
+
+
+                <div 
+                  style={{ 
+                    padding: '10px 20px',
+                    fontWeight: activeTab === 'pending' ? 'bold' : 'normal',
+                    borderBottom: activeTab === 'pending' ? '2px solid #000' : 'none',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setActiveTab('pending')}
+                >
+                  대여 신청 중
+                </div>
+
+
+
+                <div 
+                  style={{ 
+                    padding: '10px 20px',
+                    fontWeight: activeTab === 'returning' ? 'bold' : 'normal',
+                    borderBottom: activeTab === 'returning' ? '2px solid #000' : 'none',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setActiveTab('returning')}
+                >
+                  반납 요청 중
+                </div>
+
+
+
+
                 <div 
                   style={{ 
                     padding: '10px 20px',
@@ -1062,6 +1232,9 @@ if (allItems.length > 0) {
                 >
                   대여 이력
                 </div>
+
+
+
               </div>
 
               {/* Current rentals tab */}
@@ -1085,6 +1258,38 @@ if (allItems.length > 0) {
                   )}
                 </div>
               )}
+
+{activeTab === 'pending' && (
+  <div>
+    {pendingRentals.length === 0 ? (
+      <div>대여 신청 중인 장비가 없습니다.</div>
+    ) : (
+      pendingRentals.map(item => (
+        <div key={item.id}>
+          {renderRentalItem(item)}
+
+        </div>
+      ))
+    )}
+  </div>
+)}
+
+{activeTab === 'returning' && (
+  <div>
+    {returnRequestedRentals.length === 0 ? (
+      <div>반납 요청 중인 장비가 없습니다.</div>
+    ) : (
+      returnRequestedRentals.map(item => (
+        <div key={item.id}>
+          {renderRentalItem(item)}
+         
+        </div>
+      ))
+    )}
+  </div>
+)}
+
+
 
               {/* Rental history tab */}
               {activeTab === 'history' && (

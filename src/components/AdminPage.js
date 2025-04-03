@@ -336,55 +336,63 @@ const AdminPage = () => {
   };
 
   // 대여 신청 승인
-const approveRental = async (rentalId) => {
-  try {
-    // 1. Firebase 상태 업데이트
-    const rentalRef = doc(db, 'reservations', rentalId);
-    await updateDoc(rentalRef, {
-      status: 'active',
-      approvedAt: serverTimestamp(),
-      approvedBy: admin.uid
-    });
-
-    // 2. 장비 상태를 'rented'로 변경
-    const rentalDoc = await getDoc(rentalRef);
-    const rentalData = rentalDoc.data();
-
-    if (rentalData.equipmentId) {
-      const equipmentRef = doc(db, 'cameras', rentalData.equipmentId);
-      await updateDoc(equipmentRef, {
-        status: 'rented',
-        lastRentalId: rentalId
+  const approveRental = async (rentalId) => {
+    try {
+      // 1. Firebase 상태 업데이트
+      const rentalRef = doc(db, 'reservations', rentalId);
+      await updateDoc(rentalRef, {
+        status: 'active',
+        approvedAt: serverTimestamp(),
+        approvedBy: admin.uid
       });
+  
+      // 2. 장비 상태를 'rented'로 변경
+      const rentalDoc = await getDoc(rentalRef);
+      const rentalData = rentalDoc.data();
+  
+      if (rentalData.equipmentId) {
+        const equipmentRef = doc(db, 'cameras', rentalData.equipmentId);
+        await updateDoc(equipmentRef, {
+          status: 'rented',
+          lastRentalId: rentalId
+        });
+      }
+  
+      // ✅ 3. Google Calendar 등록 시도 (실패해도 무시)
+      try {
+        const response = await fetch('/api/addEventToCalendar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: `[장비 대여 승인] ${rentalData.name}`,
+            description: `사용자: ${rentalData.userName || rentalData.userId}\n사용 목적: ${rentalData.purpose || '없음'}`,
+            startDate: rentalData.rentalDate,
+            startTime: rentalData.rentalTime,
+            endDate: rentalData.returnDate,
+            endTime: rentalData.returnTime
+          })
+        });
+  
+        if (!response.ok) {
+          console.warn('⚠️ 캘린더 등록 실패 (응답 오류):', await response.text());
+        }
+      } catch (calendarError) {
+        console.warn('⚠️ 캘린더 등록 중 예외 발생 (무시함):', calendarError);
+      }
+  
+      // 승인 완료 알림
+      alert('대여 신청이 승인되었습니다.');
+      fetchRentalData();
+    } catch (error) {
+      console.error('Error approving rental:', error);
+      alert('승인 처리 중 오류가 발생했습니다.');
     }
+  };
+  ``
+  
 
-    // 3. 서버에 Google Calendar 등록 요청
-    const response = await fetch('/api/addEventToCalendar', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        title: `[장비 대여 승인] ${rentalData.name}`,
-        description: `사용자: ${rentalData.userName || rentalData.userId}\n사용 목적: ${rentalData.purpose || '없음'}`,
-        startDate: rentalData.rentalDate,
-        startTime: rentalData.rentalTime,
-        endDate: rentalData.returnDate,
-        endTime: rentalData.returnTime
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('캘린더 등록 실패');
-    }
-
-    alert('대여 신청이 승인되었고, 일정이 캘린더에 등록되었습니다.');
-    fetchRentalData();
-  } catch (error) {
-    console.error('Error approving rental:', error);
-    alert('승인 처리 중 오류가 발생했습니다.');
-  }
-};
 
 
 
@@ -472,25 +480,32 @@ const approveRental = async (rentalId) => {
       });
       
       // 2. 사용자 프로필에 벌점 추가
-      const userRef = doc(db, 'user_profiles', currentUser.id);
-      const userDoc = await getDoc(userRef);
-      
-      if (userDoc.exists()) {
-        const currentPenalty = userDoc.data().penaltyPoints || 0;
-        await updateDoc(userRef, {
-          penaltyPoints: currentPenalty + penaltyPoints,
-          penaltyHistory: [
-            ...(userDoc.data().penaltyHistory || []),
-            {
-              points: penaltyPoints,
-              reason: penaltyReason,
-              date: serverTimestamp(),
-              rentalId: currentUser.rentalId,
-              adminId: admin.uid
-            }
-          ]
-        });
+      const userRef = doc(db, 'user_profiles', currentUser.id); // ✅ currentUser.id는 UID여야 함
+const userDoc = await getDoc(userRef);
+
+if (userDoc.exists()) {
+  const currentPenalty = userDoc.data().penaltyPoints || 0;
+
+  await updateDoc(userRef, {
+    penaltyPoints: currentPenalty + penaltyPoints,
+    penaltyHistory: [
+      ...(userDoc.data().penaltyHistory || []),
+      {
+        points: penaltyPoints,
+        reason: penaltyReason,
+        date: new Date(), // ✅ 수정됨!
+        rentalId: currentUser.rentalId,
+        adminId: admin.uid
       }
+    ]
+  });
+  
+
+  console.log('✅ 벌점 성공적으로 업데이트됨');
+} else {
+  console.warn('❗ user_profiles 문서가 존재하지 않음');
+}
+
       
       // 3. 장비 상태 업데이트
       const rentalDoc = await getDoc(rentalRef);
@@ -607,7 +622,8 @@ const approveRental = async (rentalId) => {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 1000
+        zIndex: 1000,
+        color: "#000000"
       }}>
         <div style={{
           backgroundColor: 'white',
@@ -1059,7 +1075,8 @@ const approveRental = async (rentalId) => {
                 padding: '30px', 
                 textAlign: 'center', 
                 backgroundColor: '#f5f5f5',
-                borderRadius: '8px'
+                borderRadius: '8px',
+                color: '#000000'
               }}>
                 <p>대기 중인 대여 신청이 없습니다.</p>
               </div>
@@ -1078,7 +1095,8 @@ const approveRental = async (rentalId) => {
                 padding: '30px', 
                 textAlign: 'center', 
                 backgroundColor: '#f5f5f5',
-                borderRadius: '8px'
+                borderRadius: '8px',
+                color: '#000000'
               }}>
                 <p>현재 대여 중인 장비가 없습니다.</p>
               </div>

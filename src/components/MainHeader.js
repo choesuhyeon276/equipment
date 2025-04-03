@@ -73,7 +73,6 @@ function MainHeader({ scrollToSection, refs }) {
     navigate('/ReservationMainPage');
     setTimeout(() => {
       window.scrollTo(0, 0);
-      window.location.reload();
     }, 100);
   };
 

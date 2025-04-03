@@ -57,7 +57,7 @@ function Calendar() {
               width: '2000px',
               height: 'auto',
               objectFit: 'contain',
-              filter: "grayscale(100%)",
+              /* filter: "grayscale(100%)", */
             }}
           />
         </div>
@@ -113,7 +113,7 @@ function Calendar() {
               height: '750px',
               border: '0',
               borderRadius: '20px',
-              filter: "grayscale(100%)",
+              filter: "grayscale(50%)",
               margin: "-1px",
               padding: "1px",
               backgroundColor: "transparent",
