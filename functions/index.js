@@ -1,6 +1,7 @@
 const functions = require('firebase-functions');
 const nodemailer = require('nodemailer');
 const { addEvent } = require('./calendar');
+const { getFirestore, doc, getDoc } = require('firebase-admin/firestore');
 
 // 🔐 환경변수 설정: Gmail 정보
 const gmailEmail = functions.config().gmail.user;
@@ -34,36 +35,55 @@ exports.onRentalApproved = functions.firestore
     const before = change.before.data();
     const after = change.after.data();
 
-    // 승인되었을 때
     if (before.status !== 'active' && after.status === 'active') {
+      const db = getFirestore(); // firestore 초기화
+      const userId = after.userId;
       const items = after.items || [];
-      const userName = after.userName || after.userId || '이름 없음';
-      const userStudentId = after.userStudentId || '학번 없음';
-      const userPhone = after.userPhone || '전화번호 없음';
-      const userEmail = after.userEmail;
 
-      if (items.length === 0) {
-        console.error('❌ 장비 데이터 없음.');
-        return;
-      }
-
-      const equipmentList = items.map(item => `- ${item.name || '이름 없음'}`).join('\n');
-      const title = `${userName}`;
-      const description = `📝 학번: ${userStudentId}\n☎️ 전화번호: ${userPhone}\n📦 장비 목록:\n${equipmentList}\n\n📌 사용 목적: ${items[0].purpose || 'N/A'}`;
-
-      const startDate = items[0].rentalDate;
-      const startTime = items[0].rentalTime;
-      const endDate = items[0].returnDate;
-      const endTime = items[0].returnTime;
+      let userName = userId;
+      let userStudentId = '학번 없음';
+      let userPhone = '전화번호 없음';
+      let userEmail = after.userEmail;
 
       try {
-        await addEvent({ title, description, startDate, startTime, endDate, endTime });
-        console.log('✅ 캘린더 이벤트 추가 완료!');
-      } catch (error) {
-        console.error('❌ 이벤트 등록 실패:', error.response?.data || error);
+        const userName = after.userName || after.userId || '이름 없음';
+const userStudentId = after.userStudentId || '학번 없음';
+const userPhone = after.userPhone || '전화번호 없음';
+const userEmail = after.userEmail;
+
+
+        if (userProfileSnap.exists) {
+          const profile = userProfileSnap.data();
+          userName = profile.name || userName;
+          userStudentId = profile.studentId || '학번 없음';
+          userPhone = profile.phoneNumber || '전화번호 없음';
+          userEmail = profile.email || userEmail;
+        }
+      } catch (err) {
+        console.error('❌ user_profiles 불러오기 실패:', err);
       }
 
-      if (userEmail) {
+
+       // 📆 캘린더 등록 정보 구성
+       const equipmentList = items.map(item => `- ${item.name || '이름 없음'}`).join('\n');
+       const title = `${userName}`;
+       const description = `📝 학번: ${userStudentId}\n☎️ 전화번호: ${userPhone}\n📦 장비 목록:\n${equipmentList}\n\n📌 사용 목적: ${items[0].purpose || 'N/A'}`;
+ 
+       const startDate = items[0].rentalDate;
+       const startTime = items[0].rentalTime;
+       const endDate = items[0].returnDate;
+       const endTime = items[0].returnTime;
+ 
+
+       try {
+        await addEvent({ title, description, startDate, startTime, endDate, endTime });
+        console.log('✅ 캘린더 이벤트 등록 완료');
+      } catch (calendarError) {
+        console.error('❌ 캘린더 등록 실패:', calendarError.response?.data || calendarError);
+      }
+
+       // 📧 사용자 메일 발송
+       if (userEmail) {
         try {
           await sendMail(
             userEmail,
@@ -98,23 +118,48 @@ exports.onRentalApproved = functions.firestore
   });
 
 // ✅ 대여 신청 생성 시 → 관리자에게 메일
-exports.onRentalCreated = functions.firestore
+exports.onRentalApproved = functions.firestore
   .document('reservations/{rentalId}')
-  .onCreate(async (snap, context) => {
-    const data = snap.data();
-    const userName = data.userName || data.userId || '이름 없음';
-    const userStudentId = data.userStudentId || '학번 없음';
-    const userPhone = data.userPhone || '전화번호 없음';
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
 
-    try {
-      await sendMail(
-        adminEmail,
-        '새로운 대여 신청이 들어왔습니다',
-        `신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n상태: ${data.status}`
-      );
-      console.log('✅ 관리자 대여 신청 알림 메일 전송 완료');
-    } catch (mailError) {
-      console.error('❌ 관리자 대여 신청 메일 전송 실패:', mailError);
+    if (before.status !== 'active' && after.status === 'active') {
+      const items = after.items || [];
+
+      const userName = after.userName || after.userId || '이름 없음';
+      const userStudentId = after.userStudentId || '학번 없음';
+      const userPhone = after.userPhone || '전화번호 없음';
+      const userEmail = after.userEmail;
+
+      const equipmentList = items.map(item => `- ${item.name || '이름 없음'}`).join('\n');
+      const title = userName;
+      const description = `📌 학번: ${userStudentId}\n📞 전화번호: ${userPhone}\n📦 장비 목록:\n${equipmentList}`;
+
+      const startDate = items[0].rentalDate;
+      const startTime = items[0].rentalTime;
+      const endDate = items[0].returnDate;
+      const endTime = items[0].returnTime;
+
+      try {
+        await addEvent({ title, description, startDate, startTime, endDate, endTime });
+        console.log('✅ 캘린더 이벤트 등록 완료');
+      } catch (calendarError) {
+        console.error('❌ 캘린더 등록 실패:', calendarError.response?.data || calendarError);
+      }
+
+      if (userEmail) {
+        try {
+          await sendMail(
+            userEmail,
+            '장비 대여가 승인되었습니다.',
+            `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\nDIRT 장비대여 시스템`
+          );
+          console.log('✅ 사용자 메일 전송 완료');
+        } catch (mailError) {
+          console.error('❌ 사용자 메일 전송 실패:', mailError);
+        }
+      }
     }
   });
 
