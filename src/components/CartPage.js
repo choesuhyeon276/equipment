@@ -9,8 +9,11 @@ import {
   doc,
   getDoc,
   getImageURL,
-  setDoc
+  collection,
+  setDoc,
+  getFirestore
 } from '../firebase/firebaseConfig';
+
 
 const CartPage = () => {
   const location = useLocation();
@@ -169,7 +172,26 @@ const CartPage = () => {
   };
 
   // 방법 2: 임시로 Firebase에만 예약 정보 저장하는 함수 (관리자 캘린더 API가 아직 없을 경우)
-  const saveReservationToFirebase = async () => {
+  const saveReservationToFirebase = async (user, cartItems, startDate, endDate) => {
+    const db = getFirestore();
+  const reservationId = `${user.uid}_${Date.now()}`;
+  const reservationsRef = doc(db, "reservations", reservationId);
+
+  const reservationData = {
+    userId: user.uid,
+    items: cartItems,
+    rentalDate: startDate,
+    returnDate: endDate,
+    status: "pending",
+    timestamp: new Date()
+  };
+
+  if (!user || !user.uid) {
+    console.error("❗ 유저 정보가 없습니다.");
+    alert("로그인 후 이용해주세요.");
+    return;
+  }
+
     if (!user) {
       return alert('로그인이 필요합니다.');
     }
@@ -193,19 +215,20 @@ const CartPage = () => {
         items: cartItems,
         startDateTime,
         endDateTime,
-        status: 'pending', // 관리자 승인 대기 상태
+        status: 'pending',
         createdAt: new Date().toISOString(),
-        // 사용자 프로필 정보 추가
+      
+        // 🔽 user_profiles에서 불러온 정보 추가
         userName: userProfile?.name || '',
         userPhone: userProfile?.phoneNumber || '',
         userStudentId: userProfile?.studentId || '',
-        userEmail: userProfile?.email || ''
+        userEmail: userProfile?.email || '',
+        long_imageURL: uploadedFileName || null, // (있는 경우에만)
       });
-
+      
       if (uploadedFileName) {
         reservationData.long_imageURL = uploadedFileName;
       }
-      await addDoc(collection(db, 'reservations'), reservationData);
       
       // 성공 시 장바구니 비우기
       if (user) {
@@ -272,7 +295,7 @@ const CartPage = () => {
     }
     // user가 있는 경우에는 fetchFirebaseCartItems에서 loading 상태를 업데이트함
   }, [location.state]);
-  
+
   const [uploadedFileName, setUploadedFileName] = useState('');
 
   // 이미지 로딩
@@ -431,14 +454,26 @@ const CartPage = () => {
 
   // 예약 제출 핸들러 - 백엔드 API 또는 Firebase 중 선택
   const handleSubmitReservation = () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
     // API_ENDPOINT가 설정되어 있으면 백엔드 API를 사용, 아니면 Firebase에 저장
-    if (API_ENDPOINT !== '/api/calendar') {
-      createAdminCalendarEvent();
-    } else {
-      saveReservationToFirebase();
+    if (!user || !user.uid) {
+      alert("로그인이 필요합니다.");
+      return;
     }
+  
+    const firstItem = cartItems[0];
+  
+    if (!firstItem || !firstItem.rentalDate || !firstItem.returnDate) {
+      alert("대여 날짜와 반납 날짜를 선택해주세요.");
+      return;
+    }
+  
+    const startDate = firstItem.rentalDate;
+    const endDate = firstItem.returnDate;
+  
+    saveReservationToFirebase(user, cartItems, startDate, endDate);
   };
-
   return (
     <div style={{
       position: 'relative',
@@ -585,7 +620,6 @@ const CartPage = () => {
             }}>
               {cartItems.map((item) => (
                 <div 
-                  key={item.id} 
                   style={{
                     display: 'flex',
                     alignItems: 'center',

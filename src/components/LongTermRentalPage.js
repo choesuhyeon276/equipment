@@ -118,7 +118,7 @@ const styles = {
   pageContainer: {
     position: 'relative',
     width: '100vw',
-    height: '100vh',
+    height: '850px',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',

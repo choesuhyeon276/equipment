@@ -4,7 +4,7 @@ const ThingsNotePage = () => {
   return (
     <div style={{
       width: '100vw',
-      height: '100vh',
+      height: '910px',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
@@ -111,7 +111,7 @@ const ThingsNotePage = () => {
         {/* 배경 이미지 디자인 */}
         <div style={{
           position: 'absolute',
-          right: '0px',
+          right: '-50px',
           bottom: '-50px',
           width: '900px',
           height: '900px',

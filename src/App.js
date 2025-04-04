@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import { Route, Routes, Navigate } from "react-router-dom";
+import { Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Login from "./components/Login";
 import MainHeader from "./components/MainHeader";
 import Calendar from "./components/Calendar";
@@ -10,15 +10,12 @@ import ReservationMainPage from "./components/ReservationMainPage";
 import AdminCameraManagement from "./components/AdminCameraManagement";
 import CartPage from "./components/CartPage";
 import MyPage from "./components/MyPage";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebase/firebaseConfig";
 import AdminPage from "./components/AdminPage";
-
-
-// ✅ GIS용 Provider import
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "./firebase/firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
-// ✅ 환경 변수에서 client ID 불러오기
 const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 function App() {
@@ -26,24 +23,45 @@ function App() {
   const rentalMethodRef = useRef(null);
   const thingsNoteRef = useRef(null);
   const longTermRentalRef = useRef(null);
+
   const [user, setUser] = useState(null);
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+
+      if (currentUser) {
+        const userRef = doc(db, "user_profiles", currentUser.uid);
+        const snap = await getDoc(userRef);
+
+        if (snap.exists()) {
+          const data = snap.data();
+          const isIncomplete =
+            !data.phoneNumber ||
+            !data.studentId ||
+            !data.agreementURL;
+
+          setProfileIncomplete(isIncomplete);
+
+          if (isIncomplete && location.pathname !== "/mypage") {
+            navigate("/mypage", { state: { showAgreementReminder: true } });
+          }
+        }
+      }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [location.pathname, navigate]);
 
   function scrollToRef(ref) {
     if (ref && ref.current) {
-      ref.current.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
+      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
@@ -56,89 +74,99 @@ function App() {
     };
     const ref = refMap[sectionId];
     if (ref && ref.current) {
-      ref.current.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
+      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
+  if (loading) return null;
+
   return (
-    <GoogleOAuthProvider clientId={clientId}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={user ? <Navigate to="/main" /> : <Login />} />
+    <div style={{ fontFamily: "Pretendard Variable, sans-serif" }}>
+      <GoogleOAuthProvider clientId={clientId}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={user ? <Navigate to="/main" /> : <Login />} />
 
-        <Route 
-          path="/reservation" 
-          element={user ? <ReservationMainPage /> : <Navigate to="/login" state={{ from: '/reservation' }} />} 
-        />
-        <Route 
-          path="/cart" 
-          element={user ? <CartPage /> : <Navigate to="/login" state={{ from: '/cart' }} />} 
-        />
+          <Route
+            path="/reservation"
+            element={user ? <ReservationMainPage /> : <Navigate to="/login" state={{ from: "/reservation" }} />}
+          />
+          <Route
+            path="/cart"
+            element={user ? <CartPage /> : <Navigate to="/login" state={{ from: "/cart" }} />}
+          />
 
-        <Route
-          path="/main"
-          element={
-            <div style={{
-              margin: '0',
-              padding: '0',
-              width: '100vw',
-              backgroundColor: 'black',
-              overflowX: 'hidden',
-              scrollBehavior: 'smooth'
-            }}>
-              <MainHeader 
-                scrollToSection={scrollToRef} 
-                refs={{ 
-                  calendar: calendarRef, 
-                  rentalMethod: rentalMethodRef, 
-                  thingsNote: thingsNoteRef, 
-                  longTermRental: longTermRentalRef 
-                }} 
-              />
-              <div ref={calendarRef} id="calendar-section">
-                <Calendar />
+          <Route
+            path="/main"
+            element={
+              <div style={{
+                margin: "0",
+                padding: "0",
+                width: "100vw",
+                backgroundColor: "black",
+                overflowX: "hidden",
+                scrollBehavior: "smooth"
+              }}>
+                <MainHeader
+                  scrollToSection={scrollToRef}
+                  refs={{
+                    calendar: calendarRef,
+                    rentalMethod: rentalMethodRef,
+                    thingsNote: thingsNoteRef,
+                    longTermRental: longTermRentalRef
+                  }}
+                />
+                <div ref={calendarRef} id="calendar-section">
+                  <Calendar />
+                </div>
+                <div ref={rentalMethodRef} id="rental-method-section">
+                  <RentalMethodPage scrollToSection={scrollToSection} />
+                </div>
+                <div ref={thingsNoteRef} id="things-note-section">
+                  <ThingsNotePage />
+                </div>
+                <div ref={longTermRentalRef} id="long-term-rental-section">
+                  <LongTermRentalPage />
+                  <div style={{
+                    width: "100%",
+                    height: "30px",
+                    backgroundColor: "black",
+                    color: "white",
+                    textAlign: "center",
+                    lineHeight: "100px",
+                    fontSize: "16px"
+                  }}></div>
+                </div>
               </div>
-              <div ref={rentalMethodRef} id="rental-method-section">
-                <RentalMethodPage scrollToSection={scrollToSection} />
-              </div>
-              <div ref={thingsNoteRef} id="things-note-section">
-                <ThingsNotePage />
-              </div>
-              <div ref={longTermRentalRef} id="long-term-rental-section">
-                <LongTermRentalPage />
-              </div>
-            </div>
-          }
-        />
-        <Route path="/reservationMainPage" element={<ReservationMainPage />} />
-        <Route path="/reservation-main" element={<ReservationMainPage />} />
-        <Route path="/mainheader" element={<MainHeader />} />
-        <Route path="/calendar" element={<Calendar />} />
-        <Route path="/thingsnote" element={<ThingsNotePage />} />
-        <Route path="/mypage" element={<MyPage />} />
-        <Route path="/admins" element={<AdminPage />} />
-       
+            }
+          />
 
-        <Route
-          path="/cameramanagement"
-          element={
-            <div style={{
-              margin: '0',
-              padding: '0',
-              width: '100vw',
-              backgroundColor: 'black',
-              minHeight: '100vh',
-              overflowX: 'hidden'
-            }}>
-              <AdminCameraManagement />
-            </div>
-          }
-        />
-      </Routes>
-    </GoogleOAuthProvider>
+          <Route path="/reservationMainPage" element={<ReservationMainPage />} />
+          <Route path="/reservation-main" element={<ReservationMainPage />} />
+          <Route path="/mainheader" element={<MainHeader />} />
+          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/thingsnote" element={<ThingsNotePage />} />
+          <Route path="/mypage" element={<MyPage />} />
+          <Route path="/admins" element={<AdminPage />} />
+
+          <Route
+            path="/cameramanagement"
+            element={
+              <div style={{
+                margin: "0",
+                padding: "0",
+                width: "100vw",
+                backgroundColor: "black",
+                minHeight: "100vh",
+                overflowX: "hidden"
+              }}>
+                <AdminCameraManagement />
+              </div>
+            }
+          />
+        </Routes>
+      </GoogleOAuthProvider>
+    </div>
   );
 }
 

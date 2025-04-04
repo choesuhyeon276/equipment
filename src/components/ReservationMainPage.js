@@ -550,6 +550,7 @@ useEffect(() => {
     }
   }, [location.state]);
 
+  
   // 장바구니 추가 핸들러
   const handleAddToCart = async (camera) => {
     if (!rentalDate || !rentalTime || !returnDate || !returnTime) {
@@ -557,6 +558,12 @@ useEffect(() => {
       return;
     }
   
+
+    if (camera.condition === '수리') {
+      alert('이 장비는 현재 수리 중이라 대여할 수 없습니다.');
+      return;
+    }
+    
 // 해당 장비의 선택 날짜 가용성 확인
 const availability = equipmentAvailability[camera.id];
 if (availability && !availability.available) {
@@ -796,6 +803,12 @@ const returnTimeOptions = generateReturnTimeOptions();
           const newAvailability = {};
           for (const camera of cameras) {
             const result = await checkEquipmentAvailability(camera.id, startDate, endDate);
+
+            if (camera.condition === '수리') {
+              result.available = false;
+              result.reason = '수리 중';
+            }
+
             newAvailability[camera.id] = result;
           }
           setEquipmentAvailability(newAvailability);
@@ -1212,7 +1225,7 @@ const returnTimeOptions = generateReturnTimeOptions();
         </div>
       )}
       
-        {camera.status === 'rented' && (
+      {(camera.status === 'rented' || camera.condition === '수리') && (
         <div style={{
           position: 'absolute',
           top: '10px',
@@ -1226,7 +1239,7 @@ const returnTimeOptions = generateReturnTimeOptions();
           zIndex: 10,
           boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
         }}>
-          대여중
+          {camera.status === 'rented' ? '대여 중' : '수리 중'}
         </div>
       )}
 
@@ -1270,7 +1283,7 @@ const returnTimeOptions = generateReturnTimeOptions();
           <span>상태: {camera.condition}</span>
           
           {/* 대여 상태 표시 추가 */}
-          {camera.status === 'rented' && (
+          {(camera.status === 'rented' || camera.condition === '수리') && (
             <span style={{
               marginLeft: '10px',
               color: '#e74c3c',

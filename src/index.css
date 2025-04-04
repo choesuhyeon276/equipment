@@ -9,10 +9,15 @@ body, html, #root {
   height: 100%;
   background-color: #0A0A0A;
   color: white;
-  font-family: 'Pretendard', sans-serif;
+  font-family: 'Pretendard Variable', sans-serif;
   overflow-x: hidden; /* 화면 넘침 방지 */
   box-sizing: border-box;
 }
+
+* {
+  font-family: 'Pretendard Variable', sans-serif;
+}
+
 
 * {
   margin: 0;

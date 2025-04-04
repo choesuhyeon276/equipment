@@ -218,7 +218,7 @@ const AdminPage = () => {
       
       // 유저 정보 추가 로드 (필요한 경우)
       const enhancedPendingData = await Promise.all(pendingData.map(async (rental) => {
-        if (rental.userId && !rental.userName) {
+        if (rental.userId) {
           try {
             const userRef = doc(db, 'user_profiles', rental.userId);
             const userDoc = await getDoc(userRef);
@@ -226,15 +226,20 @@ const AdminPage = () => {
               const userData = userDoc.data();
               return {
                 ...rental,
-                userName: userData.name || userData.displayName || '이름 없음',
-                userEmail: userData.email || rental.userEmail || '이메일 없음'
+                userName: userData.name || '이름 없음',
+                userEmail: userData.email || rental.userEmail || '이메일 없음',
+                userPhone: userData.phone || '',
+                userStudentId: userData.studentId || '',
+                userPenalty: userData.penaltyPoints || 0,
+                userPenaltyHistory: userData.penaltyHistory || [],
+                userPledge: userData.pledgeFileURL || ''
               };
             }
           } catch (error) {
-            console.error('Error fetching user data:', error); // ✅ 이제 error 정의됨
+            console.error('Error fetching user data:', error);
           }
         }
-
+      
         return rental;
       }));
       
@@ -900,6 +905,7 @@ if (userDoc.exists()) {
           }}>
 
 {isExpanded && (
+  
   <div style={{ 
     padding: '10px', 
     backgroundColor: '#f9f9f9', 
@@ -939,6 +945,7 @@ if (userDoc.exists()) {
             <p><strong>장비 이름:</strong> {equip.name}</p>
           </div>
         </div>
+        
       ))
     ) : (
       <p>장비 정보 없음</p>
@@ -951,6 +958,9 @@ if (userDoc.exists()) {
       </div>
     )}
   </div>
+  
+
+  
 )}
 
             <div style={{ display: 'flex', marginBottom: '15px' }}>
@@ -994,10 +1004,21 @@ if (userDoc.exists()) {
                 )}
               </div>
             </div>
-            
+            {item.returnImageURL && (
+  <div style={{ marginTop: '10px', color:"black" }}>
+    <p><strong>반납 확인 사진:</strong></p>
+    <img 
+      src={item.returnImageURL} 
+      alt="반납 이미지" 
+      style={{ width: '540px', borderRadius: '8px', objectFit: 'cover' }} 
+    />
+  </div>
+)}
+
             {item.notes && (
               <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#fffde7', borderRadius: '4px' }}>
                 <p><strong>추가 메모:</strong></p>
+                
                 <p>{item.notes}</p>
               </div>
             )}

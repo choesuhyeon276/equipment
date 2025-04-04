@@ -88,7 +88,7 @@ function MainHeader({ scrollToSection, refs }) {
     <div style={{
       position: 'relative',
       width: '100vw',
-      height: '100vh',
+      height: '910px',
       backgroundColor: 'black',
       display: 'flex',
       justifyContent: 'center',

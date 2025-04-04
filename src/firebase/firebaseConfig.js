@@ -266,7 +266,8 @@ export {
   getDocs,
   setDoc,
   WriteBatch,
-  writeBatch
+  writeBatch,
+  addDoc
 };
 
 export default app;

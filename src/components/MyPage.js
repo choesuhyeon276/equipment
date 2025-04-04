@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+
+console.log("React:", React);
 import { User, ShoppingCart, Clock, FileText, AlertTriangle, ChevronDown, ChevronUp, CheckCircle, Edit, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -34,6 +36,7 @@ const formatKoreanDateTime = (isoString) => {
   const day = String(date.getDate()).padStart(2, '0');
   const hour = String(date.getHours()).padStart(2, '0');
   const minute = String(date.getMinutes()).padStart(2, '0');
+  
 
   return `${year}년 ${month}월 ${day}일 ${hour}시 ${minute}분`;
 };
@@ -73,6 +76,10 @@ const getUserRentalCount = async (userId) => {
 
 
 
+
+
+
+
 const MyPage = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -85,6 +92,7 @@ const MyPage = () => {
   const [loading, setLoading] = useState(true);
   const [imageUrls, setImageUrls] = useState({});
   const [activeTab, setActiveTab] = useState('current');
+  const [userProfile, setUserProfile] = useState({});
   const [expandedItems, setExpandedItems] = useState({});
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -94,6 +102,7 @@ const MyPage = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [pendingRentals, setPendingRentals] = useState([]);
   const [returnRequestedRentals, setReturnRequestedRentals] = useState([]);
+  const [isVisible, setIsVisible] = useState(true);
 
   const cancelReservation = async (reservationId) => {
     try {
@@ -151,7 +160,137 @@ const MyPage = () => {
   };
    
   
+// 👇 JSX return 바로 위에 추가 (렌더링 로직 안쪽)
+const missingFields = !userProfile?.phoneNumber || !userProfile?.studentId || !userProfile?.agreementURL;
 
+const renderMissingInfoNotice = () => {
+  if (!missingFields) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '16px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: '25%', 
+      maxWidth: '700px',
+      zIndex: 1000,
+      backgroundColor: '#fff8e1',
+      border: '1px solid #ffecb3',
+      padding: '24px',
+      borderRadius: '8px',
+      boxShadow: '0 4px 10px rgba(0, 0, 0, 0.15)',
+      color: '#5d4037',
+      animation: 'fadeInDown 0.5s ease forwards'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: '10px'
+      }}>
+        <h3 style={{
+          fontSize: '18px',
+          fontWeight: 'bold',
+          marginTop: 0,
+          marginBottom: '0',
+          color: '#e65100'
+        }}>⚠️ 대여 전 필수 정보 입력 안내</h3>
+        
+        
+      </div>
+      
+      <p style={{
+        fontSize: '15px',
+        lineHeight: '1.5',
+        marginBottom: '16px'
+      }}>
+        장비 예약을 위해 아래 정보를 먼저 입력해주세요:
+      </p>
+      
+      <ul style={{
+        paddingLeft: '20px',
+        marginBottom: '16px'
+      }}>
+        {!userProfile?.phoneNumber && (
+          <li style={{
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            fontSize: '15px',
+            lineHeight: '1.4'
+          }}>
+            <span style={{ marginRight: '8px' }}>📱</span> 전화번호가 입력되지 않았습니다.
+          </li>
+        )}
+        {!userProfile?.studentId && (
+          <li style={{
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            fontSize: '15px',
+            lineHeight: '1.4'
+          }}>
+            <span style={{ marginRight: '8px' }}>🎓</span> 학번이 입력되지 않았습니다.
+          </li>
+        )}
+        {!userProfile?.agreementURL && (
+          <li style={{
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            fontSize: '15px',
+            lineHeight: '1.4'
+          }}>
+            <span style={{ marginRight: '8px' }}>📝</span> 서약서가 업로드되지 않았습니다.
+            
+            <a 
+  href="https://firebasestorage.googleapis.com/v0/b/equipment-rental-system-838f0.firebasestorage.app/o/forms%2F2025%20%EB%94%94%EC%A7%80%ED%84%B8%EC%BD%98%ED%85%90%EC%B8%A0%ED%95%99%EA%B3%BC%20%EC%9E%A5%EB%B9%84%EB%8C%80%EC%97%AC%20%EC%84%9C%EC%95%BD%EC%84%9C.pdf?alt=media&token=8f4a614f-c628-4157-b18d-45fb95773542"
+  target="_blank"
+  rel="noopener noreferrer"
+  download="장비대여_서약서_2025.pdf"
+  style={{
+    display: 'inline-block',
+    backgroundColor: '#1976d2',
+    color: 'white',
+    padding: '6px 12px',
+    borderRadius: '4px',
+    textDecoration: 'none',
+    marginLeft: '10px',
+    fontSize: '13px',
+    transition: 'background-color 0.3s ease'
+  }}
+  onMouseOver={(e) => {
+    e.currentTarget.style.backgroundColor = '#1565c0';
+  }}
+  onMouseOut={(e) => {
+    e.currentTarget.style.backgroundColor = '#1976d2';
+  }}
+>
+  서약서 양식 다운로드
+</a>
+
+          </li>
+        )}
+      </ul>
+      
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes fadeInDown {
+            from {
+              opacity: 0;
+              transform: translate(-50%, -20px);
+            }
+            to {
+              opacity: 1;
+              transform: translate(-50%, 0);
+            }
+          }
+        `
+      }} />
+    </div>
+  );
+};
 
 
   
@@ -215,12 +354,13 @@ const MyPage = () => {
       
       if (userProfileDoc.exists()) {
         const profileData = userProfileDoc.data();
+        setUserProfile(profileData);
         setPenaltyPoints(profileData.penaltyPoints || 0);
         setAgreementSubmitted(profileData.agreementSubmitted || false);
         setStudentId(profileData.studentId || '');
         setPhoneNumber(profileData.phoneNumber || '');
-        if (profileData.agreementUrl) {
-          setAgreementURL(profileData.agreementUrl);
+        if (profileData.agreementURL) {
+          setAgreementURL(profileData.agreementURL);
         }
       
 
@@ -400,7 +540,7 @@ setReturnRequestedRentals(returnRequestedData);
           const userProfileRef = doc(db, 'user_profiles', user.uid);
           await updateDoc(userProfileRef, {
             agreementSubmitted: true,
-            agreementUrl: downloadURL,
+            agreementURL: downloadURL,
             agreementFilename: agreementFile.name,
             agreementUploadedAt: serverTimestamp()
           });
@@ -598,6 +738,7 @@ setReturnRequestedRentals(returnRequestedData);
 
           {/* Item Basic Info */}
           <div style={{ flex: 1 }}>
+  
           {item.rentalCount !== undefined && (
   <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>
    
@@ -920,6 +1061,9 @@ setReturnRequestedRentals(returnRequestedData);
         }}>
           마이페이지
         </h2>
+
+        {renderMissingInfoNotice()}
+
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '50px' }}>로딩 중...</div>

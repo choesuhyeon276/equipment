@@ -2,18 +2,30 @@
 
 
 관리자가 열람가능,+장기대여도
-관리자 반납사진 열람,
-각자 해상도에 따른 비율 변경
 구글캘린더랑 완전연동되나? 이거 캘린더에서 지워도 안되네
 처음 접속하면 서약서랑 전번 업데이트하러 ㄱㄱ
 
-메일온거 체크해보기 보안관련
 
 
 
 
-승인 처리중 오류 없는데 오류났다고 하는거 고치기
+"https://firebasestorage.googleapis.com/v0/b/equipment-rental-system-838f0.firebasestorage.app
+.appspot.com/o/forms%2Fagreement_form.pdf?alt=media"
 
+
+
+
+
+
+
+	
+
+
+수리인 애들 대여 불가 o
+관리자 반납사진 열람,O
+각자 해상도에 따른 비율 변경 o
+승인 처리중 오류 없는데 오류났다고 하는거 고치기 o 
+메일온거 체크해보기 보안관련 o
 대여신청중인 장비,o
 반납신청중인 장비 표시o
 대여 오면 메일이 와야댐o
