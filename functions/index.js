@@ -88,7 +88,7 @@ const userEmail = after.userEmail;
           await sendMail(
             userEmail,
             '장비 대여가 승인되었습니다.',
-            `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n 📦 장비 목록:\n${equipmentList}\n\n DIRT 장비대여 관리자 시스템 \n https://equipment-rental-system.vercel.app/admins \n\n https://equipment-rental-system.vercel.app/cameramanagement \nDIRT 장비대여 카메라관리리 시스템 `
+            `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n 📦 장비 목록:\n${equipmentList}\n\n DIRT 장비대여 시스템 `
           );
           console.log('✅ 사용자 메일 전송 완료');
         } catch (mailError) {
@@ -107,7 +107,7 @@ const userEmail = after.userEmail;
           await sendMail(
             userEmail,
             '장비 반납이 완료되었습니다.',
-            `${userName}님, 장비 반납이 완료되었습니다.\n\n이용해주셔서 감사합니다.`
+            `${userName}님, 장비 반납이 완료되었습니다.\n\n이용해주셔서 감사합니다. \n\n DIRT 장비대여 시스템 `
           );
           console.log('✅ 반납 완료 사용자 메일 전송 완료');
         } catch (mailError) {
@@ -118,13 +118,10 @@ const userEmail = after.userEmail;
   });
 
 // ✅ 대여 신청 생성 시 → 관리자에게 메일
-exports.onRentalApprovedAdminNotify = functions.firestore
+exports.onRentalCreatedAdminNotify = functions.firestore
   .document('reservations/{rentalId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data();
-    const after = change.after.data();
-
-    if (before.status !== 'active' && after.status === 'active') {
+  .onCreate(async (snap, context) => {
+    const after = snap.data();
       const items = after.items || [];
 
       const userName = after.userName || after.userId || '이름 없음';
@@ -134,7 +131,7 @@ exports.onRentalApprovedAdminNotify = functions.firestore
 
       const equipmentList = items.map(item => `- ${item.name || '이름 없음'}`).join('\n');
       const title = userName;
-      const description = `📌 학번: ${userStudentId}\n📞 전화번호: ${userPhone}\n📦 장비 목록:\n${equipmentList}`;
+      const description = `📌 학번: ${userStudentId}\n📞 전화번호: ${userPhone}\n📦 장비 목록:\n${equipmentList}\n\n DIRT 장비대여 시스템`;
 
       const startDate = items[0].rentalDate;
       const startTime = items[0].rentalTime;
@@ -151,17 +148,17 @@ exports.onRentalApprovedAdminNotify = functions.firestore
       if (userEmail) {
         try {
           await sendMail(
-            userEmail,
-            '장비 대여가 승인되었습니다.',
-            `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\nDIRT 장비대여 시스템`
+            adminEmail,
+            '📥 새로운 장비 대여 신청이 접수되었습니다.',
+            `신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n이메일: ${userEmail}\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n📦 장비 목록:\n${equipmentList}\n\n\nDIRT 장비대여 관리자 시스템 \n https://equipment-rental-system.vercel.app/admins \n\n https://equipment-rental-system.vercel.app/cameramanagement \nDIRT 장비대여 카메라관리리 시스템 `
           );
-          console.log('✅ 사용자 메일 전송 완료');
+          console.log('✅ 관리자에게 대여 신청 메일 전송 완료');
         } catch (mailError) {
-          console.error('❌ 사용자 메일 전송 실패:', mailError);
+          console.error('❌ 관리자 메일 전송 실패:', mailError.message || mailError);
         }
       }
     }
-  });
+  );
 
 // ✅ 반납 요청 시 → 관리자에게 메일
 exports.onReturnRequested = functions.firestore
@@ -179,7 +176,7 @@ exports.onReturnRequested = functions.firestore
         await sendMail(
           adminEmail,
           '반납 요청이 접수되었습니다.',
-          `신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n상태: ${after.status}`
+          `신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n상태: ${after.status} \n\n\nDIRT 장비대여 관리자 시스템 \n https://equipment-rental-system.vercel.app/admins \n\n https://equipment-rental-system.vercel.app/cameramanagement \nDIRT 장비대여 카메라관리리 시스템`
         );
         console.log('✅ 관리자 반납 요청 메일 전송 완료');
       } catch (mailError) {
