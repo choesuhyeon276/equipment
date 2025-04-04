@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const adminEmail = ["choesuhyeon276@gmail.com"]; // ✅ 관리자 이메일로 교체할 것
+const adminEmail = ["choesuhyeon276@gmail.com", "Gkrry24@khu.ac.kr"]; // ✅ 관리자 이메일로 교체할 것
 
 const sendMail = (to, subject, text) => {
   const mailOptions = {
@@ -29,7 +29,7 @@ const sendMail = (to, subject, text) => {
 };
 
 // ✅ 대여 승인 → 사용자 메일 + 캘린더 등록
-exports.onRentalApproved = functions.firestore
+exports.onRentalApprovedUserNotify = functions.firestore
   .document('reservations/{rentalId}')
   .onUpdate(async (change, context) => {
     const before = change.before.data();
@@ -88,7 +88,7 @@ const userEmail = after.userEmail;
           await sendMail(
             userEmail,
             '장비 대여가 승인되었습니다.',
-            `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\nDIRT 장비대여 시스템`
+            `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n 📦 장비 목록:\n${equipmentList}\n\n DIRT 장비대여 관리자 시스템 \n https://equipment-rental-system.vercel.app/admins \n\n https://equipment-rental-system.vercel.app/cameramanagement \nDIRT 장비대여 카메라관리리 시스템 `
           );
           console.log('✅ 사용자 메일 전송 완료');
         } catch (mailError) {
@@ -118,7 +118,7 @@ const userEmail = after.userEmail;
   });
 
 // ✅ 대여 신청 생성 시 → 관리자에게 메일
-exports.onRentalApproved = functions.firestore
+exports.onRentalApprovedAdminNotify = functions.firestore
   .document('reservations/{rentalId}')
   .onUpdate(async (change, context) => {
     const before = change.before.data();

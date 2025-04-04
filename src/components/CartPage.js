@@ -18,6 +18,7 @@ import {
 
 const CartPage = () => {
   const location = useLocation();
+  const uploadedFileURL = location.state?.uploadedFileURL || localStorage.getItem('uploadedFileURL');
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -211,7 +212,7 @@ const CartPage = () => {
       // 사용자 정보를 포함하여 예약 문서 생성
       const reservationId = `${user.uid}_${Date.now()}`;
       const reservationsRef = doc(db, 'reservations', reservationId);
-      await setDoc(reservationsRef, {
+      await setDoc(reservationsRef,  {
         userId: user.uid,
         items: cartItems,
         startDateTime,
@@ -224,12 +225,9 @@ const CartPage = () => {
         userPhone: userProfile?.phoneNumber || '',
         userStudentId: userProfile?.studentId || '',
         userEmail: userProfile?.email || '',
-        long_imageURL: uploadedFileName || null, // (있는 경우에만)
+        long_imageURL: uploadedFileURL || null, // (있는 경우에만)
       });
-      
-      if (uploadedFileName) {
-        reservationData.long_imageURL = uploadedFileName;
-      }
+    
       
       // 성공 시 장바구니 비우기
       if (user) {
@@ -272,33 +270,26 @@ const CartPage = () => {
 
   // 로컬스토리지나 location state에서 장바구니 아이템 로드
   useEffect(() => {
-    // location state에서 아이템 전달 여부 확인
     const passedCartItems = location.state?.cartItems;
-    
+    const passedFileName = location.state?.uploadedFileName;
   
     if (passedCartItems) {
-      // 이전 페이지에서 전달된 아이템이 있으면 사용
       setCartItems(passedCartItems);
       localStorage.setItem('cart', JSON.stringify(passedCartItems));
-
-      if (passedFileName) {
-        setUploadedFileName(passedFileName); // 👈 따로 useState 만들어줘야 함
-      }
-
-      setLoading(false);
-
-
-    } else if (!user) {
-      // 유저가 없고 전달된 아이템도 없으면 로컬스토리지에서 로드
+    }
+  
+    if (passedFileName) {
+      setUploadedFileName(passedFileName);  // ✅ 바로 여기가 문제였음!
+    }
+  
+    if (!passedCartItems && !user) {
       const storedCart = JSON.parse(localStorage.getItem('cart')) || [];
       setCartItems(storedCart);
-      setLoading(false);
     }
-    // user가 있는 경우에는 fetchFirebaseCartItems에서 loading 상태를 업데이트함
+  
+    setLoading(false);
   }, [location.state]);
-
-  const [uploadedFileName, setUploadedFileName] = useState('');
-
+  
   // 이미지 로딩
   useEffect(() => {
     const urls = {};

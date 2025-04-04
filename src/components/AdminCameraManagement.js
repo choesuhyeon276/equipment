@@ -5,7 +5,8 @@ import {
   getDocs, 
   deleteDoc, 
   doc, 
-  updateDoc 
+  updateDoc,
+  getDoc 
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -14,6 +15,8 @@ import {
   deleteObject
 } from 'firebase/storage';
 import { db, storage } from '../firebase/firebaseConfig';
+
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 const processImage = (file) => {
   return new Promise((resolve, reject) => {
@@ -108,10 +111,43 @@ const AdminEquipmentManagement = () => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [editingEquipment, setEditingEquipment] = useState(null);
-
+ 
   useEffect(() => {
-    fetchEquipments();
+    const auth = getAuth();
+  
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userRef = doc(db, 'user_profiles', user.uid);
+          const userDoc = await getDoc(userRef);
+  
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+  
+            if (userData.role !== 'admin') {
+              alert('관리자 권한이 없습니다.');
+              window.location.href = '/main'; // 일반 유저는 메인으로 이동
+            } else {
+              fetchEquipments(); // ✅ 관리자만 장비 데이터 조회
+            }
+          } else {
+            alert('사용자 정보가 존재하지 않습니다.');
+            window.location.href = '/main';
+          }
+        } catch (error) {
+          console.error('관리자 권한 확인 중 오류:', error);
+          alert('인증 확인 중 오류가 발생했습니다.');
+          window.location.href = '/main';
+        }
+      } else {
+        alert('로그인이 필요합니다.');
+        window.location.href = '/login';
+      }
+    });
+  
+    return () => unsubscribe();
   }, []);
+  
 
   const fetchEquipments = async () => {
     try {
@@ -170,7 +206,7 @@ if (imageFile) {
     imageUrl = uploadResult.downloadURL;
     
     // 기존 이미지가 있으면 삭제
-    if (editingEquipment && editingEquipment.image) {
+    if (editingEquipment && editingEquipment.imageURL) {
       try {
         const existingImageRef = ref(storage, editingEquipment.image);
         await deleteObject(existingImageRef);
@@ -223,8 +259,8 @@ if (imageFile) {
 
   const handleDelete = async (equipment) => {
     try {
-      if (equipment.image) {
-        const imageRef = ref(storage, equipment.image);
+      if (equipment.imageURL) {
+        const imageRef = ref(storage, equipment.imageURL);
         await deleteObject(imageRef);
       }
       
@@ -446,7 +482,7 @@ if (imageFile) {
                 backgroundColor: 'white'
               }}
             >
-              {equipment.image && (
+              {equipment.imageURL && (
                 <img 
                   src={equipment.imageURL} 
                   alt={equipment.name}

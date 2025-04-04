@@ -228,7 +228,7 @@ const AdminPage = () => {
                 ...rental,
                 userName: userData.name || '이름 없음',
                 userEmail: userData.email || rental.userEmail || '이메일 없음',
-                userPhone: userData.phone || '',
+                userPhone: userData.phoneNumber || '',
                 userStudentId: userData.studentId || '',
                 userPenalty: userData.penaltyPoints || 0,
                 userPenaltyHistory: userData.penaltyHistory || [],
@@ -957,6 +957,35 @@ if (userDoc.exists()) {
         <p>{item.notes}</p>
       </div>
     )}
+
+    {/* 장기 대여자 여부 표시 */}
+{item.long_imageURL && (
+  <div style={{
+    display: 'inline-block',
+    backgroundColor: '#fdd835',
+    color: '#000',
+    padding: '3px 8px',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    marginBottom: '10px'
+  }}>
+    장기 대여자
+  </div>
+)}
+
+{/* 장기 대여 첨부 이미지 표시 */}
+{item.long_imageURL && (
+  <div style={{ marginTop: '10px' }}>
+    <p><strong>장기 대여 첨부 이미지:</strong></p>
+    <img 
+      src={item.long_imageURL} 
+      alt="장기 대여 이미지" 
+      style={{ width: '540px', borderRadius: '8px', objectFit: 'cover' }} 
+    />
+  </div>
+)}
+
   </div>
   
 

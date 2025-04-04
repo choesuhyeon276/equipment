@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate,useSearchParams } from 'react-router-dom';
 import { User, ShoppingCart, CheckCircle2, X, AlertCircle, Calendar } from 'lucide-react';
 import { 
   collection, 
@@ -383,6 +383,10 @@ const ImageWithPlaceholder = ({ camera, equipmentAvailability }) => {
 const ReservationMainPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const uploadedFileURL = location.state?.uploadedFileName || localStorage.getItem('uploadedFileURL');
+  const isLongTerm = Boolean(uploadedFileURL);
+  const maxDay = isLongTerm ? 30 : 8;
+  const dateOptions = Array.from({ length: maxDay }, (_, i) => i + 1);
   const [user, setUser] = useState(null);
   const [cameras, setCameras] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -412,6 +416,7 @@ const ReservationMainPage = () => {
   const [minReturnDate, setMinReturnDate] = useState('');
   const [maxReturnDate, setMaxReturnDate] = useState('');
   const camerasPerPage = 12;
+  
 
 
   const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime) => {
@@ -673,7 +678,11 @@ if (availability && !availability.available) {
   
 
   const handleCartNavigation = () => {
-    navigate('/cart');
+    navigate('/cart', {
+      state: {
+        uploadedFileURL  // ← 이 줄 추가!
+      }
+    });
   };
 
   // Firestore에서 카메라 데이터 fetching
@@ -750,19 +759,22 @@ const returnTimeOptions = generateReturnTimeOptions();
   const handleRentalDateChange = (e) => {
     const selectedRentalDate = e.target.value;
     setRentalDate(selectedRentalDate);
-
     setMinReturnDate(selectedRentalDate);
-
+  
+    const maxDay = isLongTerm ? 30 : 8;
     const maxDate = new Date(selectedRentalDate);
-    maxDate.setDate(maxDate.getDate() + 8);
-    
+    maxDate.setDate(maxDate.getDate() + maxDay);
+  
     const maxDateString = maxDate.toISOString().split('T')[0];
     setMaxReturnDate(maxDateString);
-
+  
     if (returnDate && new Date(returnDate) > maxDate) {
       setReturnDate('');
     }
   };
+  
+  
+
 
   // 카테고리 토글
   const toggleCategory = (categoryName) => {

@@ -1,26 +1,23 @@
 수정사항
 
 
-관리자가 열람가능,+장기대여도
-구글캘린더랑 완전연동되나? 이거 캘린더에서 지워도 안되네
-처음 접속하면 서약서랑 전번 업데이트하러 ㄱㄱ
+장기대여자는 빌릴수있는장비 따로표ㅕ기
+
+
+
+나중에 연장기능도 만들기
 
 
 
 
+navigate('/ReservationMainPage', {
+  state: {
+    uploadedFileName: 'example.jpg' // 장기 대여일 경우
+  }
+});
 
-"https://firebasestorage.googleapis.com/v0/b/equipment-rental-system-838f0.firebasestorage.app
-.appspot.com/o/forms%2Fagreement_form.pdf?alt=media"
-
-
-
-
-
-
-
-	
-
-
+구글캘린더랑 완전연동되나? 이거 캘린더에서 지워도 안되네/ 그럴 필요없이 반납+ 캘린더 지우기 o
+처음 접속하면 서약서랑 전번 업데이트하러 o
 수리인 애들 대여 불가 o
 관리자 반납사진 열람,O
 각자 해상도에 따른 비율 변경 o

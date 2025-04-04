@@ -25,6 +25,12 @@ import {
 
 
 
+const formatPhoneNumber = (value) => {
+  const onlyNums = value.replace(/[^0-9]/g, '');
+  if (onlyNums.length <= 3) return onlyNums;
+  if (onlyNums.length <= 7) return onlyNums.replace(/(\d{3})(\d+)/, '$1-$2');
+  return onlyNums.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3').slice(0, 13);
+};
 
 
 const formatKoreanDateTime = (isoString) => {
@@ -1171,17 +1177,18 @@ setReturnRequestedRentals(returnRequestedData);
                     </label>
                     {isEditing ? (
                       <input
-                        type="text"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="전화번호를 입력하세요"
-                        style={{
-                          width: '100%',
-                          padding: '8px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      />
+                      type="text"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
+                      placeholder="전화번호를 입력하세요"
+                      maxLength={13}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px'
+                      }}
+                    />
                     ) : (
                       <p style={{ fontSize: '14px' }}>{phoneNumber || '미입력'}</p>
                     )}

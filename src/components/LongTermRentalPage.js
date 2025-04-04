@@ -284,7 +284,7 @@ const FileUpload = ({ onFileSelect, onUploadComplete }) => {
           setUploadStatus('');
           
           if (onUploadComplete) {
-            onUploadComplete(file.name);
+            onUploadComplete(downloadURL);
           }
           
           setFile(null);
@@ -359,12 +359,10 @@ const LongTermRentalPage = () => {
     }
     navigate('/reservation-main', { 
       state: { 
-        long_imageURL: uploadedFileName || ''
+        uploadedFileName: uploadedFileName
       } 
     });
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
+    
   };
 
   return (
@@ -387,8 +385,9 @@ const LongTermRentalPage = () => {
           <div style={styles.buttonsRow}>
             <FileUpload 
               onFileSelect={(fileName) => setSelectedFileName(fileName)}
-              onUploadComplete={(fileName) => {
-                setUploadedFileName(fileName);
+              onUploadComplete={(downloadURL) => { 
+                console.log("✅ 업로드된 파일 URL:", downloadURL);       // ✅ 이 부분 수정
+                setUploadedFileName(downloadURL);  
                 setIsReservationEnabled(true);
               }}
             />
