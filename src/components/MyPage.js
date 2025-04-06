@@ -1396,8 +1396,7 @@ setReturnRequestedRentals(returnRequestedData);
                       padding: '30px', 
                       textAlign: 'center',
                       color: '#666',
-                      backgroundColor: '#f5f5f5',
-                      backgroundColor: '#f5f5f5',
+                      backgroundColor: '#ffffff',
                       borderRadius: '8px'
                     }}>
                       현재 대여 중인 장비가 없습니다.
