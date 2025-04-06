@@ -89,7 +89,7 @@ function MainHeader({ scrollToSection, refs }) {
       position: 'relative',
       width: '100vw',
       height: '910px',
-      backgroundColor: 'black',
+      backgroundColor: '#FFFFFF',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',

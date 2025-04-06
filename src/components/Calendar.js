@@ -16,12 +16,12 @@ function Calendar() {
       position: 'relative',
       width: '100vw',
       minheight: '100vh',
-      backgroundColor: 'black',
+      backgroundColor: '#FFFFFF',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
       overflow: 'hidden',
-      border: '3px solid black'
+      
      
     }}>
       <div style={{

@@ -122,7 +122,7 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'black',
+    backgroundColor: '#FFFFFF',
     overflow: 'hidden'
   },
   contentContainer: {

@@ -103,7 +103,7 @@ function App() {
                 margin: "0",
                 padding: "0",
                 width: "100vw",
-                backgroundColor: "black",
+                backgroundColor: "#FFFFFF",
                 overflowX: "hidden",
                 scrollBehavior: "smooth"
               }}>

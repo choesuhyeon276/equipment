@@ -8,7 +8,7 @@ const ThingsNotePage = () => {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: 'black',
+      backgroundColor: '#FFFFFF',
       overflow: 'hidden', // 잘리게 처리
     }}>
       <div style={{

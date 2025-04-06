@@ -22,7 +22,7 @@ function RentalMethodPage({ scrollToSection }) {
       position: 'relative',
       width: '100vw',
       height: '528px',
-      backgroundColor: '#F1F1F1',
+      backgroundColor: '#FFFFFF',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
