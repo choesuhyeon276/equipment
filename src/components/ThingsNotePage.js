@@ -1,6 +1,9 @@
 import React from 'react';
 
+
 const ThingsNotePage = () => {
+
+
   return (
     <div style={{
       width: '100vw',
@@ -11,6 +14,8 @@ const ThingsNotePage = () => {
       backgroundColor: '#FFFFFF',
       overflow: 'hidden', // 잘리게 처리
     }}>
+
+
       <div style={{
         width: '1440px',
         height: '1080px',

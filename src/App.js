@@ -15,6 +15,11 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "./firebase/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import BackButton from "./components/BackButton";
+import ScrollToTopButton from "./components/ScrollToTopButton";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 
 const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
@@ -83,6 +88,7 @@ function App() {
   return (
     <div style={{ fontFamily: "Pretendard Variable, sans-serif" }}>
       <GoogleOAuthProvider clientId={clientId}>
+        <BackButton />
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={user ? <Navigate to="/main" /> : <Login />} />
@@ -99,10 +105,14 @@ function App() {
           <Route
             path="/main"
             element={
-              <div style={{
+              <div 
+              id="main-scroll-container" // ✅ 이거!
+              style={{
                 margin: "0",
                 padding: "0",
                 width: "100vw",
+                height: "100vh",
+                overflowY: "auto",   // ✅ 이거도 꼭 있어야 돼
                 backgroundColor: "#FFFFFF",
                 overflowX: "hidden",
                 scrollBehavior: "smooth"
@@ -116,6 +126,7 @@ function App() {
                     longTermRental: longTermRentalRef
                   }}
                 />
+              
                 <div ref={calendarRef} id="calendar-section">
                   <Calendar />
                 </div>
@@ -137,6 +148,8 @@ function App() {
                     fontSize: "16px"
                   }}></div>
                 </div>
+                <ScrollToTopButton />
+                
               </div>
             }
           />
@@ -165,6 +178,16 @@ function App() {
             }
           />
         </Routes>
+
+        <ToastContainer 
+        position="top-center"
+        autoClose={2500}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        pauseOnHover
+        theme="dark"
+      />
       </GoogleOAuthProvider>
     </div>
   );

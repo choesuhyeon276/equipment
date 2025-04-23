@@ -25,7 +25,7 @@ const transporter = nodemailer.createTransport({
 // 📧 메일 전송 함수
 const sendMail = (to, subject, text) => {
   const mailOptions = {
-    from: `DIRT 알림 <${gmailEmail}>`,
+    from: `DKit 알림 <${gmailEmail}>`,
     to,
     subject,
     text,
@@ -58,7 +58,7 @@ exports.onRentalCreatedAdminNotify = functions.firestore
       await sendMail(
         adminEmail,
         '📥 새로운 장비 대여 신청이 접수되었습니다.',
-        `신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n이메일: ${userEmail}\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n📦 장비 목록:\n${equipmentList}\n\nDIRT 관리자 페이지\nhttps://equipment-rental-system.vercel.app/admins`
+        `신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n이메일: ${userEmail}\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n📦 장비 목록:\n${equipmentList}\n\nDKit 관리자 페이지\nhttps://equipment-rental-system.vercel.app/admins`
       );
       console.log('✅ 관리자 대여 신청 메일 전송 완료');
     } catch (err) {
@@ -129,7 +129,7 @@ exports.onRentalApprovedUserNotify = functions.firestore
           await sendMail(
             userEmail,
             '장비 대여가 승인되었습니다.',
-            `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n📦 장비 목록:\n${equipmentList}\n\nDIRT 장비대여 시스템`
+            `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n📦 장비 목록:\n${equipmentList}\n\nDKitT 장비대여 시스템`
           );
           console.log('✅ 사용자 승인 메일 전송 완료');
         } catch (mailErr) {
@@ -150,7 +150,7 @@ exports.onRentalApprovedUserNotify = functions.firestore
           await sendMail(
             userEmail,
             '장비 반납이 완료되었습니다.',
-            `${userName}님, 장비 반납이 완료되었습니다.\n\n이용해주셔서 감사합니다.\n\nDIRT 장비대여 시스템`
+            `${userName}님, 장비 반납이 완료되었습니다.\n\n이용해주셔서 감사합니다.\n\nDKit 장비대여 시스템`
           );
           console.log('✅ 반납 완료 메일 전송 완료');
         } catch (mailError) {
@@ -178,7 +178,7 @@ exports.onReturnRequested = functions.firestore
         await sendMail(
           adminEmail,
           '반납 요청이 접수되었습니다.',
-          `신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n상태: ${after.status}\n\nDIRT 관리자 시스템\nhttps://equipment-rental-system.vercel.app/admins`
+          `신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n상태: ${after.status}\n\nDKit 관리자 시스템\nhttps://equipment-rental-system.vercel.app/admins`
         );
         console.log('✅ 반납 요청 관리자 메일 전송 완료');
       } catch (mailError) {

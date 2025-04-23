@@ -1,6 +1,8 @@
 import React, { useEffect } from "react";
 
+
 function Calendar() {
+
   useEffect(() => {
     const calendarId = "837ac43ba185f6e8b56e97f1f7e15ecbb103bc44c111e6b8c81fe28ec713b8e9@group.calendar.google.com";
     const embedUrl = `https://calendar.google.com/calendar/embed?src=${calendarId}&ctz=Asia/Seoul&mode=MONTH&showTitle=0&showPrint=0&showCalendars=0&showTabs=0&showDate=1&showNav=1&showTz=0&color=%23444444&bgcolor=%23FFFFFF`;
@@ -21,9 +23,8 @@ function Calendar() {
       justifyContent: 'center',
       alignItems: 'center',
       overflow: 'hidden',
-      
-     
     }}>
+      
       <div style={{
         minWidth: '1440px',  // 화면 고정 너비
         height: '940px',    // 화면 고정 높이

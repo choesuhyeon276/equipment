@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAuth } from 'firebase/auth';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-
+import { toast } from 'react-toastify';
 
 
 // 스타일을 객체로 분리
@@ -200,7 +200,7 @@ const styles = {
   phoneNumber: {
     position: 'absolute',
     bottom: '355px',
-    right: '118px',
+    right: '110px',
     fontSize: '24px',
     lineHeight: '1',
     fontWeight: "200",
@@ -209,8 +209,8 @@ const styles = {
   email: {
     position: 'absolute',
     bottom: '330px',
-    right: '115px',
-    fontSize: '24px',
+    right: '110px',
+    fontSize: '23px',
     lineHeight: '1',
     fontWeight: "200",
     letterSpacing: "-1px"
@@ -354,7 +354,7 @@ const LongTermRentalPage = () => {
 
   const handleReservation = async () => {
     if (!isReservationEnabled) {
-      alert('파일을 먼저 업로드해주세요.');
+      toast.warn('파일을 먼저 업로드해주세요.');
       return;
     }
     navigate('/reservation-main', { 
@@ -377,7 +377,7 @@ const LongTermRentalPage = () => {
         {/* 제목 및 설명 */}
         <div style={styles.headerText}>
           <div style={styles.mainTitle}>Long-term<br />equipment rental.</div>
-          <div style={styles.subtitle}>김숭현 교수님의 승인이<br />필요합니다</div>
+          <div style={styles.subtitle}>디콘 장비장의 승인이<br />필요합니다</div>
         </div>
 
         {/* 버튼 및 파일명 영역 */}
@@ -415,7 +415,7 @@ const LongTermRentalPage = () => {
         {/* 하단 안내사항 */}
         <div style={styles.noticeText}>
           ※ 촬영 관련 장비 / 카메라, 렌즈, 조명, 스탠드, 삼각대, 배터리는 대여가 불가능합니다<br />
-          ※ 김숭현 교수님 연락처로 직접 연락하셔야 하며, 대화 내용을 첨부하셔야 합니다<br />
+          ※ 김나영 장비장 연락처로 직접 연락하셔야 하며, 대화 내용을 첨부하셔야 합니다<br />
           ※ 필수 요소: 대여 품목, 대여 일시, 대여 목적
         </div>
 
@@ -426,17 +426,31 @@ const LongTermRentalPage = () => {
         </div>
 
         <div style={styles.phoneNumber}>
-          010 - 3034 - 3317<br />
+          010 - 7667 - 9373<br />
         </div>
 
         <div style={styles.email}>
-          soong@khu.ac.kr
+        Gkrry24@khu.ac.kr
         </div>
 
         {/* 흰색 가로선 */}
         <div style={styles.separator}></div>
       </div>
+      <div style={{
+      width: '100%',
+      textAlign: 'center',
+      padding: '6px 0',
+      fontSize: '12px',
+      color: '#aaa',
+      opacity: 1,
+      position: 'absolute',
+      bottom: '0px',
+      left: 0
+    }}>
+      © Made by 202414520 최수현 · Sepcial Thanks:) 2025 학생회 장비장 ZIP · Build: {process.env.REACT_APP_COMMIT_HASH?.slice(0, 7) || "dev"}
     </div>
+    </div>
+    
   );
 };
 

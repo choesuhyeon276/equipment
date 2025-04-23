@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, signInWithPopup, provider } from "../firebase/firebaseConfig";
+import { toast } from 'react-toastify';
+
 
 function MainHeader({ scrollToSection, refs }) {
   
@@ -56,10 +58,12 @@ function MainHeader({ scrollToSection, refs }) {
   const handleLogout = async () => {
     try {
       await auth.signOut();
-      alert("로그아웃되었습니다.");
+      localStorage.clear(); // 혹시 계정 바꿔 로그인 원하면 이것도 있어야 함
+      toast.success("👋 로그아웃되었습니다!");
       setIsLoggedIn(false);
     } catch (error) {
       console.error("로그아웃 실패: ", error.message);
+      toast.error("🚨 로그아웃 중 문제가 발생했습니다.");
     }
   };
 
@@ -133,7 +137,7 @@ function MainHeader({ scrollToSection, refs }) {
             fontWeight: '500',
             whiteSpace: 'nowrap'
           }}>
-            Kyunghee Digital contents
+            Kyung Hee Digital Contents
           </span>
         </div>
 
@@ -206,7 +210,7 @@ function MainHeader({ scrollToSection, refs }) {
           position:"absolute",
           top:"288px",
           textAlign: 'right',
-          marginLeft: '61px',
+          marginLeft: '99px',
           zIndex: '1'
         }}>
           <h1 style={{
@@ -215,7 +219,7 @@ function MainHeader({ scrollToSection, refs }) {
             fontWeight: '900',
             lineHeight: '180px'
           }}>
-            디지털 콘텐츠학과
+            디지털콘텐츠학과
           </h1>
         </div>
 

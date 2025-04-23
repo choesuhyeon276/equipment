@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../trash/firebase";
-
+import { toast } from 'react-toastify';
 function FileUpload() {
   const [progress, setProgress] = useState(0);
   const [downloadURL, setDownloadURL] = useState("");
@@ -27,7 +27,7 @@ function FileUpload() {
       () => {
         getDownloadURL(uploadTask.snapshot.ref).then((url) => {
           setDownloadURL(url);
-          alert("파일 업로드 완료!");
+          toast.success("파일 업로드 완료!");
         });
       }
     );

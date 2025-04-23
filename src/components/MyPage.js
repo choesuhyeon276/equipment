@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
+import { toast } from 'react-toastify';
 console.log("React:", React);
 import { User, ShoppingCart, Clock, FileText, AlertTriangle, ChevronDown, ChevronUp, CheckCircle, Edit, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -116,10 +116,10 @@ const MyPage = () => {
         status: 'cancelled',
         cancelledAt: serverTimestamp()
       });
-      alert('예약이 취소되었습니다.');
+      toast.success('예약이 취소되었습니다.');
     } catch (err) {
       console.error('예약 취소 실패:', err);
-      alert('예약 취소에 실패했습니다.');
+      toast.warn('예약 취소에 실패했습니다.');
       return; // ❗ 실패했으면 더 이상 진행 안 해도 돼
     }
   
@@ -156,12 +156,12 @@ const MyPage = () => {
         status: 'return_requested',
         returnRequestedAt: serverTimestamp(),
       });
-      alert('반납 요청이 제출되었습니다.');
+      toast.success('반납 요청이 제출되었습니다.');
       // UI 반영 위해 fetchUserData 재호출
       if (user) fetchUserData(user.uid);
     } catch (err) {
       console.error('반납 요청 실패:', err);
-      alert('반납 요청에 실패했습니다.');
+      toast.warn('반납 요청에 실패했습니다.');
     }
   };
    
@@ -483,11 +483,11 @@ setReturnRequestedRentals(returnRequestedData);
         updatedAt: serverTimestamp()
       });
       
-      alert('프로필 정보가 업데이트되었습니다.');
+      toast.success('프로필 정보가 업데이트되었습니다.');
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating profile data:', error);
-      alert('프로필 정보 업데이트에 실패했습니다.');
+      toast.warn('프로필 정보 업데이트에 실패했습니다.');
     }
   };
 
@@ -554,7 +554,7 @@ setReturnRequestedRentals(returnRequestedData);
           setAgreementSubmitted(true);
           setIsUploading(false);
           setUploadProgress(0);
-          alert('대여 서약서가 성공적으로 등록되었습니다.');
+          toast.success('대여 서약서가 성공적으로 등록되었습니다.');
         } catch (error) {
           console.error('Error updating user profile:', error);
           setIsUploading(false);
@@ -587,7 +587,7 @@ setReturnRequestedRentals(returnRequestedData);
       null,
       (error) => {
         console.error('이미지 업로드 실패:', error);
-        alert('이미지 업로드에 실패했습니다.');
+        toast.warn('이미지 업로드에 실패했습니다.');
       },
       async () => {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -602,7 +602,7 @@ setReturnRequestedRentals(returnRequestedData);
           [reservationId]: true
         }));
   
-        alert('반납 사진이 성공적으로 업로드되었습니다.');
+        toast.success('반납 사진이 성공적으로 업로드되었습니다.');
       }
     );
   };
@@ -1004,7 +1004,7 @@ setReturnRequestedRentals(returnRequestedData);
             left: '70px',
             cursor : 'pointer'
             
-          }}>DIRT</div>
+          }}>DKit</div>
           <div style={{ 
             fontSize: '12px', 
             color: '#000000',
@@ -1014,7 +1014,7 @@ setReturnRequestedRentals(returnRequestedData);
             transform: 'translateX(-50%)',
             whiteSpace: 'nowrap',
             fontWeight: '100'
-          }}>Digital content rental service</div>
+          }}>Digital Contents rental service</div>
         </div>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <div style={{ 
@@ -1158,7 +1158,7 @@ setReturnRequestedRentals(returnRequestedData);
                         type="text"
                         value={studentId}
                         onChange={(e) => setStudentId(e.target.value)}
-                        placeholder="학번을 입력하세요"
+                        placeholder="ex)2024104520"
                         style={{
                           width: '100%',
                           padding: '8px',

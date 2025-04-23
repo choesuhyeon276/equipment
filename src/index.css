@@ -43,3 +43,13 @@ input::placeholder {
   100% { opacity: 0.6; }
 }
 
+.Toastify__toast {
+  display: inline-flex !important;
+  white-space: nowrap !important; /* 줄바꿈 ❌ */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80vw; /* 최대 너비를 화면 80%로 제한 */
+  min-width: fit-content;
+  font-size: 13px;
+}
+

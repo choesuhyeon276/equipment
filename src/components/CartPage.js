@@ -14,7 +14,7 @@ import {
   getFirestore
   // dddd
 } from '../firebase/firebaseConfig';
-
+import { toast } from 'react-toastify';
 
 const CartPage = () => {
   const location = useLocation();
@@ -96,7 +96,7 @@ const CartPage = () => {
   // 관리자 캘린더에 직접 이벤트 추가 (백엔드를 통해 처리)
   const createAdminCalendarEvent = async () => {
     if (!user) {
-      return alert('로그인이 필요합니다.');
+      return toast.warn('로그인이 필요합니다.');
     }
     
     if (isSubmitting) {
@@ -124,7 +124,7 @@ const CartPage = () => {
       ).join('\n');
 
       const eventData = {
-        summary: `DIRT 대여 신청 - ${userProfile?.name || user.uid}`,
+        summary: `DKit 대여 신청 - ${userProfile?.name || user.uid}`,
         description: `${userInfo}\n\n대여 장비 목록:\n${itemListText}`,
         startDateTime,
         endDateTime,
@@ -164,10 +164,10 @@ const CartPage = () => {
       
       localStorage.removeItem('cart');
       setCartItems([]);
-      alert('예약이 성공적으로 등록되었습니다!');
+      toast.success('예약이 성공적으로 등록되었습니다!');
     } catch (error) {
       console.error('캘린더 등록 오류:', error);
-      alert('캘린더 등록 중 오류가 발생했습니다: ' + error.message);
+      toast.warn('캘린더 등록 중 오류가 발생했습니다: ' + error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -190,12 +190,12 @@ const CartPage = () => {
 
   if (!user || !user.uid) {
     console.error("❗ 유저 정보가 없습니다.");
-    alert("로그인 후 이용해주세요.");
+    toast.warn("로그인 후 이용해주세요.");
     return;
   }
 
     if (!user) {
-      return alert('로그인이 필요합니다.');
+      return toast.warn('로그인이 필요합니다.');
     }
     
     if (isSubmitting) {
@@ -243,10 +243,10 @@ const CartPage = () => {
     
       localStorage.removeItem('cart');
       setCartItems([]);
-      alert('예약 신청이 완료되었습니다! 관리자 확인 후 최종 승인됩니다.');
+      toast.success('예약 신청이 완료되었습니다! 관리자 확인 후 최종 승인됩니다.');
     } catch (error) {
       console.error('예약 저장 오류:', error);
-      alert('예약 저장 중 오류가 발생했습니다: ' + error.message);
+      toast.warn('예약 저장 중 오류가 발생했습니다: ' + error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -450,14 +450,14 @@ const CartPage = () => {
     const user = auth.currentUser;
     // API_ENDPOINT가 설정되어 있으면 백엔드 API를 사용, 아니면 Firebase에 저장
     if (!user || !user.uid) {
-      alert("로그인이 필요합니다.");
+      toast.warn("로그인이 필요합니다.");
       return;
     }
   
     const firstItem = cartItems[0];
   
     if (!firstItem || !firstItem.rentalDate || !firstItem.returnDate) {
-      alert("대여 날짜와 반납 날짜를 선택해주세요.");
+      toast.warn("대여 날짜와 반납 날짜를 선택해주세요.");
       return;
     }
   
@@ -528,7 +528,7 @@ const CartPage = () => {
             top: '0px',
             left: '70px',
             cursor: "pointer"
-          }}>DIRT</div>
+          }}>DKit</div>
           <div style={{ 
             fontSize: '12px', 
             color: '#000000',
@@ -538,7 +538,7 @@ const CartPage = () => {
             transform: 'translateX(-50%)',
             whiteSpace: 'nowrap',
             fontWeight: '100'
-          }}>Digital content rental service</div>
+          }}>Digital Contents rental service</div>
         </div>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <div style={{ 

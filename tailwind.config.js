@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: "#0A0A0A",  // 더 어두운 배경색
+        primary: "#FFFFFF",  // 더 어두운 배경색
         secondary: "#2E2E2E",
         accent: "#3A3A3A",
         textGray: "#E7E7E7",

@@ -10,7 +10,8 @@ import {
   setDoc,
   getDoc,
   query,
-  where
+  where,
+  orderBy
 } from 'firebase/firestore';
 import { 
   db, 
@@ -19,6 +20,7 @@ import {
 
 import { useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
+import { toast } from "react-toastify"; // 한 번만 import 되어있으면 됨
 
 
 // 장바구니 관련 유틸리티 함수
@@ -26,7 +28,7 @@ const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime)
   // 로그인 상태 확인
   const user = auth.currentUser;
   if (!user) {
-    alert('장바구니에 추가하려면 로그인이 필요합니다.');
+    toast.warn('장바구니에 추가하려면 로그인이 필요합니다.');
     return false;
   }
   try {
@@ -56,7 +58,7 @@ const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime)
       );
 
       if (isDuplicate) {
-        alert('이미 장바구니에 추가된 항목입니다.');
+        toast.warn('이미 장바구니에 추가된 항목입니다.');
         return false;
       }
 
@@ -73,7 +75,7 @@ const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime)
     return true;
   } catch (error) {
     console.error("장바구니 추가 중 오류:", error);
-    alert('장바구니에 추가할 수 없습니다.');
+    toast.warn('장바구니에 추가할 수 없습니다.');
     return false;
   }
 };
@@ -405,7 +407,8 @@ const ReservationMainPage = () => {
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [categories, setCategories] = useState([
     { name: 'All', count: 0 },
-    { name: 'Filming', count: 0 },
+    { name: 'Camera', count: 0 },
+    { name: 'Lens', count: 0 },
     { name: 'Lighting', count: 0 },
     { name: 'Battery', count: 0 },
     { name: 'Sound', count: 0 },
@@ -423,7 +426,7 @@ const ReservationMainPage = () => {
     // 1. 로그인 상태 확인
     const user = auth.currentUser;
     if (!user) {
-      alert('장바구니에 추가하려면 로그인이 필요합니다.');
+      toast.warn('장바구니에 추가하려면 로그인이 필요합니다.');
       return false;
     }
     try {
@@ -453,7 +456,7 @@ const ReservationMainPage = () => {
         );
   
         if (isDuplicate) {
-          alert('이미 장바구니에 추가된 항목입니다.');
+          toast.warn('이미 장바구니에 추가된 항목입니다.');
           return false;
         }
   
@@ -470,7 +473,7 @@ const ReservationMainPage = () => {
       return true;
     } catch (error) {
       console.error("장바구니 추가 중 오류:", error);
-      alert('장바구니에 추가할 수 없습니다.');
+      toast.warn('장바구니에 추가할 수 없습니다.');
       return false;
     }
   };
@@ -559,20 +562,43 @@ useEffect(() => {
   // 장바구니 추가 핸들러
   const handleAddToCart = async (camera) => {
     if (!rentalDate || !rentalTime || !returnDate || !returnTime) {
-      alert('대여 및 반납 날짜와 시간을 먼저 선택해주세요.');
+      toast.warn(
+        "대여 및 반납 날짜와 시간을 먼저 선택해주세요!",{
+          className: "custom-toast"
+        });
       return;
     }
+
+    if (camera.category === 'Camera') {
+    if (camera.name === "소니 알파 A7C" || camera.name === "소니 알파 A7S2") {
+      toast.info("✨ 렌즈와 SD카드 대여도 잊지마세요!", {
+        className: "custom-toast"
+      });
+    } else {
+      toast.info("✨ 렌즈, 배터리, SD카드 대여도 잊지마세요!", {
+        className: "custom-toast"
+      });
+    }
+  }
+
+  if (camera.category === 'Lighting') {
+    if (camera.name === "어퓨처 300X" || camera.name === "LED 조명 (a)" || camera.name === "LED 조명 (a)" || camera.name === "LED 조명 (b)" || camera.name === "LED 조명 (c)" || camera.name === "LED 조명 (d)") {
+      toast.info("✨ V마운트 배터리와 스탠드 대여도 잊지마세요!", {
+        className: "custom-toast"
+      });
+    } 
+  }
   
 
     if (camera.condition === '수리') {
-      alert('이 장비는 현재 수리 중이라 대여할 수 없습니다.');
+      toast.warn('이 장비는 현재 수리 중이라 대여할 수 없습니다.');
       return;
     }
     
 // 해당 장비의 선택 날짜 가용성 확인
 const availability = equipmentAvailability[camera.id];
 if (availability && !availability.available) {
-  alert('선택하신 날짜에는 이 장비를 대여할 수 없습니다.');
+  toast.warn('선택하신 날짜에는 이 장비를 대여할 수 없습니다.');
   return;
 }
 
@@ -599,7 +625,7 @@ if (availability && !availability.available) {
         [camera.id]: updatedAvailability
       }));
 
-      alert(`${camera.name}이(가) 장바구니에 추가되었습니다.`);
+      toast.success(`${camera.name}이(가) 장바구니에 추가되었습니다.`);
     }
   };
 
@@ -689,18 +715,20 @@ if (availability && !availability.available) {
   const fetchCameras = async () => {
     try {
       const cameraRef = collection(db, 'cameras');
-      const snapshot = await getDocs(cameraRef);
+      const cameraQuery = query(cameraRef, orderBy("description", "asc"));
+      const snapshot = await getDocs(cameraQuery);
       
       const cameraData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+
       
       setCameras(cameraData);
       
       const updatedCategories = [
         { name: 'All', count: cameraData.length },
-        ...['Filming', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC'].map(catName => ({
+        ...['Camera', 'Lens', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC'].map(catName => ({
           name: catName,
           count: cameraData.filter(c => c.category === catName).length
         }))
@@ -779,6 +807,8 @@ const returnTimeOptions = generateReturnTimeOptions();
   // 카테고리 토글
   const toggleCategory = (categoryName) => {
     setSelectedCategory(prev => prev === categoryName ? 'All' : categoryName);
+
+    setCurrentPage(1);
   };
 
   // 필터링된 카메라
@@ -895,7 +925,7 @@ const returnTimeOptions = generateReturnTimeOptions();
             left: '70px',
             cursor : 'pointer'
 
-          }}>DIRT</div>
+          }}>DKit</div>
           <div style={{ 
             fontSize: '12px', 
             color: '#000000',
@@ -905,7 +935,7 @@ const returnTimeOptions = generateReturnTimeOptions();
             transform: 'translateX(-50%)',
             whiteSpace: 'nowrap',
             fontWeight: '100'
-          }}>Digital content rental service</div>
+          }}>Digital Contents rental service</div>
         </div>
         
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>

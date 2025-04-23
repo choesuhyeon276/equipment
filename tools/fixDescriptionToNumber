@@ -1,0 +1,40 @@
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+const path = require('path');
+
+// 🔐 인증: 루트 기준에서 JSON 경로 정확히 지정
+const serviceAccount = require(path.join(__dirname, '../tools/serviceAccountKey.json'));
+
+initializeApp({
+  credential: cert(serviceAccount)
+});
+
+const db = getFirestore();
+
+async function convertDescriptionsToNumber() {
+  const collectionRef = db.collection('cameras');
+  const snapshot = await collectionRef.get();
+
+  let count = 0;
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    const desc = data.description;
+
+    if (typeof desc === 'number') continue;
+
+    const parsed = parseInt(desc);
+    if (isNaN(parsed)) {
+      console.warn(`⚠️ 변환 실패: ${doc.id} - description: ${desc}`);
+      continue;
+    }
+
+    await doc.ref.update({ description: parsed });
+    console.log(`✅ ${doc.id} updated → ${parsed}`);
+    count++;
+  }
+
+  console.log(`🎉 총 ${count}개의 문서를 성공적으로 변환했습니다.`);
+}
+
+convertDescriptionsToNumber().catch(console.error);

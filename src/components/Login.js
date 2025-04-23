@@ -16,9 +16,19 @@ function Login() {
     console.log("구글 로그인 시작");
 
     try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' }); // ✨ 핵심
+
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       console.log("로그인 성공:", user);
+
+      if (!user.email.endsWith("@khu.ac.kr")) {
+        setError("경희대학교 이메일(@khu.ac.kr)로만 로그인할 수 있습니다.");
+        setLoading(false);
+        await auth.signOut(); // ⛔ 비인가 계정 로그아웃
+        return;
+      }
 
       // ✅ access token 저장
       const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -94,7 +104,7 @@ function Login() {
             경희대학교 이메일로 로그인해주세요
           </p>
           <p className="text-white text-base font-thin english-bold">
-            Please log in with your Kyunghee University email address.
+            Please log in with your Kyung Hee University email address.
           </p>
         </div>
       </div>

@@ -15,7 +15,7 @@ import {
   deleteObject
 } from 'firebase/storage';
 import { db, storage } from '../firebase/firebaseConfig';
-
+import { toast } from 'react-toastify';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 const processImage = (file) => {
@@ -95,6 +95,8 @@ const processImage = (file) => {
   });
 };
 
+
+
 const AdminEquipmentManagement = () => {
   const [equipments, setEquipments] = useState([]);
   const [newEquipment, setNewEquipment] = useState({
@@ -109,6 +111,8 @@ const AdminEquipmentManagement = () => {
     dailyRentalPrice: '',
     image: ''
   });
+
+
   const [imageFile, setImageFile] = useState(null);
   const [editingEquipment, setEditingEquipment] = useState(null);
  
@@ -125,22 +129,22 @@ const AdminEquipmentManagement = () => {
             const userData = userDoc.data();
   
             if (userData.role !== 'admin') {
-              alert('관리자 권한이 없습니다.');
+              toast.warn('관리자 권한이 없습니다.');
               window.location.href = '/main'; // 일반 유저는 메인으로 이동
             } else {
               fetchEquipments(); // ✅ 관리자만 장비 데이터 조회
             }
           } else {
-            alert('사용자 정보가 존재하지 않습니다.');
+            toast.warn('사용자 정보가 존재하지 않습니다.');
             window.location.href = '/main';
           }
         } catch (error) {
           console.error('관리자 권한 확인 중 오류:', error);
-          alert('인증 확인 중 오류가 발생했습니다.');
+          toast.warn('인증 확인 중 오류가 발생했습니다.');
           window.location.href = '/main';
         }
       } else {
-        alert('로그인이 필요합니다.');
+        toast.warn('로그인이 필요합니다.');
         window.location.href = '/login';
       }
     });
@@ -157,10 +161,12 @@ const AdminEquipmentManagement = () => {
         id: d.id, 
         ...d.data()
       }));
+
+
       setEquipments(equipmentList);
     } catch (error) {
       console.error("장비 목록 불러오기 중 오류:", error);
-      alert('장비 목록을 불러오는 중 오류가 발생했습니다.');
+      toast.warn('장비 목록을 불러오는 중 오류가 발생했습니다.');
     }
   };
 
@@ -175,13 +181,13 @@ const AdminEquipmentManagement = () => {
       
       const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
       if (!allowedTypes.includes(processedFile.type)) {
-        alert('지원되지 않는 파일 형식입니다. JPEG, PNG, GIF 파일만 업로드 가능합니다.');
+        toast.warn('지원되지 않는 파일 형식입니다. JPEG, PNG, GIF 파일만 업로드 가능합니다.');
         return null;
       }
       
       const maxSize = 5 * 1024 * 1024;
       if (processedFile.size > maxSize) {
-        alert('파일 크기가 너무 큽니다. 5MB 이하의 파일만 업로드 가능합니다.');
+        toast.warn('파일 크기가 너무 큽니다. 5MB 이하의 파일만 업로드 가능합니다.');
         return null;
       }
       
@@ -190,7 +196,7 @@ const AdminEquipmentManagement = () => {
       return { downloadURL, storageRef };
     } catch (error) {
       console.error("이미지 업로드 중 오류:", error);
-      alert('이미지 업로드에 실패했습니다.');
+      toast.warn('이미지 업로드에 실패했습니다.');
       return null;
     }
   };
@@ -200,6 +206,8 @@ const AdminEquipmentManagement = () => {
     try {
       let imageUrl = null;
   
+
+      
 if (imageFile) {
   const uploadResult = await handleImageUpload();
   if (uploadResult) {
@@ -219,14 +227,20 @@ if (imageFile) {
   }
 } else if (editingEquipment) {
   // 수정 모드이고 새 이미지가 없으면 기존 이미지 유지
-  imageUrl = editingEquipment.image;
+  imageUrl = editingEquipment.imageURL;
 }
 
       const equipmentData = {
         ...newEquipment,
+        description: parseFloat(newEquipment.description),
         imageURL: imageUrl || (editingEquipment ? editingEquipment.image : ''),
         createdAt: editingEquipment ? editingEquipment.createdAt : new Date()
       };
+
+      if (imageUrl) {
+        equipmentData.imageURL = imageUrl;
+      }
+      
 
       if (editingEquipment) {
         await updateDoc(doc(db, 'cameras', editingEquipment.id), equipmentData);
@@ -235,6 +249,8 @@ if (imageFile) {
         await addDoc(collection(db, 'cameras'), equipmentData);
       }
 
+
+      
       fetchEquipments();
       
       // Reset form
@@ -253,7 +269,7 @@ if (imageFile) {
       setImageFile(null);
     } catch (error) {
       console.error("장비 추가/수정 중 오류:", error);
-      alert('장비 추가/수정 중 오류가 발생했습니다.');
+      toast.warn('장비 추가/수정 중 오류가 발생했습니다.');
     }
   };
 
@@ -268,7 +284,7 @@ if (imageFile) {
       fetchEquipments();
     } catch (error) {
       console.error("장비 삭제 중 오류:", error);
-      alert('장비 삭제 중 오류가 발생했습니다.');
+      toast.warn('장비 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -345,7 +361,8 @@ if (imageFile) {
             required
           >
             <option value="">장비 카테고리 선택</option>
-            <option value="Filming">필름 장비</option>
+            <option value="Camera">카메라</option>
+            <option value="Lens">렌즈</option>
             <option value="Lighting">조명 장비</option>
             <option value="Battery">배터리</option>
             <option value="Sound">음향 장비</option>
@@ -382,7 +399,7 @@ if (imageFile) {
           />
 
           <textarea
-            placeholder="장비 설명"
+            placeholder="장비 순서"
             value={newEquipment.description}
             onChange={(e) => setNewEquipment({...newEquipment, description: e.target.value})}
             style={{
