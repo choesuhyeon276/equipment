@@ -13,6 +13,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "prebuild": "echo \"REACT_APP_COMMIT_HASH=$(git rev-parse --short HEAD)\" > .env",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",

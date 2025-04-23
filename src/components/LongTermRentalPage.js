@@ -447,7 +447,7 @@ const LongTermRentalPage = () => {
       bottom: '0px',
       left: 0
     }}>
-      © Made by 202414520 최수현 · Sepcial Thanks:) 2025 학생회 장비장 ZIP · Build: {process.env.REACT_APP_COMMIT_HASH?.slice(0, 7) || "dev"}
+      © Made by 202414520 최수현 · Sepcial Thanks:) 2025 학생회 장비장 ZIP · Build: v1.0.1
     </div>
     </div>
     
