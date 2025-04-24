@@ -17,6 +17,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import BackButton from "./components/BackButton";
 import ScrollToTopButton from "./components/ScrollToTopButton";
+import OrientationPrompt from "./components/OrientationPrompt"; // 추가된 컴포넌트
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -83,11 +84,35 @@ function App() {
     }
   }
 
+  // 모바일에서 PC와 동일한 화면 크기를 보여주기 위한 메타 태그 추가
+  useEffect(() => {
+    // 뷰포트 메타 태그 조작
+    let viewportMeta = document.querySelector('meta[name="viewport"]');
+    
+    if (!viewportMeta) {
+      viewportMeta = document.createElement('meta');
+      viewportMeta.name = 'viewport';
+      document.head.appendChild(viewportMeta);
+    }
+    
+    // 너비를 1440px로 고정하고 사용자 확대/축소를 허용
+    viewportMeta.content = 'width=1440, user-scalable=yes';
+    
+    // 페이지를 나갈 때 원래 설정으로 복원하기 위한 클린업 함수
+    return () => {
+      viewportMeta.content = 'width=device-width, initial-scale=1.0';
+    };
+  }, []);
+
   if (loading) return null;
 
   return (
-    <div style={{ fontFamily: "Pretendard Variable, sans-serif" }}>
+    <div style={{ 
+      fontFamily: "Pretendard Variable, sans-serif",
+      minWidth: "1440px" // 전체 앱 최소 너비 설정
+    }}>
       <GoogleOAuthProvider clientId={clientId}>
+        <OrientationPrompt /> {/* 화면 회전 안내 컴포넌트 추가 */}
         <BackButton />
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
@@ -106,15 +131,16 @@ function App() {
             path="/main"
             element={
               <div 
-              id="main-scroll-container" // ✅ 이거!
+              id="main-scroll-container"
               style={{
                 margin: "0",
                 padding: "0",
-                width: "100vw",
+                width: "100%",
+                minWidth: "1440px", // 최소 너비 추가
                 height: "100vh",
-                overflowY: "auto",   // ✅ 이거도 꼭 있어야 돼
+                overflowY: "auto",
+                overflowX: "auto", // 가로 스크롤 허용
                 backgroundColor: "#FFFFFF",
-                overflowX: "hidden",
                 scrollBehavior: "smooth"
               }}>
                 <MainHeader
@@ -127,16 +153,16 @@ function App() {
                   }}
                 />
               
-                <div ref={calendarRef} id="calendar-section">
+                <div ref={calendarRef} id="calendar-section" style={{ minWidth: "1440px" }}>
                   <Calendar />
                 </div>
-                <div ref={rentalMethodRef} id="rental-method-section">
+                <div ref={rentalMethodRef} id="rental-method-section" style={{ minWidth: "1440px" }}>
                   <RentalMethodPage scrollToSection={scrollToSection} />
                 </div>
-                <div ref={thingsNoteRef} id="things-note-section">
+                <div ref={thingsNoteRef} id="things-note-section" style={{ minWidth: "1440px" }}>
                   <ThingsNotePage />
                 </div>
-                <div ref={longTermRentalRef} id="long-term-rental-section">
+                <div ref={longTermRentalRef} id="long-term-rental-section" style={{ minWidth: "1440px" }}>
                   <LongTermRentalPage />
                   <div style={{
                     width: "100%",
@@ -149,7 +175,6 @@ function App() {
                   }}></div>
                 </div>
                 <ScrollToTopButton />
-                
               </div>
             }
           />
@@ -168,10 +193,11 @@ function App() {
               <div style={{
                 margin: "0",
                 padding: "0",
-                width: "100vw",
+                width: "100%",
+                minWidth: "1440px", // 최소 너비 추가
                 backgroundColor: "black",
                 minHeight: "100vh",
-                overflowX: "hidden"
+                overflowX: "auto" // 가로 스크롤 허용
               }}>
                 <AdminCameraManagement />
               </div>

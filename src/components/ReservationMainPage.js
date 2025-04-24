@@ -21,6 +21,8 @@ import {
 import { useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { toast } from "react-toastify"; // 한 번만 import 되어있으면 됨
+import DatePickerInput from "./DatePickerInput";
+
 
 
 // 장바구니 관련 유틸리티 함수
@@ -784,15 +786,17 @@ const returnTimeOptions = generateReturnTimeOptions();
 
   
   // 대여 날짜 변경 핸들러
-  const handleRentalDateChange = (e) => {
-    const selectedRentalDate = e.target.value;
+  const handleRentalDateChange = (date) => {
+    const selectedRentalDate = date instanceof Date
+      ? date.toISOString().split('T')[0]
+      : date; // 이미 string일 경우 대응
+  
     setRentalDate(selectedRentalDate);
     setMinReturnDate(selectedRentalDate);
   
     const maxDay = isLongTerm ? 30 : 8;
     const maxDate = new Date(selectedRentalDate);
     maxDate.setDate(maxDate.getDate() + maxDay);
-  
     const maxDateString = maxDate.toISOString().split('T')[0];
     setMaxReturnDate(maxDateString);
   
@@ -800,6 +804,7 @@ const returnTimeOptions = generateReturnTimeOptions();
       setReturnDate('');
     }
   };
+  
   
   
 
@@ -1063,19 +1068,12 @@ const returnTimeOptions = generateReturnTimeOptions();
                 fontWeight: 'bold',
                 minWidth: '100px'
               }}>대여일자</div>
-              <input
-                type="date"
-                value={rentalDate}
-                onChange={handleRentalDateChange}
-                style={{
-                  padding: '10px',
-                  width: '150px',
-                  height: '40px',
-                  fontSize: '16px',
-                  border: '1px solid #ccc',
-                  borderRadius: '5px'
-                }}
-              />
+              <DatePickerInput
+  selected={rentalDate}
+  onChange={handleRentalDateChange}
+  placeholder="대여일 선택"
+/>
+
               <select
                 value={rentalTime}
                 onChange={(e) => setRentalTime(e.target.value)}
@@ -1099,21 +1097,14 @@ const returnTimeOptions = generateReturnTimeOptions();
                 minWidth: '100px',
                 marginLeft: '20px'
               }}>반납일자</div>
-              <input
-                type="date"
-                value={returnDate}
-                onChange={(e) => setReturnDate(e.target.value)}
-                min={minReturnDate}
-                max={maxReturnDate}
-                style={{
-                  padding: '10px',
-                  width: '150px',
-                  height: '40px',
-                  fontSize: '16px',
-                  border: '1px solid #ccc',
-                  borderRadius: '5px'
-                }}
-              />
+              <DatePickerInput
+  selected={returnDate}
+  onChange={(value) => setReturnDate(value)}
+  placeholder="반납일 선택"
+  minDate={minReturnDate}
+  maxDate={maxReturnDate}
+/>
+
               <select
                 value={returnTime}
                 onChange={(e) => setReturnTime(e.target.value)}
@@ -1211,7 +1202,7 @@ const returnTimeOptions = generateReturnTimeOptions();
  {rentalDate && returnDate && equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available && (
       <div style={{
         position: 'absolute',
-        top: '10px',
+        top: '20px',
         right: '-30px',
         backgroundColor: '#f39c12',
         color: 'white',
@@ -1219,10 +1210,11 @@ const returnTimeOptions = generateReturnTimeOptions();
         padding: '5px 35px',
         fontSize: '12px',
         fontWeight: 'bold',
+        textAlign: 'center',
         zIndex: 10,
         boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
       }}>
-        선택 날짜 불가
+         선택 날짜 불가
       </div>
     )}
 
@@ -1281,7 +1273,7 @@ const returnTimeOptions = generateReturnTimeOptions();
           zIndex: 10,
           boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
         }}>
-          {camera.status === 'rented' ? '대여 중' : '수리 중'}
+          {camera.status === 'rented' ? '수리 중' : '수리 중'}
         </div>
       )}
 

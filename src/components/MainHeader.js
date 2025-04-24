@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { auth, signInWithPopup, provider } from "../firebase/firebaseConfig";
 import { toast } from 'react-toastify';
 
-
 function MainHeader({ scrollToSection, refs }) {
   
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -98,7 +97,8 @@ function MainHeader({ scrollToSection, refs }) {
       justifyContent: 'center',
       alignItems: 'center',
       overflow: 'hidden',
-      border: '0px solid black'
+      border: '0px solid black',
+      minWidth: '1440px', // 최소 너비 추가 - 모바일에서도 PC와 동일한 너비로 보이게 함
     }}>
       <div style={{
         minWidth: '1440px',
@@ -269,56 +269,60 @@ function MainHeader({ scrollToSection, refs }) {
         </div>
 
         {/* 버튼 그룹 */}
-<div style={{
-  marginTop: '40px',
-  display: 'flex',
-  gap: '20px',
-  justifyContent: 'center'
-}}>
-  <button 
-    onClick={handleReservation}
-    style={{
-      position: 'absolute',
-      right: '370px',
-      top: '765px',
-      backgroundColor: '#D3D3D3',
-      color: 'black',
-      padding: '5px 13px',
-      borderRadius: '8px',
-      fontSize: '30px',
-      fontWeight: '700',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '4px'
-    }}
-  >
-    <img src="/assets/CheckMark.png" alt="Reserve Icon" style={{
-      width: '40px',
-      height: '40px'
-    }} />
-    예약하기
-  </button>
-  <button onClick={() => scrollToSection(refs.calendar)} style={{
-    position: 'absolute',
-    backgroundColor: '#D3D3D3',
-    color: 'black',
-    padding: '5px 13px',
-    borderRadius: '8px',
-    fontSize: '30px',
-    fontWeight: '700',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    marginRight: "-900px",
-    top: "765px"
-  }}>
-    <img src="/assets/Calendar.png" alt="Calendar Icon" style={{
-      width: '35px',
-      height: '35px'
-    }} />
-    캘린더
-  </button>
-</div>
+        <div style={{
+          marginTop: '40px',
+          display: 'flex',
+          gap: '20px',
+          justifyContent: 'center'
+        }}>
+          <button 
+            onClick={handleReservation}
+            style={{
+              position: 'absolute',
+              right: '370px',
+              top: '765px',
+              backgroundColor: '#D3D3D3',
+              color: 'black',
+              padding: '5px 13px',
+              borderRadius: '8px',
+              fontSize: '30px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+              border: 'none'
+            }}
+          >
+            <img src="/assets/CheckMark.png" alt="Reserve Icon" style={{
+              width: '40px',
+              height: '40px'
+            }} />
+            예약하기
+          </button>
+          <button onClick={() => scrollToSection(refs.calendar)} style={{
+            position: 'absolute',
+            backgroundColor: '#D3D3D3',
+            color: 'black',
+            padding: '5px 13px',
+            borderRadius: '8px',
+            fontSize: '30px',
+            fontWeight: '700',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginRight: "-900px",
+            top: "765px",
+            cursor: 'pointer',
+            border: 'none'
+          }}>
+            <img src="/assets/Calendar.png" alt="Calendar Icon" style={{
+              width: '35px',
+              height: '35px'
+            }} />
+            캘린더
+          </button>
+        </div>
 
         {/* 맨 위로 스크롤 버튼 */}
         {isVisible && (

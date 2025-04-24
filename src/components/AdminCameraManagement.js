@@ -15,7 +15,7 @@ import {
   deleteObject
 } from 'firebase/storage';
 import { db, storage } from '../firebase/firebaseConfig';
-import { toast } from 'react-toastify';
+
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 const processImage = (file) => {
@@ -424,7 +424,7 @@ if (imageFile) {
             }}
           >
             <option value="available">대여 가능</option>
-            <option value="rented">대여 중</option>
+            <option value="rented">수리 중</option>
           </select>
 
           <select
