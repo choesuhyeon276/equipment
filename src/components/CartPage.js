@@ -515,8 +515,9 @@ const CartPage = () => {
         }}>
           <span onClick={handleHomeNavigation} style={{ cursor: 'pointer' }}>Home</span>
           <span onClick={handleCalendarNavigation} style={{ cursor: 'pointer' }}>Calendar</span>
-          <span onClick={handleReservateNavigation} style={{ cursor: 'pointer' }}>Reservation</span>
           <span onClick={handleNoteNavigation} style={{ cursor: 'pointer' }}>Note</span>
+          <span onClick={handleReservateNavigation} style={{ cursor: 'pointer' }}>Reservation</span>
+          
           <span onClick={handleMypageNavigation} style={{ cursor: 'pointer' }}></span>
         </div>
         <div style={{ textAlign: 'center' }}>
@@ -551,7 +552,9 @@ const CartPage = () => {
             cursor: 'pointer',
             padding: '5px 10px',
             borderRadius: '20px',
-            backgroundColor: '#f0f0f0'
+            backgroundColor: '#f0f0f0',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
+            fontWeight: '500'
           }}>
             <User size={20} />
             <span onClick={handleMypageNavigation} style={{ cursor: 'pointer' }}>My page</span>
@@ -566,7 +569,8 @@ const CartPage = () => {
             cursor: 'pointer',
             padding: '5px 10px',
             borderRadius: '20px',
-            backgroundColor: '#cccccc'
+            backgroundColor: '#212121',
+            color: '#FFFFFF'
           }}>
             <ShoppingCart size={20} />
             <span>Cart</span>
@@ -577,7 +581,7 @@ const CartPage = () => {
       {/* Cart Content Area */}
       <div style={{
         position: 'relative',
-        top: '150px',
+        top: '105px',
         left: '50px',
         right: '50px',
         paddingBottom: '20px'
@@ -585,8 +589,8 @@ const CartPage = () => {
         <h2 style={{ 
           fontSize: '24px', 
           fontWeight: 'bold', 
-          marginBottom: '20px', 
-          marginLeft: '40px'
+          marginBottom: '10px', 
+          marginLeft: '20px'
         }}>
           장바구니
         </h2>

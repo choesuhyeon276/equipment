@@ -15,8 +15,8 @@ import {
   deleteObject
 } from 'firebase/storage';
 import { db, storage } from '../firebase/firebaseConfig';
-
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { toast } from 'react-toastify';
 
 const processImage = (file) => {
   return new Promise((resolve, reject) => {
@@ -26,16 +26,10 @@ const processImage = (file) => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        
-        // 고정된 최대 크기 설정 (예: 800x600)
         const maxWidth = 800;
         const maxHeight = 600;
-        
-        // 비율 유지하며 크기 조정
         let width = img.width * 0.8;
         let height = img.height * 0.8;
-        
-        // 최대 크기 제한
         if (width > height) {
           if (width > maxWidth) {
             height *= maxWidth / width;
@@ -47,45 +41,23 @@ const processImage = (file) => {
             height = maxHeight;
           }
         }
-        
-        // 캔버스 크기 설정
         canvas.width = img.width;
         canvas.height = img.height;
-        
-        // 흰색 배경 채우기
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // 이미지를 중앙에 70% 크기로 그리기
         const x = (canvas.width - width) / 2;
         const y = (canvas.height - height) / 2;
-        
         ctx.drawImage(img, x, y, width, height);
-        
-        // 이미지 데이터 가져오기
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
-        
-        // 흰색에 가까운 픽셀 처리
         for (let i = 0; i < data.length; i += 4) {
-          if (
-            data[i] > 240 && 
-            data[i+1] > 240 && 
-            data[i+2] > 240
-          ) {
-            data[i+3] = 0; // 투명도 조절
+          if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
+            data[i+3] = 0;
           }
         }
-        
-        // 수정된 이미지 데이터 다시 그리기
         ctx.putImageData(imageData, 0, 0);
-        
-        // Base64로 변환
         canvas.toBlob((blob) => {
-          resolve(new File([blob], file.name, { 
-            type: 'image/png',
-            lastModified: Date.now()
-          }));
+          resolve(new File([blob], file.name, { type: 'image/png', lastModified: Date.now() }));
         }, 'image/png');
       };
       img.src = e.target.result;
@@ -94,8 +66,6 @@ const processImage = (file) => {
     reader.readAsDataURL(file);
   });
 };
-
-
 
 const AdminEquipmentManagement = () => {
   const [equipments, setEquipments] = useState([]);
@@ -109,30 +79,28 @@ const AdminEquipmentManagement = () => {
     status: 'available',
     condition: '정상',
     dailyRentalPrice: '',
-    image: ''
+    image: '',
+    batteryModel: '',
+    mountType: '',
+    recommendSDCard: ''
   });
-
-
   const [imageFile, setImageFile] = useState(null);
   const [editingEquipment, setEditingEquipment] = useState(null);
- 
+
   useEffect(() => {
     const auth = getAuth();
-  
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
           const userRef = doc(db, 'user_profiles', user.uid);
           const userDoc = await getDoc(userRef);
-  
           if (userDoc.exists()) {
             const userData = userDoc.data();
-  
             if (userData.role !== 'admin') {
               toast.warn('관리자 권한이 없습니다.');
-              window.location.href = '/main'; // 일반 유저는 메인으로 이동
+              window.location.href = '/main';
             } else {
-              fetchEquipments(); // ✅ 관리자만 장비 데이터 조회
+              fetchEquipments();
             }
           } else {
             toast.warn('사용자 정보가 존재하지 않습니다.');
@@ -148,10 +116,8 @@ const AdminEquipmentManagement = () => {
         window.location.href = '/login';
       }
     });
-  
     return () => unsubscribe();
   }, []);
-  
 
   const fetchEquipments = async () => {
     try {
@@ -161,8 +127,6 @@ const AdminEquipmentManagement = () => {
         id: d.id, 
         ...d.data()
       }));
-
-
       setEquipments(equipmentList);
     } catch (error) {
       console.error("장비 목록 불러오기 중 오류:", error);
@@ -173,24 +137,19 @@ const AdminEquipmentManagement = () => {
   const handleImageUpload = async () => {
     if (!imageFile) return null;
     try {
-      // 이미지 전처리
       const processedFile = await processImage(imageFile);
-      
       const uniqueFileName = `${Date.now()}_${processedFile.name}`;
       const storageRef = ref(storage, `camera-images/${uniqueFileName}`);
-      
       const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
       if (!allowedTypes.includes(processedFile.type)) {
         toast.warn('지원되지 않는 파일 형식입니다. JPEG, PNG, GIF 파일만 업로드 가능합니다.');
         return null;
       }
-      
       const maxSize = 5 * 1024 * 1024;
       if (processedFile.size > maxSize) {
         toast.warn('파일 크기가 너무 큽니다. 5MB 이하의 파일만 업로드 가능합니다.');
         return null;
       }
-      
       const snapshot = await uploadBytes(storageRef, processedFile);
       const downloadURL = await getDownloadURL(snapshot.ref);
       return { downloadURL, storageRef };
@@ -205,42 +164,31 @@ const AdminEquipmentManagement = () => {
     e.preventDefault();
     try {
       let imageUrl = null;
-  
-
-      
-if (imageFile) {
-  const uploadResult = await handleImageUpload();
-  if (uploadResult) {
-    imageUrl = uploadResult.downloadURL;
-    
-    // 기존 이미지가 있으면 삭제
-    if (editingEquipment && editingEquipment.imageURL) {
-      try {
-        const existingImageRef = ref(storage, editingEquipment.image);
-        await deleteObject(existingImageRef);
-      } catch (deleteError) {
-        console.error("기존 이미지 삭제 중 오류:", deleteError);
+      if (imageFile) {
+        const uploadResult = await handleImageUpload();
+        if (uploadResult) {
+          imageUrl = uploadResult.downloadURL;
+          if (editingEquipment && editingEquipment.imageURL) {
+            try {
+              const existingImageRef = ref(storage, editingEquipment.imageURL);
+              await deleteObject(existingImageRef);
+            } catch (deleteError) {
+              console.error("기존 이미지 삭제 중 오류:", deleteError);
+            }
+          }
+        } else {
+          return;
+        }
+      } else if (editingEquipment) {
+        imageUrl = editingEquipment.imageURL;
       }
-    }
-  } else {
-    return; // 이미지 업로드 실패 시 함수 종료
-  }
-} else if (editingEquipment) {
-  // 수정 모드이고 새 이미지가 없으면 기존 이미지 유지
-  imageUrl = editingEquipment.imageURL;
-}
 
       const equipmentData = {
         ...newEquipment,
-        description: parseFloat(newEquipment.description),
-        imageURL: imageUrl || (editingEquipment ? editingEquipment.image : ''),
+        description: newEquipment.description === '' ? '' : parseFloat(newEquipment.description),
+        imageURL: imageUrl || (editingEquipment ? editingEquipment.imageURL : ''),
         createdAt: editingEquipment ? editingEquipment.createdAt : new Date()
       };
-
-      if (imageUrl) {
-        equipmentData.imageURL = imageUrl;
-      }
-      
 
       if (editingEquipment) {
         await updateDoc(doc(db, 'cameras', editingEquipment.id), equipmentData);
@@ -249,11 +197,7 @@ if (imageFile) {
         await addDoc(collection(db, 'cameras'), equipmentData);
       }
 
-
-      
       fetchEquipments();
-      
-      // Reset form
       setNewEquipment({
         name: '',
         category: '',
@@ -264,7 +208,10 @@ if (imageFile) {
         status: 'available',
         condition: '정상',
         dailyRentalPrice: '',
-        image: ''
+        image: '',
+        batteryModel: '',
+        mountType: '',
+        recommendSDCard: ''
       });
       setImageFile(null);
     } catch (error) {
@@ -279,7 +226,6 @@ if (imageFile) {
         const imageRef = ref(storage, equipment.imageURL);
         await deleteObject(imageRef);
       }
-      
       await deleteDoc(doc(db, 'cameras', equipment.id));
       fetchEquipments();
     } catch (error) {
@@ -300,13 +246,17 @@ if (imageFile) {
       status: equipment.status || 'available',
       condition: equipment.condition || '정상',
       dailyRentalPrice: equipment.dailyRentalPrice || '',
-      imageURL: equipment.imageURL || ''
+      imageURL: equipment.imageURL || '',
+      batteryModel: equipment.batteryModel || '',
+      mountType: equipment.mountType || '',
+      recommendSDCard: equipment.recommendSDCard || ''
     });
   };
 
   return (
     <div style={{
       fontFamily: 'Pretendard, sans-serif',
+      
       maxWidth: '1200px',
       margin: '0 auto',
       padding: '20px',
@@ -314,23 +264,17 @@ if (imageFile) {
       color: 'black',
       display: 'flex'
     }}>
+      {/* 왼쪽: 등록/수정 폼 */}
       <div style={{ width: '40%', marginRight: '20px' }}>
-        <h1 style={{ 
-          fontSize: '24px', 
-          marginBottom: '20px', 
-          borderBottom: '2px solid black',
-          color: 'black' 
-        }}>
+        <h1 style={{ fontSize: '24px', marginBottom: '20px', borderBottom: '2px solid black' }}>
           장비 관리 페이지
         </h1>
-
         <form 
           onSubmit={handleSubmit}
           style={{
             display: 'grid',
             gap: '15px',
-            marginBottom: '30px',
-            color: 'black'
+            marginBottom: '30px'
           }}
         >
           <input
@@ -338,27 +282,15 @@ if (imageFile) {
             placeholder="장비 이름"
             value={newEquipment.name}
             onChange={(e) => setNewEquipment({...newEquipment, name: e.target.value})}
-            style={{
-              padding: '10px',
-              border: '1px solid #333',
-              borderRadius: '5px',
-              backgroundColor: 'white',
-              color: 'black'
-            }}
             required
+            style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px' }}
           />
-          
+
           <select
             value={newEquipment.category}
             onChange={(e) => setNewEquipment({...newEquipment, category: e.target.value})}
-            style={{
-              padding: '10px',
-              border: '1px solid #333',
-              borderRadius: '5px',
-              backgroundColor: 'white',
-              color: 'black'
-            }}
             required
+            style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px' }}
           >
             <option value="">장비 카테고리 선택</option>
             <option value="Camera">카메라</option>
@@ -375,44 +307,24 @@ if (imageFile) {
             placeholder="브랜드"
             value={newEquipment.brand}
             onChange={(e) => setNewEquipment({...newEquipment, brand: e.target.value})}
-            style={{
-              padding: '10px',
-              border: '1px solid #333',
-              borderRadius: '5px',
-              backgroundColor: 'white',
-              color: 'black'
-            }}
+            style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px' }}
           />
 
           <textarea
             placeholder="장비 특이사항"
             value={newEquipment.issues}
             onChange={(e) => setNewEquipment({...newEquipment, issues: e.target.value})}
-            style={{
-              padding: '10px',
-              border: '1px solid #333',
-              borderRadius: '5px',
-              minHeight: '100px',
-              backgroundColor: 'white',
-              color: 'black'
-            }}
+            style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px', }}
           />
 
           <textarea
             placeholder="장비 순서"
             value={newEquipment.description}
             onChange={(e) => setNewEquipment({...newEquipment, description: e.target.value})}
-            style={{
-              padding: '10px',
-              border: '1px solid #333',
-              borderRadius: '5px',
-              minHeight: '100px',
-              backgroundColor: 'white',
-              color: 'black'
-            }}
+            style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px', minHeight: '20px' }}
           />
 
-          <select
+<select
             value={newEquipment.status}
             onChange={(e) => setNewEquipment({...newEquipment, status: e.target.value})}
             style={{
@@ -443,49 +355,55 @@ if (imageFile) {
             <option value="수리">수리</option>
           </select>
 
+
+          {/* ✅ 태그 A/B/C 입력칸 */}
+          <input
+            type="text"
+            placeholder="배터리 모델"
+            value={newEquipment.batteryModel}
+            onChange={(e) => setNewEquipment({...newEquipment, batteryModel: e.target.value})}
+            style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px', minHeight: '20px' }}
+          />
+          <input
+            type="text"
+            placeholder="마운트 타입"
+            value={newEquipment.mountType}
+            onChange={(e) => setNewEquipment({...newEquipment, mountType: e.target.value})}
+            style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px', minHeight: '20px' }}
+          />
+          <input
+            type="text"
+            placeholder="추천sd카드"
+            value={newEquipment.recommendSDCard}
+            onChange={(e) => setNewEquipment({...newEquipment, recommendSDCard: e.target.value})}
+            style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px', minHeight: '20px' }}
+          />
+
           <input
             type="file"
             onChange={(e) => setImageFile(e.target.files[0])}
-            style={{
-              padding: '10px',
-              border: '1px solid #333',
-              borderRadius: '5px',
-              backgroundColor: 'white',
-              color: 'black'
-            }}
+            style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px' }}
           />
 
           <button 
             type="submit"
-            style={{
-              padding: '10px',
-              backgroundColor: '#333',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}
+            style={{ padding: '10px', backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
           >
             {editingEquipment ? '장비 수정' : '장비 추가'}
           </button>
         </form>
       </div>
 
+      {/* 오른쪽: 장비 리스트 */}
       <div style={{ width: '60%' }}>
-        <h2 style={{ 
-          fontSize: '20px', 
-          marginBottom: '20px', 
-          borderBottom: '2px solid black',
-          color: 'black' 
-        }}>
+        <h2 style={{ fontSize: '20px', marginBottom: '20px', borderBottom: '2px solid black' }}>
           장비 목록
         </h2>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '20px',
-          color: 'black',
-          maxHeight: '600px',
+          maxHeight: '800px',
           overflowY: 'auto'
         }}>
           {equipments.map((equipment) => (
@@ -501,47 +419,35 @@ if (imageFile) {
             >
               {equipment.imageURL && (
                 <img 
-                  src={equipment.imageURL} 
+                  src={equipment.imageURL}
                   alt={equipment.name}
-                  style={{
-                    width: '100%',
-                    height: '200px',
-                    objectFit: 'cover',
-                    borderRadius: '10px',
-                    marginBottom: '10px'
-                  }}
+                  style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '10px', marginBottom: '10px' }}
                 />
               )}
-              <h3 style={{ marginBottom: '10px', color: 'black' }}>{equipment.name}</h3>
-              <p style={{ color: 'black' }}>카테고리: {equipment.category}</p>
-              <p style={{ color: 'black' }}>상태: {equipment.status === 'available' ? '대여 가능' : '대여 중'}</p>
-              <p style={{ color: 'black' }}>브랜드: {equipment.brand || '미입력'}</p>
+              <h3>{equipment.name}</h3>
+              <p>카테고리: {equipment.category}</p>
+              <p>브랜드: {equipment.brand || '미입력'}</p>
               <p style={{ color: 'black' }}>장비 특이사항: {equipment.issues || '미입력'}</p>
               <p style={{ color: 'black' }}>장비 상태: {equipment.condition}</p>
+
+              {/* ✅ 태그 A, B, C 보여주기 */}
+              <div style={{ marginTop: '10px' }}>
+                {equipment.batteryModel && <p>배터리 모델: {equipment.batteryModel}</p>}
+                {equipment.mountType && <p>마운트 타입: {equipment.mountType}</p>}
+                {equipment.recommendSDCard && <p>추천 sd카드: {equipment.recommendSDCard}</p>}
+              </div>
+
+              {/* 수정/삭제 버튼 */}
               <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
                 <button
                   onClick={() => handleEdit(equipment)}
-                  style={{
-                    padding: '5px 10px',
-                    backgroundColor: '#333',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}
+                  style={{ padding: '5px 10px', backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
                 >
                   수정
                 </button>
                 <button
                   onClick={() => handleDelete(equipment)}
-                  style={{
-                    padding: '5px 10px',
-                    backgroundColor: 'red',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}
+                  style={{ padding: '5px 10px', backgroundColor: 'red', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
                 >
                   삭제
                 </button>

@@ -24,6 +24,14 @@ import { toast } from "react-toastify"; // 한 번만 import 되어있으면 됨
 import DatePickerInput from "./DatePickerInput";
 
 
+const mountColors = {
+  'EF': '#e74c3c',       // 빨강
+  'FE': '#195c89',       // 파랑
+  '니콘 F': '#7d4798', // 보라
+  '': '#1abc9c', // 민트
+  'EF-S': '#f39c12', // 주황
+  '기타': '#299616'      // 회색 (기본)
+};
 
 // 장바구니 관련 유틸리티 함수
 const addToCart = async (camera, rentalDate, rentalTime, returnDate, returnTime) => {
@@ -362,7 +370,7 @@ const ImageWithPlaceholder = ({ camera, equipmentAvailability }) => {
           onError={handleImageError}
         />
       )}
-      {equipmentAvailability?.[camera.id]?.available === false && (
+    {equipmentAvailability?.[camera.id]?.available === false && (
         <div style={{
           position: 'absolute',
           top: '50%',
@@ -572,8 +580,8 @@ useEffect(() => {
     }
 
     if (camera.category === 'Camera') {
-    if (camera.name === "소니 알파 A7C" || camera.name === "소니 알파 A7S2") {
-      toast.info("✨ 렌즈와 SD카드 대여도 잊지마세요!", {
+    if (camera.name === "고프로 히어로 5 세션 (a)" || camera.name === "고프로 히어로 5 세션 (b)" || camera.name === "삼성 gear 360 (a)" || camera.name === "삼성 gear 360 (b)") {
+      toast.info("✨ MicroSD 카드가 필요합니다", {
         className: "custom-toast"
       });
     } else {
@@ -645,7 +653,9 @@ if (availability && !availability.available) {
         padding: '5px 10px',
         borderRadius: '20px',
         backgroundColor: '#f0f0f0',
-        transition: 'transform 0.3s'
+        transition: 'transform 0.3s',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
+        fontWeight: '500'
       }}
       onClick={handleCartNavigation}
       className={cartAnimation ? 'cart-bounce' : ''}
@@ -665,7 +675,8 @@ if (availability && !availability.available) {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            fontSize: '10px'
+            fontSize: '12px',
+            
           }}>
             {cartItemCount}
           </span>
@@ -825,12 +836,14 @@ const returnTimeOptions = generateReturnTimeOptions();
       
       // 가용성 필터
       let availabilityMatch = true;
-      if (availableOnly && rentalDate && returnDate) {
-        const availability = equipmentAvailability[camera.id];
-        
-        // 📌 카메라 문서의 상태는 무시하고 reservation 기준으로만 판단
-        availabilityMatch = !availability || availability.available;
-      }
+    if (availableOnly && rentalDate && returnDate) {
+      const availability = equipmentAvailability[camera.id];
+      availabilityMatch = (
+        (!availability || availability.available) &&
+        camera.condition !== '수리' &&
+        camera.status !== '수리 중'
+      );
+    }
       
       return categoryMatch && nameMatch && availabilityMatch;
     });
@@ -840,6 +853,97 @@ const returnTimeOptions = generateReturnTimeOptions();
     const currentCameras = filteredCameras.slice(indexOfFirstCamera, indexOfLastCamera);
   
     const totalPages = Math.ceil(filteredCameras.length / camerasPerPage);
+
+    const handleAddBattery = async (camera) => {
+      const user = auth.currentUser;
+      if (!user) return toast.warn("로그인이 필요합니다!");
+    
+      if (!camera.batteryModel || !rentalDate || !returnDate) {
+        return toast.warn("날짜를 먼저 선택해주세요.");
+      }
+    
+      const batteryQuery = query(
+        collection(db, 'cameras'),
+        where('category', '==', 'Battery'),
+        where('status', '==', 'available')
+      );
+      const snapshot = await getDocs(batteryQuery);
+    
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        if (!data.name.startsWith(camera.batteryModel)) continue;
+    
+        const result = await checkEquipmentAvailability(docSnap.id, `${rentalDate}T${rentalTime}`, `${returnDate}T${returnTime}`);
+        if (result.available) {
+          const battery = { id: docSnap.id, ...data };
+          const added = await addToCart(battery, rentalDate, rentalTime, returnDate, returnTime);
+          if (added) toast.success(`${battery.name} 추가 완료`);
+          return;
+        }
+      }
+    
+
+      
+      toast.warn("사용 가능한 배터리가 없습니다.");
+    };
+
+    const handleAddSDCard = async (camera) => {
+      const user = auth.currentUser;
+      if (!user) return toast.warn("로그인이 필요합니다!");
+    
+      if (!camera.recommendSDCard || !rentalDate || !returnDate) {
+        return toast.warn("날짜를 먼저 선택해주세요.");
+      }
+    
+      try {
+        const sdQuery = query(
+          collection(db, 'cameras'),
+          where('category', '==', 'ETC'), // 필요 시 'SDCARD'로 변경 가능
+          where('status', '==', 'available')
+        );
+        const snapshot = await getDocs(sdQuery);
+    
+        // ✅ 현재 내 장바구니 아이템 ID 확인 (중복 방지)
+        const userCartRef = doc(db, 'user_carts', user.uid);
+        const cartDoc = await getDoc(userCartRef);
+        const currentItems = cartDoc.exists() ? cartDoc.data().items : [];
+        const existingIds = currentItems.map(item => item.id);
+    
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+    
+          // 🔍 이름이 추천 SD카드로 시작하지 않으면 무시
+          if (!data.name.startsWith(camera.recommendSDCard)) continue;
+    
+          // ❌ 이미 장바구니에 있으면 건너뜀
+          if (existingIds.includes(docSnap.id)) continue;
+    
+          // ⏱️ 대여 가능 여부 확인
+          const result = await checkEquipmentAvailability(
+            docSnap.id,
+            `${rentalDate}T${rentalTime}`,
+            `${returnDate}T${returnTime}`
+          );
+    
+          if (result.available) {
+            const sd = { id: docSnap.id, ...data };
+            const added = await addToCart(sd, rentalDate, rentalTime, returnDate, returnTime);
+            if (added) {
+              toast.success(`${sd.name} 추가 완료`);
+              return;
+            }
+          }
+        }
+    
+        // ✅ 끝까지 조건 맞는 SD카드 없으면
+        toast.warn("사용 가능한 SD카드가 없습니다.");
+      } catch (error) {
+        console.error("SD카드 추가 중 오류:", error);
+        toast.error("SD카드 추가에 실패했습니다.");
+      }
+    };
+    
+    
 
     useEffect(() => {
       if (cameras.length > 0 && rentalDate && returnDate) {
@@ -917,8 +1021,9 @@ const returnTimeOptions = generateReturnTimeOptions();
         }}>
           <span onClick={handleHomeNavigation} style={{ cursor: 'pointer' }}>Home</span>
           <span onClick={handleCalendarNavigation} style={{ cursor: 'pointer' }}>Calendar</span>
-          <span style={{ color: '#888', cursor: 'default' }}>Reservation</span>
           <span onClick={handleNoteNavigation} style={{ cursor: 'pointer' }}>Note</span>
+          <span style={{ color: 'black', cursor: 'default', fontWeight: '900' }}>Reservation</span>
+          
         </div>
         <div style={{ textAlign: 'center' }}>
           <div onClick={handleHomeNavigation}  style={{ 
@@ -955,7 +1060,9 @@ const returnTimeOptions = generateReturnTimeOptions();
             cursor: 'pointer',
             padding: '5px 10px',
             borderRadius: '20px',
-            backgroundColor: '#f0f0f0'
+            backgroundColor: '#f0f0f0',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
+            fontWeight: '500'
           }}
           onClick={handleMyPageNavigation}
           >
@@ -1207,15 +1314,15 @@ const returnTimeOptions = generateReturnTimeOptions();
         backgroundColor: '#f39c12',
         color: 'white',
         transform: 'rotate(45deg)',
-        padding: '5px 35px',
+       
         fontSize: '12px',
         fontWeight: 'bold',
         textAlign: 'center',
         zIndex: 10,
         boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
       }}>
-         선택 날짜 불가
-      </div>
+         
+      </div> 
     )}
 
     {/* 내 장바구니에 있는 항목 표시 */}
@@ -1280,6 +1387,84 @@ const returnTimeOptions = generateReturnTimeOptions();
                 {/* Camera Image */}
                 <ImageWithPlaceholder camera={camera} 
                 equipmentAvailability={equipmentAvailability}/>
+                
+                
+
+{/* Mount Tag - 왼쪽 아래 */}
+{/* 📌 Mount는 항상 표시 */}
+{camera.mountType && (
+  <div style={{
+    position: 'absolute',
+    top: '10px',
+    left: '10px',
+    backgroundColor: mountColors[camera.mountType] || mountColors['기타'],
+    color: 'white',
+    borderRadius: '10px',
+    padding: '4px 8px',
+    fontSize: '10px',
+    fontWeight: '500',
+    zIndex: 5
+  }}>
+   {camera.category === 'Camera'
+      ? `${camera.mountType} 마운트`
+      : camera.category === 'Battery'
+        ? `${camera.mountType} 호환`
+        : `기타`}
+  </div>
+)}
+
+{/* 📌 배터리 & SD카드 버튼은 hover 시에만 opacity로 표시 */}
+<div style={{
+  position: 'absolute',
+  top: '210px',
+  right: '10px',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-end',
+  gap: '5px',
+  zIndex: 5,
+  opacity: selectedCameraId === camera.id ? 1 : 0,
+  transform: selectedCameraId === camera.id ? 'translateY(0)' : 'translateY(5px)',
+  transition: 'opacity 0.3s ease, transform 0.3s ease'
+}}>
+  {camera.batteryModel && (
+    <button 
+      onClick={() => handleAddBattery(camera)}
+      style={{
+        padding: '4px 10px',
+        backgroundColor: '#3498db',
+        color: 'white',
+        border: 'none',
+        borderRadius: '15px',
+        fontSize: '10px',
+        cursor: 'pointer'
+      }}
+
+      
+    >
+      + 배터리
+    </button>
+  )}
+  {camera.recommendSDCard && (
+    <button 
+      onClick={() => handleAddSDCard(camera)}
+      style={{
+        padding: '4px 10px',
+        backgroundColor: '#27ae60',
+        color: 'white',
+        border: 'none',
+        borderRadius: '15px',
+        fontSize: '10px',
+        cursor: 'pointer'
+      }}
+      
+    >
+      + SD카드
+    </button>
+  )}
+</div>
+
+
 
                 {/* Camera Details */}
                 <div style={{ 

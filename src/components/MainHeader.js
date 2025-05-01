@@ -87,6 +87,29 @@ function MainHeader({ scrollToSection, refs }) {
     });
   };
 
+  // 버튼 스타일 객체 - 버튼의 공통 스타일 정의
+  const buttonStyle = {
+    backgroundColor: '#D3D3D3',
+    color: 'black',
+    padding: '8px 16px',
+    borderRadius: '12px',
+    fontSize: '30px',
+    fontWeight: '700',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    cursor: 'pointer',
+    border: 'none',
+    boxShadow: '0 6px 10px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.1)',
+    transition: 'all 0.2s ease-in-out',
+    position: 'absolute',
+  };
+
+  // 버튼 호버 효과를 위한 상태 변수
+  const [reserveHover, setReserveHover] = useState(false);
+  const [calendarHover, setCalendarHover] = useState(false);
+  const [scrollTopHover, setScrollTopHover] = useState(false);
+
   return (
     <div style={{
       position: 'relative',
@@ -275,23 +298,21 @@ function MainHeader({ scrollToSection, refs }) {
           gap: '20px',
           justifyContent: 'center'
         }}>
+          {/* 예약하기 버튼 - 개선된 스타일 적용 */}
           <button 
             onClick={handleReservation}
+            onMouseEnter={() => setReserveHover(true)}
+            onMouseLeave={() => setReserveHover(false)}
             style={{
-              position: 'absolute',
+              ...buttonStyle,
               right: '370px',
               top: '765px',
-              backgroundColor: '#D3D3D3',
-              color: 'black',
-              padding: '5px 13px',
-              borderRadius: '8px',
-              fontSize: '30px',
-              fontWeight: '700',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'pointer',
-              border: 'none'
+              padding: '10px 20px',
+              backgroundColor: reserveHover ? '#C0C0C0' : '#D3D3D3',
+              transform: reserveHover ? 'translateY(-3px)' : 'translateY(0)',
+              boxShadow: reserveHover 
+                ? '0 10px 15px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.15)' 
+                : '0 6px 10px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.1)',
             }}
           >
             <img src="/assets/CheckMark.png" alt="Reserve Icon" style={{
@@ -300,22 +321,24 @@ function MainHeader({ scrollToSection, refs }) {
             }} />
             예약하기
           </button>
-          <button onClick={() => scrollToSection(refs.calendar)} style={{
-            position: 'absolute',
-            backgroundColor: '#D3D3D3',
-            color: 'black',
-            padding: '5px 13px',
-            borderRadius: '8px',
-            fontSize: '30px',
-            fontWeight: '700',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginRight: "-900px",
-            top: "765px",
-            cursor: 'pointer',
-            border: 'none'
-          }}>
+
+          {/* 캘린더 버튼 - 개선된 스타일 적용 */}
+          <button 
+            onClick={() => scrollToSection(refs.calendar)}
+            onMouseEnter={() => setCalendarHover(true)}
+            onMouseLeave={() => setCalendarHover(false)}
+            style={{
+              ...buttonStyle,
+              marginRight: "-900px",
+              top: "765px",
+              padding: '10px 20px',
+              backgroundColor: calendarHover ? '#C0C0C0' : '#D3D3D3',
+              transform: calendarHover ? 'translateY(-3px)' : 'translateY(0)',
+              boxShadow: calendarHover 
+                ? '0 10px 15px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.15)' 
+                : '0 6px 10px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.1)',
+            }}
+          >
             <img src="/assets/Calendar.png" alt="Calendar Icon" style={{
               width: '35px',
               height: '35px'
@@ -324,29 +347,37 @@ function MainHeader({ scrollToSection, refs }) {
           </button>
         </div>
 
-        {/* 맨 위로 스크롤 버튼 */}
+        {/* 맨 위로 스크롤 버튼 - 개선된 스타일 적용 */}
         {isVisible && (
           <button 
             onClick={scrollToTop}
+            onMouseEnter={() => setScrollTopHover(true)}
+            onMouseLeave={() => setScrollTopHover(false)}
             style={{
               position: 'fixed',
               bottom: '40px',
               right: '40px',
-              backgroundColor: 'rgba(211, 211, 211, 0.8)', // 약간 투명한 회색
+              backgroundColor: scrollTopHover ? '#C0C0C0' : 'rgba(211, 211, 211, 0.9)',
               color: 'black',
-              borderRadius: '50%', // 원형 버튼
+              borderRadius: '50%',
               width: '60px',
               height: '60px',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
+              fontSize: '24px',
+              fontWeight: 'bold',
               border: 'none',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)', // 약간의 그림자
+              boxShadow: scrollTopHover 
+                ? '0 8px 16px rgba(0,0,0,0.25), 0 4px 8px rgba(0,0,0,0.15)' 
+                : '0 4px 8px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.1)',
               cursor: 'pointer',
-              zIndex: 1000 // 다른 요소 위에 표시되도록
+              zIndex: 1000,
+              transition: 'all 0.2s ease-in-out',
+              transform: scrollTopHover ? 'translateY(-5px)' : 'translateY(0)',
             }}
           >
-            ↑ {/* 위쪽 화살표 */}
+            ↑
           </button>
         )}
       </div>

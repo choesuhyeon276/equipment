@@ -84,15 +84,15 @@ function App() {
 
   useEffect(() => {
     let viewportMeta = document.querySelector('meta[name="viewport"]');
-    
+
     if (!viewportMeta) {
       viewportMeta = document.createElement('meta');
       viewportMeta.name = 'viewport';
       document.head.appendChild(viewportMeta);
     }
-    
+
     viewportMeta.content = 'width=1440, user-scalable=yes';
-    
+
     return () => {
       viewportMeta.content = 'width=device-width, initial-scale=1.0';
     };
@@ -103,7 +103,9 @@ function App() {
   return (
     <div style={{ 
       fontFamily: "Pretendard Variable, sans-serif",
-      minWidth: "1440px"
+      minWidth: "1440px",
+      height: "100vh",
+      overflow: "hidden"
     }}>
       <GoogleOAuthProvider clientId={clientId}>
         <BackButton />
@@ -112,28 +114,29 @@ function App() {
           <Route path="/login" element={user ? <Navigate to="/main" /> : <Login />} />
           <Route
             path="/reservation"
-            element={user ? <ReservationMainPage /> : <Navigate to="/login" state={{ from: "/reservation" }} />}
+            element={user ? <div style={{ height: "100%", overflowY: "auto" }}><ReservationMainPage /></div> : <Navigate to="/login" state={{ from: "/reservation" }} />}
           />
           <Route
             path="/cart"
-            element={user ? <CartPage /> : <Navigate to="/login" state={{ from: "/cart" }} />}
+            element={user ? <div style={{ height: "100%", overflowY: "auto" }}><CartPage /></div> : <Navigate to="/login" state={{ from: "/cart" }} />}
           />
           <Route
             path="/main"
             element={
               <div 
-              id="main-scroll-container"
-              style={{
-                margin: "0",
-                padding: "0",
-                width: "100%",
-                minWidth: "1440px",
-                height: "100vh",
-                overflowY: "auto",
-                overflowX: "auto",
-                backgroundColor: "#FFFFFF",
-                scrollBehavior: "smooth"
-              }}>
+                id="main-scroll-container"
+                style={{
+                  margin: "0",
+                  padding: "0",
+                  width: "100%",
+                  minWidth: "1440px",
+                  height: "100%",
+                  overflowY: "auto",
+                  overflowX: "auto",
+                  backgroundColor: "#FFFFFF",
+                  scrollBehavior: "smooth"
+                }}>
+
                 <MainHeader
                   scrollToSection={scrollToRef}
                   refs={{
@@ -168,13 +171,13 @@ function App() {
               </div>
             }
           />
-          <Route path="/reservationMainPage" element={<ReservationMainPage />} />
-          <Route path="/reservation-main" element={<ReservationMainPage />} />
+          <Route path="/reservationMainPage" element={<div style={{ height: "100%", overflowY: "auto" }}><ReservationMainPage /></div>} />
+          <Route path="/reservation-main" element={<div style={{ height: "100%", overflowY: "auto" }}><ReservationMainPage /></div>} />
           <Route path="/mainheader" element={<MainHeader />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/thingsnote" element={<ThingsNotePage />} />
-          <Route path="/mypage" element={<MyPage />} />
-          <Route path="/admins" element={<AdminPage />} />
+          <Route path="/calendar" element={<div style={{ height: "100%", overflowY: "auto" }}><Calendar /></div>} />
+          <Route path="/thingsnote" element={<div style={{ height: "100%", overflowY: "auto" }}><ThingsNotePage /></div>} />
+          <Route path="/mypage" element={<div style={{ height: "100%", overflowY: "auto" }}><MyPage /></div>} />
+          <Route path="/admins" element={<div style={{ height: "100%", overflowY: "auto" }}><AdminPage /></div>} />
           <Route
             path="/cameramanagement"
             element={
@@ -185,7 +188,7 @@ function App() {
                 minWidth: "1440px",
                 backgroundColor: "black",
                 minHeight: "100vh",
-                overflowX: "auto"
+                overflowY: "auto"
               }}>
                 <AdminCameraManagement />
               </div>

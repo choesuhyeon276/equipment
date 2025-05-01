@@ -166,11 +166,14 @@ const MyPage = () => {
   };
    
   
+
+  
 // 👇 JSX return 바로 위에 추가 (렌더링 로직 안쪽)
 const missingFields = !userProfile?.phoneNumber || !userProfile?.studentId || !userProfile?.agreementURL;
 
 const renderMissingInfoNotice = () => {
   if (!missingFields) return null;
+  
 
   return (
     <div style={{
@@ -178,7 +181,7 @@ const renderMissingInfoNotice = () => {
       top: '16px',
       left: '50%',
       transform: 'translateX(-50%)',
-      width: '25%', 
+      minWidth: '500px', 
       maxWidth: '700px',
       zIndex: 1000,
       backgroundColor: '#fff8e1',
@@ -187,19 +190,22 @@ const renderMissingInfoNotice = () => {
       borderRadius: '8px',
       boxShadow: '0 4px 10px rgba(0, 0, 0, 0.15)',
       color: '#5d4037',
-      animation: 'fadeInDown 0.5s ease forwards'
+      animation: 'fadeInDown 0.5s ease forwards',
+      whiteSpace: 'nowrap'
     }}>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: '10px'
+        marginBottom: '10px',
+        whiteSpace: 'nowrap'
       }}>
         <h3 style={{
           fontSize: '18px',
           fontWeight: 'bold',
           marginTop: 0,
           marginBottom: '0',
+          whiteSpace: 'nowrap',
           color: '#e65100'
         }}>⚠️ 대여 전 필수 정보 입력 안내</h3>
         
@@ -209,7 +215,8 @@ const renderMissingInfoNotice = () => {
       <p style={{
         fontSize: '15px',
         lineHeight: '1.5',
-        marginBottom: '16px'
+        marginBottom: '16px',
+        whiteSpace: 'nowrap'
       }}>
         장비 예약을 위해 아래 정보를 먼저 입력해주세요:
       </p>
@@ -218,28 +225,62 @@ const renderMissingInfoNotice = () => {
         paddingLeft: '20px',
         marginBottom: '16px'
       }}>
-        {!userProfile?.phoneNumber && (
-          <li style={{
-            marginBottom: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            fontSize: '15px',
-            lineHeight: '1.4'
-          }}>
-            <span style={{ marginRight: '8px' }}>📱</span> 전화번호가 입력되지 않았습니다.
-          </li>
-        )}
+        
         {!userProfile?.studentId && (
-          <li style={{
-            marginBottom: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            fontSize: '15px',
-            lineHeight: '1.4'
-          }}>
-            <span style={{ marginRight: '8px' }}>🎓</span> 학번이 입력되지 않았습니다.
-          </li>
-        )}
+  <li style={{
+    marginBottom: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '15px',
+    lineHeight: '1.4',
+    whiteSpace: 'nowrap'
+  }}>
+    <span style={{ marginRight: '8px' }}>🎓</span>
+    학번이 입력되지 않았습니다.
+    <input
+      type="text"
+      value={studentId}
+      onChange={(e) => setStudentId(e.target.value)}
+      placeholder="ex) 2024104520"
+      style={{
+        marginLeft: '36px',
+        padding: '4px 8px',
+        border: '1px solid #ccc',
+        borderRadius: '4px',
+        fontSize: '14px'
+      }}
+    />
+  </li>
+)}
+
+{!userProfile?.phoneNumber && (
+  <li style={{
+    marginBottom: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '15px',
+    lineHeight: '1.4',
+    whiteSpace: 'nowrap'
+  }}>
+    <span style={{ marginRight: '8px' }}>📱</span>
+    전화번호가 입력되지 않았습니다.
+    <input
+      type="text"
+      value={phoneNumber}
+      onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
+      placeholder="010-0000-0000"
+      maxLength={13}
+      style={{
+        marginLeft: '10px',
+        padding: '4px 8px',
+        border: '1px solid #ccc',
+        borderRadius: '4px',
+        fontSize: '14px'
+      }}
+    />
+  </li>
+)}
+
         {!userProfile?.agreementURL && (
           <li style={{
             marginBottom: '10px',
@@ -276,9 +317,69 @@ const renderMissingInfoNotice = () => {
   서약서 양식 다운로드
 </a>
 
+<button
+    onClick={() => document.getElementById('agreementFileInput').click()}
+    style={{
+      backgroundColor: '#1976d2',
+      color: '#fff',
+      padding: '6px 12px',
+      borderRadius: '4px',
+      border: 'none',
+      cursor: 'pointer',
+      fontSize: '13px',
+      marginLeft: "14px",
+      whiteSpace: 'nowrap'
+      
+    }}
+    onMouseOver={(e) => {
+      e.currentTarget.style.backgroundColor = '#1565c0';
+    }}
+    onMouseOut={(e) => {
+      e.currentTarget.style.backgroundColor = '#1976d2';
+    }}
+  >
+    업로드
+  </button>
+
+  <input 
+    id="agreementFileInput"
+    type="file"
+    accept=".pdf,.jpg,.jpeg,.png,.heic"
+    onChange={(e) => setAgreementFile(e.target.files[0])}
+    style={{ display: 'none' }}
+  />
+
           </li>
         )}
       </ul>
+      <button
+  onClick={() => {
+    if (agreementFile && !isUploading) {
+      uploadAgreement(); // 파일이 있으면 서약서 업로드
+    } else {
+      updateProfileData(); // 파일이 없으면 정보 저장
+    }
+  }}
+  disabled={isUploading} // 업로드 중에는 비활성화
+  style={{
+    width: '100%',
+    padding: '4px',
+    backgroundColor: agreementFile && !isUploading ? '#4caf50' : '#0772ed', 
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: isUploading ? 'not-allowed' : 'pointer',
+    fontSize: '15px',
+    transition: 'background-color 0.3s ease',
+    whiteSpace: 'nowrap'
+  }}
+>
+  {isUploading
+    ? '업로드 중...'
+    : agreementFile
+      ? (agreementSubmitted ? '서약서 다시 등록하기' : '서약서 등록하기')
+      : '정보 저장하기'}
+</button>
       
       <style dangerouslySetInnerHTML={{
         __html: `
@@ -347,8 +448,18 @@ const renderMissingInfoNotice = () => {
       }
     });
 
+    
+
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (userProfile?.agreementURL && userProfile?.phoneNumber && userProfile?.studentId) {
+      setIsVisible(false); 
+
+      
+    }
+  }, [userProfile]);
 
 
   // Fetch all user data from Firebase
@@ -483,6 +594,13 @@ setReturnRequestedRentals(returnRequestedData);
         updatedAt: serverTimestamp()
       });
       
+       // ✅ 저장 성공 후 바로 로컬 userProfile도 수정
+    setUserProfile((prev) => ({
+      ...prev,
+      studentId: studentId,
+      phoneNumber: phoneNumber,
+    }));
+
       toast.success('프로필 정보가 업데이트되었습니다.');
       setIsEditing(false);
     } catch (error) {
@@ -550,6 +668,12 @@ setReturnRequestedRentals(returnRequestedData);
             agreementFilename: agreementFile.name,
             agreementUploadedAt: serverTimestamp()
           });
+
+          toast.success('서약서가 성공적으로 등록되었습니다!');
+        setUserProfile((prev) => ({
+          ...prev,
+          agreementURL: downloadURL, // 알림창 조건 즉시 무력화
+        }));
           
           setAgreementSubmitted(true);
           setIsUploading(false);
@@ -991,9 +1115,14 @@ setReturnRequestedRentals(returnRequestedData);
         }}>
           <span onClick={handleHomeNavigation} style={{ cursor: 'pointer' }}>Home</span>
           <span onClick={handleCalendarNavigation} style={{ cursor: 'pointer' }}>Calendar</span>
-          <span onClick={handleReservateNavigation} style={{ cursor: 'pointer' }}>Reservation</span>
           <span onClick={handleNoteNavigation} style={{ cursor: 'pointer' }}>Note</span>
+          <span onClick={handleReservateNavigation} style={{ cursor: 'pointer' }}>Reservation</span>
+          
+          
         </div>
+        
+
+
         <div style={{ textAlign: 'center' }}>
           <div onClick={handleHomeNavigation}  style={{ 
             position: 'absolute',
@@ -1018,6 +1147,7 @@ setReturnRequestedRentals(returnRequestedData);
         </div>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <div style={{ 
+            color: '#FFFFFF',
             display: 'flex',
             position: 'absolute',
             right: '110px',
@@ -1027,7 +1157,8 @@ setReturnRequestedRentals(returnRequestedData);
             cursor: 'pointer',
             padding: '5px 10px',
             borderRadius: '20px',
-            backgroundColor: '#cccccc'
+            backgroundColor: '#212121',
+            
           }}>
             <User size={20} />
             <span>My page</span>
@@ -1043,6 +1174,7 @@ setReturnRequestedRentals(returnRequestedData);
             padding: '5px 10px',
             borderRadius: '20px',
             backgroundColor: '#f0f0f0',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
           }}
             onClick = {handleCartNavigation}
           >
@@ -1055,7 +1187,7 @@ setReturnRequestedRentals(returnRequestedData);
       {/* MyPage Content Area */}
       <div style={{
         position: 'absolute',
-        top: '150px',
+        top: '130px',
         left: '50px',
         right: '50px'
       }}>
@@ -1065,7 +1197,7 @@ setReturnRequestedRentals(returnRequestedData);
           marginBottom: '20px', 
           marginLeft: '40px'
         }}>
-          마이페이지
+         
         </h2>
 
         {renderMissingInfoNotice()}
@@ -1309,10 +1441,10 @@ setReturnRequestedRentals(returnRequestedData);
     style={{
       width: '100%',
       padding: '10px',
-      backgroundColor: agreementFile && !isUploading ? '#4caf50' : '#e0e0e0',
-      color: agreementFile && !isUploading ? 'white' : '#666',
+      backgroundColor: agreementFile && !isUploading ? '#4caf50' : '#212121',
+      color: agreementFile && !isUploading ? 'white' : 'white',
       border: 'none',
-      borderRadius: '5px',
+      borderRadius: '7px',
       cursor: agreementFile && !isUploading ? 'pointer' : 'not-allowed'
     }}
   >

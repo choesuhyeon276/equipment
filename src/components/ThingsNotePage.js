@@ -80,9 +80,9 @@ const ThingsNotePage = () => {
           <div>
             <div style={{ fontWeight: 'bold', marginBottom: '5px',fontWeight: '200', position:'absolute', left: '650px' }}>반납시</div>
             <div style={{ lineHeight: '1.2',fontWeight: '200', position:'absolute', left: '650px', top: '30px' }}>
-              오픈 카카오로 장비장에게<br />
-              모든 장비가 나온 반납사진 보내기<br />
-              <a href="https://open.kakao.com/o/sqlOcF6g" style={{ color: '#fff' }}>https://open.kakao.com/o/sqlOcF6g</a>
+              마이페이지에 현재 대여 장비란에<br />
+              장비가 나온 반납사진 첨부하여 반납신청하기<br />
+             
             </div>
           </div>
           <div style={{
