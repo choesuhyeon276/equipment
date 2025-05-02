@@ -27,7 +27,7 @@ const DatePickerInput = ({ selected, onChange, minDate, maxDate, placeholder }) 
     <DatePicker
       selected={selected ? new Date(selected) : null}
       onChange={(date) => {
-        if (date) onChange(date.toISOString().split("T")[0]);
+        if (date) onChange(date.toLocaleDateString('sv-SE'));
       }}
       dateFormat="yyyy-MM-dd"
       placeholderText={placeholder}

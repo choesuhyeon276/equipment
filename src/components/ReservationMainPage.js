@@ -193,7 +193,7 @@ const checkEquipmentAvailability = async (equipmentId, startDate, endDate) => {
       });
     });
     
-    console.log('최종 결과:', { available: isAvailable, periods: unavailablePeriods.length });
+   
     
     return {
       available: isAvailable,
@@ -391,6 +391,18 @@ const ImageWithPlaceholder = ({ camera, equipmentAvailability }) => {
     </div>
   );
 };
+
+const formatToKSTDateString = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+
+
+
+
 
 const ReservationMainPage = () => {
   const navigate = useNavigate();
@@ -798,23 +810,38 @@ const returnTimeOptions = generateReturnTimeOptions();
   
   // 대여 날짜 변경 핸들러
   const handleRentalDateChange = (date) => {
-    const selectedRentalDate = date instanceof Date
-      ? date.toISOString().split('T')[0]
-      : date; // 이미 string일 경우 대응
+    console.log('받은 날짜 값:', date, typeof date);
   
-    setRentalDate(selectedRentalDate);
-    setMinReturnDate(selectedRentalDate);
+    let fixedDate;
+  
+    if (typeof date === 'string') {
+      const [year, month, day] = date.split('-').map(Number);
+      fixedDate = new Date(year, month - 1, day, 9, 0, 0); // 👈 KST 기준 오전 9시
+    } else if (date instanceof Date) {
+      fixedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 9, 0, 0);
+    } else {
+      console.warn('날짜 형식 오류:', date);
+      return;
+    }
+  
+    const formatted = formatToKSTDateString(fixedDate);
+    setRentalDate(formatted);
+    setMinReturnDate(formatted);
   
     const maxDay = isLongTerm ? 30 : 8;
-    const maxDate = new Date(selectedRentalDate);
+    const maxDate = new Date(fixedDate);
     maxDate.setDate(maxDate.getDate() + maxDay);
-    const maxDateString = maxDate.toISOString().split('T')[0];
-    setMaxReturnDate(maxDateString);
+    const formattedMax = formatToKSTDateString(maxDate);
+    setMaxReturnDate(formattedMax);
   
     if (returnDate && new Date(returnDate) > maxDate) {
       setReturnDate('');
     }
   };
+  
+  
+  
+
   
   
   
@@ -857,7 +884,6 @@ const returnTimeOptions = generateReturnTimeOptions();
     const handleAddBattery = async (camera) => {
       const user = auth.currentUser;
       if (!user) return toast.warn("로그인이 필요합니다!");
-    
       if (!camera.batteryModel || !rentalDate || !returnDate) {
         return toast.warn("날짜를 먼저 선택해주세요.");
       }
@@ -865,27 +891,51 @@ const returnTimeOptions = generateReturnTimeOptions();
       const batteryQuery = query(
         collection(db, 'cameras'),
         where('category', '==', 'Battery'),
-        where('status', '==', 'available')
+        where('status', '==', 'available'),
+        orderBy('name') // 예시: 이름 순으로 정렬
       );
+      
+
+
       const snapshot = await getDocs(batteryQuery);
+    
+      const startDate = `${rentalDate}T${rentalTime}`;
+      const endDate = `${returnDate}T${returnTime}`;
+    
+      // 🔍 현재 내 장바구니에 있는 ID 확인
+      const userCartRef = doc(db, 'user_carts', user.uid);
+      const cartDoc = await getDoc(userCartRef);
+      const cartItems = cartDoc.exists() ? cartDoc.data().items : [];
     
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
+    
+        // 🔍 이름이 모델로 시작하지 않으면 건너뜀
         if (!data.name.startsWith(camera.batteryModel)) continue;
     
-        const result = await checkEquipmentAvailability(docSnap.id, `${rentalDate}T${rentalTime}`, `${returnDate}T${returnTime}`);
+        // 🧠 장바구니 중복 체크
+        const isAlreadyInCart = cartItems.some(item => 
+          item.id === docSnap.id &&
+          item.rentalDate === rentalDate &&
+          item.rentalTime === rentalTime
+        );
+        if (isAlreadyInCart) continue;
+    
+        // 🟢 가용성 확인
+        const result = await checkEquipmentAvailability(docSnap.id, startDate, endDate);
         if (result.available) {
           const battery = { id: docSnap.id, ...data };
           const added = await addToCart(battery, rentalDate, rentalTime, returnDate, returnTime);
-          if (added) toast.success(`${battery.name} 추가 완료`);
-          return;
+          if (added) {
+            toast.success(`${battery.name} 추가 완료`);
+            return;
+          }
         }
       }
     
-
-      
-      toast.warn("사용 가능한 배터리가 없습니다.");
+      toast.warn("사용 가능한 배터리가 더 이상 없습니다.");
     };
+    
 
     const handleAddSDCard = async (camera) => {
       const user = auth.currentUser;
@@ -916,7 +966,12 @@ const returnTimeOptions = generateReturnTimeOptions();
           if (!data.name.startsWith(camera.recommendSDCard)) continue;
     
           // ❌ 이미 장바구니에 있으면 건너뜀
-          if (existingIds.includes(docSnap.id)) continue;
+          const isAlreadyAdded = currentItems.some(
+            item => item.id === docSnap.id && 
+                    item.rentalDate === rentalDate && 
+                    item.rentalTime === rentalTime
+          );
+          if (isAlreadyAdded) continue;
     
           // ⏱️ 대여 가능 여부 확인
           const result = await checkEquipmentAvailability(
@@ -1177,9 +1232,10 @@ const returnTimeOptions = generateReturnTimeOptions();
               }}>대여일자</div>
               <DatePickerInput
   selected={rentalDate}
-  onChange={handleRentalDateChange}
+  onChange={handleRentalDateChange} // ✅ 이제 이 함수가 쓰이게 됨!
   placeholder="대여일 선택"
 />
+
 
               <select
                 value={rentalTime}
@@ -1406,10 +1462,16 @@ const returnTimeOptions = generateReturnTimeOptions();
     zIndex: 5
   }}>
    {camera.category === 'Camera'
-      ? `${camera.mountType} 마운트`
-      : camera.category === 'Battery'
-        ? `${camera.mountType} 호환`
-        : `기타`}
+  ? `${camera.mountType} 마운트`
+  : camera.category === 'Lens'
+  ? `${camera.mountType} 마운트`
+  : camera.category === 'Battery'
+  ? `${camera.mountType} 호환`
+  : null}
+
+
+      
+      
   </div>
 )}
 
