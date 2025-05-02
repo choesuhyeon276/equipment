@@ -403,7 +403,6 @@ const formatToKSTDateString = (date) => {
 
 
 
-
 const ReservationMainPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -1446,34 +1445,42 @@ const returnTimeOptions = generateReturnTimeOptions();
                 
                 
 
-{/* Mount Tag - 왼쪽 아래 */}
 {/* 📌 Mount는 항상 표시 */}
-{camera.mountType && (
-  <div style={{
-    position: 'absolute',
-    top: '10px',
-    left: '10px',
-    backgroundColor: mountColors[camera.mountType] || mountColors['기타'],
-    color: 'white',
-    borderRadius: '10px',
-    padding: '4px 8px',
-    fontSize: '10px',
-    fontWeight: '500',
-    zIndex: 5
-  }}>
-   {camera.category === 'Camera'
-  ? `${camera.mountType} 마운트`
-  : camera.category === 'Lens'
-  ? `${camera.mountType} 마운트`
-  : camera.category === 'Battery'
-  ? `${camera.mountType} 호환`
-  : null}
+{(() => {
+  const mountArray = Array.isArray(camera.mountType)
+    ? camera.mountType
+    : typeof camera.mountType === 'string'
+      ? camera.mountType
+          .split(',')
+          .map(s => s.trim().replace(/^"|"$/g, ''))
+          .filter(Boolean)
+      : [];
+
+  if (mountArray.length === 0) return null;
+
+  return mountArray.map((type, idx) => (
+    <div key={idx} style={{
+      position: 'absolute',
+      top: `${10 + idx * 26}px`,
+      left: '10px',
+      backgroundColor: mountColors[type] || mountColors['기타'],
+      color: 'white',
+      borderRadius: '10px',
+      padding: '4px 8px',
+      fontSize: '10px',
+      fontWeight: '500',
+      zIndex: 5,
+      whiteSpace: 'nowrap'
+    }}>
+      {type} 마운트
+    </div>
+  ));
+})()}
 
 
-      
-      
-  </div>
-)}
+
+
+
 
 {/* 📌 배터리 & SD카드 버튼은 hover 시에만 opacity로 표시 */}
 <div style={{
