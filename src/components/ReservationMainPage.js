@@ -1445,8 +1445,7 @@ const returnTimeOptions = generateReturnTimeOptions();
                 
                 
 
-{/* 📌 Mount는 항상 표시 */}
-{(() => {
+                {(() => {
   const mountArray = Array.isArray(camera.mountType)
     ? camera.mountType
     : typeof camera.mountType === 'string'
@@ -1457,6 +1456,9 @@ const returnTimeOptions = generateReturnTimeOptions();
       : [];
 
   if (mountArray.length === 0) return null;
+
+  // 📌 카테고리에 따라 태그 라벨 변경
+  const labelType = camera.category === 'Battery' ? '배터리' : '마운트';
 
   return mountArray.map((type, idx) => (
     <div key={idx} style={{
@@ -1472,10 +1474,11 @@ const returnTimeOptions = generateReturnTimeOptions();
       zIndex: 5,
       whiteSpace: 'nowrap'
     }}>
-      {type} 마운트
+      {type} {labelType}
     </div>
   ));
 })()}
+
 
 
 
