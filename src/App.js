@@ -2,23 +2,26 @@ import React, { useRef, useState, useEffect } from "react";
 import { Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Login from "./components/Login";
 import MainHeader from "./components/MainHeader";
-import Calendar from "./components/Calendar";
+import CalendarWithHeader from "./components/CalendarWithHeader";
+// 독립형 캘린더 컴포넌트 (헤더 없는 버전)
+import CalendarStandalone from "./components/CalendarStandalone"; 
 import RentalMethodPage from "./components/RentalMethodPage";
 import ThingsNotePage from "./components/ThingsNotePage";
 import LongTermRentalPage from "./components/LongTermRentalPage";
-import ReservationMainPage from "./components/ReservationMainPage";
+import ReservationMainPage from "./components/reservation/ReservationMainPage";
 import AdminCameraManagement from "./components/AdminCameraManagement";
-import CartPage from "./components/CartPage";
-import MyPage from "./components/MyPage";
+import CartPage from "./components/cart";
+import MyPage from "./pages/MyPage";
 import AdminPage from "./components/AdminPage";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "./firebase/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import BackButton from "./components/BackButton";
 import ScrollToTopButton from "./components/ScrollToTopButton";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import './styles/responsive.css';
+import ThingsNotePageWithHeader from "./components/ThingsNotePageWithHeader";
 
 const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
@@ -31,31 +34,55 @@ function App() {
   const [user, setUser] = useState(null);
   const [profileIncomplete, setProfileIncomplete] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const location = useLocation();
   const navigate = useNavigate();
 
+  // 화면 크기 변경 감지
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 사용자 인증 상태 확인
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
 
       if (currentUser) {
+        localStorage.setItem('user', JSON.stringify({
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName
+        }));
+        
         const userRef = doc(db, "user_profiles", currentUser.uid);
-        const snap = await getDoc(userRef);
+        try {
+          const snap = await getDoc(userRef);
 
-        if (snap.exists()) {
-          const data = snap.data();
-          const isIncomplete =
-            !data.phoneNumber ||
-            !data.studentId ||
-            !data.agreementURL;
+          if (snap.exists()) {
+            const data = snap.data();
+            const isIncomplete =
+              !data.phoneNumber ||
+              !data.studentId ||
+              !data.agreementURL;
 
-          setProfileIncomplete(isIncomplete);
+            setProfileIncomplete(isIncomplete);
 
-          if (isIncomplete && location.pathname !== "/mypage") {
-            navigate("/mypage", { state: { showAgreementReminder: true } });
+            if (isIncomplete && location.pathname !== "/mypage") {
+              navigate("/mypage", { state: { showAgreementReminder: true } });
+            }
           }
+        } catch (error) {
+          console.error("사용자 프로필 조회 중 오류:", error);
         }
+      } else {
+        localStorage.removeItem('user');
       }
       setLoading(false);
     });
@@ -65,7 +92,10 @@ function App() {
 
   function scrollToRef(ref) {
     if (ref && ref.current) {
-      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      ref.current.scrollIntoView({ 
+        behavior: isMobile ? "auto" : "smooth", 
+        block: "start" 
+      });
     }
   }
 
@@ -77,66 +107,52 @@ function App() {
       "long-term-rental-section": longTermRentalRef,
     };
     const ref = refMap[sectionId];
+    
     if (ref && ref.current) {
-      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      ref.current.scrollIntoView({ 
+        behavior: isMobile ? "auto" : "smooth",
+        block: "start" 
+      });
     }
   }
 
-  useEffect(() => {
-    let viewportMeta = document.querySelector('meta[name="viewport"]');
+  if (loading) {
+    return (
+      <div className="loading-spinner-container">
+        <div className="loading-spinner"></div>
+        <p>로딩 중...</p>
+      </div>
+    );
+  }
 
-    if (!viewportMeta) {
-      viewportMeta = document.createElement('meta');
-      viewportMeta.name = 'viewport';
-      document.head.appendChild(viewportMeta);
-    }
-
-    viewportMeta.content = 'width=1440, user-scalable=yes';
-
-    return () => {
-      viewportMeta.content = 'width=device-width, initial-scale=1.0';
-    };
-  }, []);
-
-  if (loading) return null;
+  // PC 버전에서 정렬을 맞추기 위한 스타일
+  const sectionStyle = {
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: '0 auto',
+  };
 
   return (
-    <div style={{ 
-      fontFamily: "Pretendard Variable, sans-serif",
-      minWidth: "1440px",
-      height: "100vh",
-      overflow: "hidden"
-    }}>
+    <div className="app-container">
       <GoogleOAuthProvider clientId={clientId}>
-        <BackButton />
+        
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={user ? <Navigate to="/main" /> : <Login />} />
+          <Route path="/login" element={user ? <Navigate to="/main" /> : <Login isMobile={isMobile} />} />
           <Route
             path="/reservation"
-            element={user ? <div style={{ height: "100%", overflowY: "auto" }}><ReservationMainPage /></div> : <Navigate to="/login" state={{ from: "/reservation" }} />}
+            element={user ? <div className="page-container"><ReservationMainPage /></div> : <Navigate to="/login" state={{ from: "/reservation" }} />}
           />
           <Route
             path="/cart"
-            element={user ? <div style={{ height: "100%", overflowY: "auto" }}><CartPage /></div> : <Navigate to="/login" state={{ from: "/cart" }} />}
+            element={user ? <div className="page-container"><CartPage /></div> : <Navigate to="/login" state={{ from: "/cart" }} />}
           />
           <Route
             path="/main"
             element={
-              <div 
-                id="main-scroll-container"
-                style={{
-                  margin: "0",
-                  padding: "0",
-                  width: "100%",
-                  minWidth: "1440px",
-                  height: "100%",
-                  overflowY: "auto",
-                  overflowX: "auto",
-                  backgroundColor: "#FFFFFF",
-                  scrollBehavior: "smooth"
-                }}>
-
+              <div id="main-scroll-container" className="main-container">
                 <MainHeader
                   scrollToSection={scrollToRef}
                   refs={{
@@ -145,65 +161,85 @@ function App() {
                     thingsNote: thingsNoteRef,
                     longTermRental: longTermRentalRef
                   }}
+                  isMobile={isMobile}
                 />
-                <div ref={calendarRef} id="calendar-section" style={{ minWidth: "1440px" }}>
-                  <Calendar />
+                <div ref={calendarRef} id="calendar-section" style={!isMobile ? sectionStyle : {}}>
+                  {/* 여기서는 헤더가 없는 독립형 Calendar 사용 */}
+                  <CalendarStandalone isMobile={isMobile} />
                 </div>
-                <div ref={rentalMethodRef} id="rental-method-section" style={{ minWidth: "1440px" }}>
-                  <RentalMethodPage scrollToSection={scrollToSection} />
+                <div ref={rentalMethodRef} id="rental-method-section" style={!isMobile ? sectionStyle : {}}>
+                  <RentalMethodPage scrollToSection={scrollToSection} isMobile={isMobile} />
                 </div>
-                <div ref={thingsNoteRef} id="things-note-section" style={{ minWidth: "1440px" }}>
-                  <ThingsNotePage />
+                <div ref={thingsNoteRef} id="things-note-section" style={!isMobile ? sectionStyle : {}}>
+                  <ThingsNotePage isMobile={isMobile} />
                 </div>
-                <div ref={longTermRentalRef} id="long-term-rental-section" style={{ minWidth: "1440px" }}>
-                  <LongTermRentalPage />
-                  <div style={{
-                    width: "100%",
-                    height: "30px",
-                    backgroundColor: "black",
-                    color: "white",
-                    textAlign: "center",
-                    lineHeight: "100px",
-                    fontSize: "16px"
-                  }}></div>
+                <div ref={longTermRentalRef} id="long-term-rental-section" style={!isMobile ? sectionStyle : {}}>
+                  <LongTermRentalPage isMobile={isMobile} />
+                  
                 </div>
-                <ScrollToTopButton />
+                {/* 모바일 버전에서는 위로가기 버튼 제거 */}
+                {!isMobile && <ScrollToTopButton isMobile={false} />}
               </div>
             }
           />
-          <Route path="/reservationMainPage" element={<div style={{ height: "100%", overflowY: "auto" }}><ReservationMainPage /></div>} />
-          <Route path="/reservation-main" element={<div style={{ height: "100%", overflowY: "auto" }}><ReservationMainPage /></div>} />
-          <Route path="/mainheader" element={<MainHeader />} />
-          <Route path="/calendar" element={<div style={{ height: "100%", overflowY: "auto" }}><Calendar /></div>} />
-          <Route path="/thingsnote" element={<div style={{ height: "100%", overflowY: "auto" }}><ThingsNotePage /></div>} />
-          <Route path="/mypage" element={<div style={{ height: "100%", overflowY: "auto" }}><MyPage /></div>} />
-          <Route path="/admins" element={<div style={{ height: "100%", overflowY: "auto" }}><AdminPage /></div>} />
+          <Route 
+            path="/reservationMainPage" 
+            element={<div className="page-container"><ReservationMainPage /></div>} 
+          />
+          <Route 
+            path="/reservation-main" 
+            element={<div className="page-container"><ReservationMainPage /></div>} 
+          />
+          <Route 
+            path="/mainheader" 
+            element={<MainHeader isMobile={isMobile} />} 
+          />
+
+<Route 
+  path="/thingsnote-with-header" 
+  element={<div className="page-container"><ThingsNotePageWithHeader isMobile={isMobile} /></div>} 
+/>
+
+          <Route 
+  path="/calendar-with-header" 
+  element={<div className="page-container"><CalendarWithHeader isMobile={isMobile} /></div>} 
+/>
+          <Route 
+            path="/thingsnote" 
+            element={<div className="page-container"><ThingsNotePage isMobile={isMobile} /></div>} 
+          />
+          <Route 
+            path="/mypage" 
+            element={
+              <div className="page-container">
+                <MyPage />
+              </div>
+            } 
+          />
+          <Route 
+            path="/admins" 
+            element={<div className="page-container"><AdminPage isMobile={isMobile} /></div>} 
+          />
           <Route
             path="/cameramanagement"
             element={
-              <div style={{
-                margin: "0",
-                padding: "0",
-                width: "100%",
-                minWidth: "1440px",
-                backgroundColor: "black",
-                minHeight: "100vh",
-                overflowY: "auto"
-              }}>
-                <AdminCameraManagement />
+              <div className="admin-page-container">
+                <AdminCameraManagement isMobile={isMobile} />
               </div>
             }
           />
         </Routes>
 
         <ToastContainer 
-          position="top-center"
+          position={isMobile ? "bottom-center" : "top-center"}
           autoClose={2500}
           hideProgressBar={false}
           newestOnTop={true}
           closeOnClick
           pauseOnHover
           theme="dark"
+          toastClassName="custom-toast"
+          bodyClassName="custom-toast-body"
         />
       </GoogleOAuthProvider>
     </div>
@@ -211,269 +247,3 @@ function App() {
 }
 
 export default App;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* 
-import React, { useRef, useState, useEffect } from "react";
-import { Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
-import Login from "./components/Login";
-import MainHeader from "./components/MainHeader";
-import Calendar from "./components/Calendar";
-import RentalMethodPage from "./components/RentalMethodPage";
-import ThingsNotePage from "./components/ThingsNotePage";
-import LongTermRentalPage from "./components/LongTermRentalPage";
-import ReservationMainPage from "./components/ReservationMainPage";
-import AdminCameraManagement from "./components/AdminCameraManagement";
-import CartPage from "./components/CartPage";
-import MyPage from "./components/MyPage";
-import AdminPage from "./components/AdminPage";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "./firebase/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
-import { GoogleOAuthProvider } from "@react-oauth/google";
-import BackButton from "./components/BackButton";
-import ScrollToTopButton from "./components/ScrollToTopButton";
-import OrientationPrompt from "./components/OrientationPrompt"; // 추가된 컴포넌트
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-
-
-const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-
-function App() {
-  const calendarRef = useRef(null);
-  const rentalMethodRef = useRef(null);
-  const thingsNoteRef = useRef(null);
-  const longTermRentalRef = useRef(null);
-
-  const [user, setUser] = useState(null);
-  const [profileIncomplete, setProfileIncomplete] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-
-      if (currentUser) {
-        const userRef = doc(db, "user_profiles", currentUser.uid);
-        const snap = await getDoc(userRef);
-
-        if (snap.exists()) {
-          const data = snap.data();
-          const isIncomplete =
-            !data.phoneNumber ||
-            !data.studentId ||
-            !data.agreementURL;
-
-          setProfileIncomplete(isIncomplete);
-
-          if (isIncomplete && location.pathname !== "/mypage") {
-            navigate("/mypage", { state: { showAgreementReminder: true } });
-          }
-        }
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [location.pathname, navigate]);
-
-  function scrollToRef(ref) {
-    if (ref && ref.current) {
-      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
-
-  function scrollToSection(sectionId) {
-    const refMap = {
-      "calendar-section": calendarRef,
-      "rental-method-section": rentalMethodRef,
-      "things-note-section": thingsNoteRef,
-      "long-term-rental-section": longTermRentalRef,
-    };
-    const ref = refMap[sectionId];
-    if (ref && ref.current) {
-      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
-
-  // 모바일에서 PC와 동일한 화면 크기를 보여주기 위한 메타 태그 추가
-  useEffect(() => {
-    // 뷰포트 메타 태그 조작
-    let viewportMeta = document.querySelector('meta[name="viewport"]');
-    
-    if (!viewportMeta) {
-      viewportMeta = document.createElement('meta');
-      viewportMeta.name = 'viewport';
-      document.head.appendChild(viewportMeta);
-    }
-    
-    // 너비를 1440px로 고정하고 사용자 확대/축소를 허용
-    viewportMeta.content = 'width=1440, user-scalable=yes';
-    
-    // 페이지를 나갈 때 원래 설정으로 복원하기 위한 클린업 함수
-    return () => {
-      viewportMeta.content = 'width=device-width, initial-scale=1.0';
-    };
-  }, []);
-
-  if (loading) return null;
-
-  return (
-    <div style={{ 
-      fontFamily: "Pretendard Variable, sans-serif",
-      minWidth: "1440px" // 전체 앱 최소 너비 설정
-    }}>
-      <GoogleOAuthProvider clientId={clientId}>
-        <OrientationPrompt /> 
-        <BackButton />
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={user ? <Navigate to="/main" /> : <Login />} />
-
-          <Route
-            path="/reservation"
-            element={user ? <ReservationMainPage /> : <Navigate to="/login" state={{ from: "/reservation" }} />}
-          />
-          <Route
-            path="/cart"
-            element={user ? <CartPage /> : <Navigate to="/login" state={{ from: "/cart" }} />}
-          />
-
-          <Route
-            path="/main"
-            element={
-              <div 
-              id="main-scroll-container"
-              style={{
-                margin: "0",
-                padding: "0",
-                width: "100%",
-                minWidth: "1440px", // 최소 너비 추가
-                height: "100vh",
-                overflowY: "auto",
-                overflowX: "auto", // 가로 스크롤 허용
-                backgroundColor: "#FFFFFF",
-                scrollBehavior: "smooth"
-              }}>
-                <MainHeader
-                  scrollToSection={scrollToRef}
-                  refs={{
-                    calendar: calendarRef,
-                    rentalMethod: rentalMethodRef,
-                    thingsNote: thingsNoteRef,
-                    longTermRental: longTermRentalRef
-                  }}
-                />
-              
-                <div ref={calendarRef} id="calendar-section" style={{ minWidth: "1440px" }}>
-                  <Calendar />
-                </div>
-                <div ref={rentalMethodRef} id="rental-method-section" style={{ minWidth: "1440px" }}>
-                  <RentalMethodPage scrollToSection={scrollToSection} />
-                </div>
-                <div ref={thingsNoteRef} id="things-note-section" style={{ minWidth: "1440px" }}>
-                  <ThingsNotePage />
-                </div>
-                <div ref={longTermRentalRef} id="long-term-rental-section" style={{ minWidth: "1440px" }}>
-                  <LongTermRentalPage />
-                  <div style={{
-                    width: "100%",
-                    height: "30px",
-                    backgroundColor: "black",
-                    color: "white",
-                    textAlign: "center",
-                    lineHeight: "100px",
-                    fontSize: "16px"
-                  }}></div>
-                </div>
-                <ScrollToTopButton />
-              </div>
-            }
-          />
-
-          <Route path="/reservationMainPage" element={<ReservationMainPage />} />
-          <Route path="/reservation-main" element={<ReservationMainPage />} />
-          <Route path="/mainheader" element={<MainHeader />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/thingsnote" element={<ThingsNotePage />} />
-          <Route path="/mypage" element={<MyPage />} />
-          <Route path="/admins" element={<AdminPage />} />
-
-          <Route
-            path="/cameramanagement"
-            element={
-              <div style={{
-                margin: "0",
-                padding: "0",
-                width: "100%",
-                minWidth: "1440px", // 최소 너비 추가
-                backgroundColor: "black",
-                minHeight: "100vh",
-                overflowX: "auto" // 가로 스크롤 허용
-              }}>
-                <AdminCameraManagement />
-              </div>
-            }
-          />
-        </Routes>
-
-        <ToastContainer 
-        position="top-center"
-        autoClose={2500}
-        hideProgressBar={false}
-        newestOnTop={true}
-        closeOnClick
-        pauseOnHover
-        theme="dark"
-      />
-      </GoogleOAuthProvider>
-    </div>
-  );
-}
-
-export default App;  */

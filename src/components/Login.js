@@ -76,38 +76,42 @@ function Login() {
   };
 
   return (
-    <div
-      className="flex items-center justify-center min-h-screen"
-      style={{ backgroundColor: "#fff" }} // ⚪ 기본 흰 배경
-    >
-      <div className="flex flex-col items-center w-250 max-w-lg p-10 bg-black rounded-3xl shadow-2xl">
-        <img
-          src="/assets/lion-logo.png"
-          alt="Logo"
-          className="w-23 h-36 mb-8"
-        />
+    <div className="flex items-center justify-center min-h-screen bg-white px-4">
+      <div className="flex flex-col items-center w-full max-w-sm p-6 sm:p-8 bg-black rounded-2xl sm:rounded-3xl shadow-2xl">
+        <div className="w-full flex justify-center">
+          <img
+            src="/assets/lion-logo.png"
+            alt="Logo"
+            className="w-30 h-32 sm:w-32 sm:h-36 mb-6 sm:mb-8"
+          />
+        </div>
 
         <button
           onClick={handleGoogleLogin}
-          className={`flex items-center justify-center w-full py-3 text-lg font-semibold text-white bg-gray-700 rounded-md hover:bg-gray-600 transition`}
+          disabled={loading}
+          className={`flex items-center justify-center w-full py-3 px-4 text-base sm:text-lg font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 ${
+            loading ? "opacity-70 cursor-not-allowed" : ""
+          }`}
         >
           <img
             src="/assets/google.png"
             alt="Google Logo"
-            className="w-6 h-6 mr-2"
+            className="w-5 h-5 sm:w-6 sm:h-6 mr-2"
           />
           {loading ? "로그인 중..." : "구글 계정으로 로그인"}
         </button>
 
         {error && (
-          <p className="mt-4 text-red-500 text-sm text-center">{error}</p>
+          <div className="mt-4 p-3 bg-red-50 rounded-lg w-full">
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          </div>
         )}
 
-        <div className="mt-4 text-center">
-          <p className="text-white text-l font-medium korean-bold">
+        <div className="mt-6 text-center w-full">
+          <p className="text-white text-sm sm:text-base font-medium korean-bold mb-1">
             경희대학교 이메일로 로그인해주세요
           </p>
-          <p className="text-white text-base font-thin english-bold">
+          <p className="text-gray-300 text-xs sm:text-sm font-light english-bold">
             Please log in with your Kyung Hee University email address.
           </p>
         </div>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#000000" />
+  <meta
+    name="description"
+    content="경희대학교 디지털콘텐츠학과 장비대여 시스템"
+  />
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+  <title>KHDC 장비대여 시스템</title>
+  
+  <!-- 모바일 최적화를 위한 스타일 -->
+  <style id="mobile-spacing-fix">
+    /* 기본 스타일 리셋 */
+    * {
+      box-sizing: border-box;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+    }
+    
+    #root, #root > div {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+    }
+    
+    /* 모바일 스타일 고정화 */
+    @media (max-width: 768px) {
+      body, html {
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow-x: hidden !important;
+        width: 100vw !important;
+        position: relative !important;
+      }
+      
+      #root, #root > div {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        overflow-x: hidden !important;
+      }
+      
+      /* 장비대여 캘린더 스타일 조정 */
+      .equipment-calendar {
+        padding: 20px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+      }
+      
+      /* 캘린더 제목 부분 */
+      .equipment-calendar h2 {
+        font-size: 24px !important;
+        text-align: center !important;
+      }
+      
+      /* 캘린더 본체 */
+      .react-calendar {
+        width: 100% !important;
+        max-width: 100% !important;
+        font-size: 14px !important;
+        border-radius: 8px !important;
+      }
+      
+      /* 화면간 여백 제거 */
+      .main-header + div,
+      div + div {
+        margin-top: 0 !important;
+      }
+      
+      .rental-method-page, 
+      .calendar-standalone {
+        margin-top: 0 !important;
+      }
+    }
+    
+    /* 아이폰 - 노치 영역 최적화 */
+    @supports (-webkit-touch-callout: none) {
+      .main-header {
+        padding-top: env(safe-area-inset-top) !important;
+      }
+      
+      .logo-container, .login-container {
+        top: calc(15px + env(safe-area-inset-top)) !important;
+      }
+    }
+  </style>
+  
+  <!-- 글꼴 로드 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <noscript>이 앱을 실행하려면 JavaScript를 활성화해야 합니다.</noscript>
+  <div id="root"></div>
+</body>
+</html>

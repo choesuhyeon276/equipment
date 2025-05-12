@@ -1,0 +1,162 @@
+/* src/styles/responsive.css */
+
+/* ===== 기본 앱 컨테이너 스타일 ===== */
+.app-container {
+    font-family: "Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif";
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  /* ===== 메인 컨테이너 스타일 ===== */
+  .main-container {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background-color: #FFFFFF;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* ===== 페이지 컨테이너 스타일 ===== */
+  .page-container {
+    height: 100%;
+    width: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* ===== 섹션 컨테이너 스타일 ===== */
+  .section-container {
+    width: 100%;
+    min-height: 100vh;
+    padding: 0;
+    position: relative;
+  }
+  
+  /* ===== 관리자 페이지 컨테이너 ===== */
+  .admin-page-container {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    background-color: black;
+    min-height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* ===== 푸터 라인 스타일 ===== */
+  .footer-line {
+    width: 100%;
+    height: 30px;
+    background-color: black;
+    color: white;
+    text-align: center;
+    line-height: 30px;
+    font-size: 16px;
+  }
+  
+  /* ===== 로딩 스피너 스타일 ===== */
+  .loading-spinner-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+    background-color: #f9f9f9;
+  }
+  
+  .loading-spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top: 4px solid #000;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  /* ===== 토스트 알림 스타일 ===== */
+  .custom-toast {
+    font-family: "Pretendard Variable, Pretendard, sans-serif";
+    border-radius: 8px !important;
+  }
+  
+  .custom-toast-body {
+    font-size: 14px;
+    padding: 12px;
+  }
+  
+  /* ===== 미디어 쿼리: 모바일 ===== */
+  @media (max-width: 767px) {
+    .section-container {
+      padding: 0 10px;
+    }
+    
+    .custom-toast {
+      width: 90% !important;
+      max-width: 300px !important;
+    }
+    
+    /* 모바일에서는 스크롤 관성 활성화 */
+    .main-container, .page-container {
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+  
+  /* ===== 미디어 쿼리: 태블릿 ===== */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .section-container {
+      padding: 0 20px;
+    }
+    
+    .custom-toast {
+      max-width: 400px !important;
+    }
+  }
+  
+  /* ===== 미디어 쿼리: 데스크톱 ===== */
+  @media (min-width: 1024px) {
+    .section-container {
+      padding: 0 30px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .custom-toast {
+      max-width: 450px !important;
+    }
+  }
+  
+  /* ===== 화면 방향 변경 시 (가로 모드) ===== */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .section-container {
+      min-height: 120vh; /* 가로 모드에서 섹션 높이 조정 */
+    }
+  }
+  
+  /* ===== 접근성 관련 스타일 ===== */
+  *:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+  }
+  
+  /* 접근성 모드에서만 포커스 표시 (키보드 사용자용) */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+  
+  *:focus-visible {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+  }

@@ -1,0 +1,398 @@
+/* musinsa-style.css */
+
+/* 기본 스타일 리셋 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  color: #000;
+  background-color: #fff;
+}
+
+/* 모바일 최적화 스타일 */
+@media (max-width: 768px) {
+  /* 무신사 스타일 헤더 */
+  .mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: #000;
+    color: #fff;
+    border-bottom: 1px solid #333;
+  }
+
+  .mobile-header__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+  }
+
+  .mobile-header__logo {
+    font-size: 22px;
+    font-weight: bold;
+  }
+  
+  .mobile-header__icons {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .mobile-header__nav {
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding: 0 10px;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+  
+  .mobile-header__nav::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
+  .mobile-nav-item {
+    padding: 12px 14px 14px;
+    font-size: 14px;
+    position: relative;
+    text-align: center;
+  }
+
+  .mobile-nav-item--active {
+    font-weight: 700;
+    color: #fff;
+    border-bottom: 2px solid #fff;
+  }
+
+  .mobile-nav-item--inactive {
+    font-weight: 400;
+    color: #aaa;
+  }
+
+  /* 카테고리 스타일 */
+  .mobile-category-dropdown {
+    width: 100%;
+    margin-bottom: 15px;
+  }
+
+  .mobile-category-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    border: 1px solid #e8e8e8;
+    cursor: pointer;
+  }
+
+  .mobile-category-menu {
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    background-color: white;
+    overflow: hidden;
+    margin-top: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .mobile-category-item {
+    padding: 12px 15px;
+    font-size: 14px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .mobile-category-chip {
+    display: inline-flex;
+    align-items: center;
+    background-color: #f0f0f0;
+    border-radius: 20px;
+    padding: 5px 12px;
+    margin: 10px 0;
+    font-size: 13px;
+    gap: 5px;
+  }
+
+  /* 검색바 스타일 */
+  .mobile-search {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 40px;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    border: 1px solid #e8e8e8;
+    position: relative;
+  }
+
+  .mobile-search__input {
+    width: 100%;
+    height: 100%;
+    padding: 0 35px 0 10px;
+    font-size: 14px;
+    border: none;
+    outline: none;
+    background-color: transparent;
+  }
+
+  .mobile-search__clear {
+    position: absolute;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #ddd;
+    cursor: pointer;
+  }
+
+  /* 제품 그리드 스타일 */
+  .mobile-product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: 100%;
+  }
+
+  .mobile-product-card {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .mobile-product-image {
+    position: relative;
+    height: 160px;
+  }
+
+  .mobile-product-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background-color: rgba(255, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+  }
+
+  .mobile-product-category {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background-color: rgba(0,0,0,0.6);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+
+  .mobile-product-like {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    color: white;
+    border-radius: 50%;
+    padding: 6px;
+    background-color: rgba(0,0,0,0.5);
+  }
+
+  .mobile-product-info {
+    padding: 8px 4px;
+  }
+
+  .mobile-product-title {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-product-price {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .mobile-product-status {
+    display: flex; 
+    align-items: center; 
+    font-size: 11px;
+    color: #888;
+  }
+
+  .mobile-product-cart {
+    width: 100%;
+    padding: 8px 0;
+    background-color: #000;
+    color: #fff;
+    border: none;
+    border-radius: 2px;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+
+  /* 페이지네이션 스타일 */
+  .mobile-pagination {
+    margin-top: 25px;
+    margin-bottom: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+  }
+
+  .mobile-pagination-button {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: white;
+    color: #000;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .mobile-pagination-button--active {
+    background-color: #000;
+    color: white;
+    border: none;
+    font-weight: 500;
+  }
+
+  .mobile-pagination-button--disabled {
+    color: #ccc;
+    cursor: default;
+  }
+
+  /* 날짜 선택 스타일 */
+  .mobile-date-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .mobile-date-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .mobile-date-label {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  .mobile-date-row {
+    display: flex;
+    width: 100%;
+    gap: 8px;
+    margin-bottom: 15px;
+  }
+
+  .mobile-date-picker {
+    flex: 2;
+    padding: 8px;
+    height: 36px;
+    font-size: 14px;
+    border: 1px solid #e8e8e8;
+    border-radius: 3px;
+    background-color: white;
+  }
+
+  .mobile-time-select {
+    flex: 1;
+    padding: 8px;
+    height: 36px;
+    font-size: 14px;
+    border: 1px solid #e8e8e8;
+    border-radius: 3px;
+    background-color: white;
+  }
+
+  .mobile-available-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 20px;
+    background-color: #f0f0f0;
+    border: 1px solid #e8e8e8;
+    align-self: flex-end;
+    font-size: 12px;
+  }
+
+  /* 애니메이션 */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .mobile-fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  @keyframes cartBounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+
+  .cart-bounce {
+    animation: cartBounce 0.5s ease-in-out;
+  }
+
+  /* 스크롤바 스타일 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}
+
+/* 데스크톱 스타일은 기존 유지 */
+@media (min-width: 769px) {
+  /* 기존 스타일 유지 */
+}

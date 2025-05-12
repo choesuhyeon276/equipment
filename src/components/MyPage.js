@@ -795,273 +795,361 @@ setReturnRequestedRentals(returnRequestedData);
 
   
   // Render a single rental item card
-  const renderRentalItem = (item, isHistory = false) => {
-    const isExpanded = expandedItems[item.id] || false;
-
-    
-    
-    return (
-      <div 
-        key={item.id} 
-        style={{
-          border: '1px solid #E0E0E0',
-          borderRadius: '8px',
-          padding: '15px',
-          marginBottom: '15px',
-          backgroundColor: isHistory ? '#f9f9f9' : '#fff'
-        }}
-      >
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '10px',
-          cursor: 'pointer'
-        }}
-        onClick={() => toggleExpand(item.id)}
-        >
-          <h3 style={{ 
-            fontSize: '18px', 
-            fontWeight: 'bold' 
-          }}>
-            {item.name}
-          </h3>
-          
-          {isExpanded ? 
-            <ChevronUp size={20} color="#666" /> : 
-            <ChevronDown size={20} color="#666" />
-          }
-        </div>
-        
-        <div style={{ 
-          display: 'flex',
-          alignItems: isExpanded ? 'flex-start' : 'center'
-        }}>
-          {/* Item Image */}
-<div style={{ 
-  width: '100px', 
-  height: '100px', 
-  marginRight: '20px',
-  backgroundColor: '#F5F5F5',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  flexShrink: 0
-}}>
-  {imageUrls[item.id] ? (
-    <img 
-      src={imageUrls[item.id]} 
-      alt={item.name} 
-      style={{ 
-        width: '100%', 
-        height: '100%', 
-        objectFit: 'cover' 
-      }} 
-    />
-  ) : (
-    <div style={{ textAlign: 'center', color: '#999' }}>
-      No Image
-    </div>
-  )}
-</div>
-
-
-          {/* Item Basic Info */}
-          <div style={{ flex: 1 }}>
+  // 개선된 렌더링 아이템 함수 - 썸네일 크기 최적화
+const renderRentalItem = (item, isHistory = false) => {
+  const isExpanded = expandedItems[item.id] || false;
   
-          {item.rentalCount !== undefined && (
-  <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>
-   
-  </p>
-)}
-
-📦 이 사용자의 {item.rentalCount}번째 대여입니다
-            <p style={{ color: '#666' }}>
-  {item.brand && `${item.brand} | `}
-  {item.category}
-  {item.condition && ` | ${item.condition}`}
-</p>
-            
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              marginTop: '10px' 
-            }}>
-              <div style={{ marginBottom: '5px' }}>
-                <span style={{ fontWeight: 'bold', marginRight: '10px' }}>대여 시작:</span>
-                {formatKoreanDateTime(item.startDateTime)}
-              </div>
-              <div>
-                <span style={{ fontWeight: 'bold', marginRight: '10px' }}>반납 예정:</span>
-                {formatKoreanDateTime(item.endDateTime)}
-              </div>
-              
-              {isHistory && (
-  <div style={{
-    marginTop: '5px',
-    color:
-      item.returnStatus === 'late' ? '#e53935' :
-      item.returnStatus === 'damaged' ? '#ff9800' :
-      '#4caf50'
-  }}>
-    <span style={{ fontWeight: 'bold', marginRight: '10px' }}>반납 상태:</span>
-    {item.returnStatus === 'late' && '연체'}
-    {item.returnStatus === 'damaged' && '벌점 부과'}
-    {item.returnStatus === 'normal' && '정상 반납'}
-  </div>
-)}
-
-            </div>
-          </div>
-        </div>
-        
-        {/* Extended information when expanded */}
-        {isExpanded && (
-  <div style={{
-    marginTop: '15px',
-    paddingTop: '15px',
-    borderTop: '1px solid #e0e0e0'
-  }}>
-    <p><strong>예약 일시:</strong> {formatFullKoreanDateTime(item.approvedAt)}</p>
-    {item.purpose && <p><strong>대여 목적:</strong> {item.purpose}</p>}
-    {item.description && <p><strong>설명:</strong> {item.description}</p>}
-    {item.notes && <p><strong>비고:</strong> {item.notes}</p>}
-
-    {/* 장비 리스트 */}
-    {item.items && item.items.length > 0 && (
-      <div style={{ marginTop: '15px' }}>
-        <h4 style={{ marginBottom: '10px', fontSize: '16px' }}>장비 리스트</h4>
-        {item.items.map((equip, idx) => (
-          <div key={idx} style={{ display: 'flex', marginBottom: '20px' }}>
-            <div style={{ marginRight: '20px' }}>
-              {equip.imageURL ? (
-                <img 
-                  src={equip.imageURL}
-                  alt={equip.name}
-                  style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
-                />
-              ) : (
-                <div style={{ 
-                  width: '100px', height: '100px',
-                  backgroundColor: '#E0E0E0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px'
-                }}>
-                  <span>이미지 없음</span>
-                </div>
-              )}
-            </div>
-            <div>
-              <p><strong>장비 이름:</strong> {equip.name}</p>
-              {equip.condition && <p><strong>상태:</strong> {equip.condition}</p>}
-              {equip.category && <p><strong>분류:</strong> {equip.category}</p>}
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-
-{item.status === 'pending' && (
-  <button
-    onClick={() => cancelReservation(item.id)}
-    style={{
-      padding: '8px 12px',
-      backgroundColor: '#ff5252',
-      color: 'white',
-      border: 'none',
-      borderRadius: '5px',
-      marginTop: '10px',
-      cursor: 'pointer'
-    }}
-  >
-    대여 신청 취소
-  </button>
-)}
-
-
-
-            
-
-{/* 기존 반납 상태 표시 */}
-{item.status === 'returned' && item.returnStatus && (
-        <div style={{ 
-          padding: '8px 12px', 
-          backgroundColor: item.returnStatus === 'late' ? '#ffebee' : '#e8f5e9',
-          color: item.returnStatus === 'late' ? '#d32f2f' : '#2e7d32',
-          borderRadius: '5px'
-        }}>
-          <strong>반납 상태:</strong> {item.returnStatus === 'late' ? '연체' : '정상 반납'}
-        </div>
-      )}
-
-      
-
-            
-{/* 렌탈 카드 내 버튼 표시 조건 */}
-{item.status === 'active' && (
-  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-    
-    {/* ✅ 이미지 업로드 먼저 */}
-    <label style={{
-      padding: '8px 12px',
-      backgroundColor: '#e0e0e0',
-      color: '#333',
-      borderRadius: '5px',
-      cursor: 'pointer',
-      display: 'inline-block'
-    }}>
-      반납 사진 업로드
-      <input 
-        type="file" 
-        accept="image/*"
-        onChange={(e) => handleReturnImageUpload(e, item.id)} 
-        style={{ display: 'none' }}
-      />
-    </label>
-
-    {/* ✅ 반납 요청 버튼: 이미지 업로드 전엔 비활성화 */}
-    <button
-      onClick={() => handleReturnRequest(item.id)}
-      disabled={!uploadedReturnImages[item.id]}
+  return (
+    <div 
+      key={item.id} 
       style={{
-        padding: '8px 12px',
-        backgroundColor: uploadedReturnImages[item.id] ? '#4285f4' : '#cccccc',
-        color: '#fff',
-        border: 'none',
-        borderRadius: '5px',
-        cursor: uploadedReturnImages[item.id] ? 'pointer' : 'not-allowed'
+        border: '1px solid #E0E0E0',
+        borderRadius: '8px',
+        padding: '15px',
+        marginBottom: '15px',
+        backgroundColor: isHistory ? '#f9f9f9' : '#fff',
+        // 모바일용 반응형 스타일 추가
+        maxWidth: '100%',
+        boxSizing: 'border-box'
       }}
     >
-      반납 요청
-    </button>
-  </div>
-)}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '10px',
+        cursor: 'pointer'
+      }}
+      onClick={() => toggleExpand(item.id)}
+      >
+        <h3 style={{ 
+          fontSize: '16px', // 폰트 사이즈 축소
+          fontWeight: 'bold',
+          marginBottom: '0',
+          marginTop: '0'
+        }}>
+          {item.name}
+        </h3>
+        
+        {isExpanded ? 
+          <ChevronUp size={18} color="#666" /> : 
+          <ChevronDown size={18} color="#666" />
+        }
+      </div>
+      
+      <div style={{ 
+        display: 'flex',
+        alignItems: isExpanded ? 'flex-start' : 'center'
+      }}>
+        {/* 썸네일 크기 축소 및 모바일 최적화 */}
+        <div style={{ 
+          width: '70px', // 크기 축소
+          height: '70px', // 크기 축소
+          marginRight: '15px',
+          backgroundColor: '#F5F5F5',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexShrink: 0,
+          borderRadius: '6px', // 모서리 둥글게
+          overflow: 'hidden' // 이미지가 경계를 벗어나지 않도록
+        }}>
+          {imageUrls[item.id] ? (
+            <img 
+              src={imageUrls[item.id]} 
+              alt={item.name} 
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                objectFit: 'cover' 
+              }} 
+            />
+          ) : (
+            <div style={{ textAlign: 'center', color: '#999', fontSize: '11px' }}>
+              No Image
+            </div>
+          )}
+        </div>
 
-
-
-            {isHistory && item.returnStatus === 'late' && (
+        {/* 아이템 기본 정보 - 모바일에 최적화된 레이아웃 */}
+        <div style={{ flex: 1, fontSize: '14px' }}>
+          <p style={{ 
+            color: '#666', 
+            margin: '0 0 5px 0',
+            fontSize: '13px'
+          }}>
+            {item.brand && `${item.brand} | `}
+            {item.category}
+            {item.condition && ` | ${item.condition}`}
+          </p>
+          
+          <p style={{ 
+            fontSize: '12px', 
+            margin: '0 0 5px 0',
+            color: '#555'
+          }}>
+            📦 이 사용자의 {item.rentalCount}번째 대여
+          </p>
+          
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            marginTop: '5px',
+            fontSize: '12px'
+          }}>
+            <div style={{ marginBottom: '3px' }}>
+              <span style={{ fontWeight: 'bold', marginRight: '5px' }}>대여:</span>
+              {formatKoreanDateTime(item.startDateTime)}
+            </div>
+            <div>
+              <span style={{ fontWeight: 'bold', marginRight: '5px' }}>반납:</span>
+              {formatKoreanDateTime(item.endDateTime)}
+            </div>
+            
+            {isHistory && (
               <div style={{
-                marginTop: '10px',
-                padding: '10px',
-                backgroundColor: '#ffebee',
-                borderRadius: '4px'
+                marginTop: '3px',
+                color:
+                  item.returnStatus === 'late' ? '#e53935' :
+                  item.returnStatus === 'damaged' ? '#ff9800' :
+                  '#4caf50',
+                fontSize: '12px'
               }}>
-                <p style={{ color: '#c62828', fontWeight: 'bold' }}>
-                  <AlertTriangle size={16} style={{ marginRight: '5px', verticalAlign: 'middle' }} />
-                  연체 정보: {item.lateDays || 0}일 연체
-                </p>
-                {Number(item.penaltyPoints) > 0 && (
-  <p style={{ color: '#c62828' }}>
-    부과된 벌점: {item.penaltyPoints}점
-  </p>
-)}
-
-
+                <span style={{ fontWeight: 'bold', marginRight: '5px' }}>상태:</span>
+                {item.returnStatus === 'late' && '연체'}
+                {item.returnStatus === 'damaged' && '벌점 부과'}
+                {item.returnStatus === 'normal' && '정상 반납'}
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
-    );
-  };
+      
+      {/* 확장된 정보 섹션 - 모바일 최적화 */}
+      {isExpanded && (
+        <div style={{
+          marginTop: '12px',
+          paddingTop: '12px',
+          borderTop: '1px solid #e0e0e0',
+          fontSize: '13px'
+        }}>
+          <p style={{ margin: '0 0 5px 0' }}><strong>예약 일시:</strong> {formatFullKoreanDateTime(item.approvedAt)}</p>
+          {item.purpose && <p style={{ margin: '0 0 5px 0' }}><strong>대여 목적:</strong> {item.purpose}</p>}
+          {item.notes && <p style={{ margin: '0 0 5px 0' }}><strong>비고:</strong> {item.notes}</p>}
+
+          {/* 장비 리스트 - 모바일 친화적 레이아웃 */}
+          {item.items && item.items.length > 0 && (
+            <div style={{ marginTop: '10px' }}>
+              <h4 style={{ 
+                marginBottom: '8px', 
+                fontSize: '14px',
+                marginTop: '0'
+              }}>장비 리스트</h4>
+              
+              {item.items.map((equip, idx) => (
+                <div key={idx} style={{ 
+                  display: 'flex', 
+                  marginBottom: '12px',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ marginRight: '12px' }}>
+                    {equip.imageURL ? (
+                      <img 
+                        src={equip.imageURL}
+                        alt={equip.name}
+                        style={{ 
+                          width: '60px', // 크기 축소
+                          height: '60px', // 크기 축소
+                          objectFit: 'cover', 
+                          borderRadius: '4px' 
+                        }}
+                      />
+                    ) : (
+                      <div style={{ 
+                        width: '60px', // 크기 축소
+                        height: '60px', // 크기 축소
+                        backgroundColor: '#E0E0E0', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        borderRadius: '4px',
+                        fontSize: '11px'
+                      }}>
+                        <span>이미지 없음</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '12px' }}>
+                    <p style={{ margin: '0 0 3px 0' }}><strong>장비:</strong> {equip.name}</p>
+                    {equip.condition && <p style={{ margin: '0 0 3px 0' }}><strong>상태:</strong> {equip.condition}</p>}
+                    {equip.category && <p style={{ margin: '0 0 3px 0' }}><strong>분류:</strong> {equip.category}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 상태별 버튼 - 모바일에 맞는 사이즈로 조정 */}
+          {item.status === 'pending' && (
+            <button
+              onClick={() => cancelReservation(item.id)}
+              style={{
+                padding: '6px 10px', // 사이즈 축소
+                backgroundColor: '#ff5252',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                marginTop: '8px',
+                cursor: 'pointer',
+                fontSize: '12px' // 폰트 사이즈 축소
+              }}
+            >
+              대여 신청 취소
+            </button>
+          )}
+
+          {/* 반납 상태 표시 영역 */}
+          {item.status === 'returned' && item.returnStatus && (
+            <div style={{ 
+              padding: '6px 10px', 
+              backgroundColor: item.returnStatus === 'late' ? '#ffebee' : '#e8f5e9',
+              color: item.returnStatus === 'late' ? '#d32f2f' : '#2e7d32',
+              borderRadius: '5px',
+              fontSize: '12px'
+            }}>
+              <strong>반납 상태:</strong> {item.returnStatus === 'late' ? '연체' : '정상 반납'}
+            </div>
+          )}
+
+          {/* 활성 상태 장비 관련 버튼 */}
+          {item.status === 'active' && (
+            <div style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              marginTop: '8px',
+              flexWrap: 'wrap' // 모바일에서 줄바꿈 허용
+            }}>
+              {/* 이미지 업로드 버튼 */}
+              <label style={{
+                padding: '6px 10px',
+                backgroundColor: '#e0e0e0',
+                color: '#333',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                display: 'inline-block',
+                fontSize: '12px',
+                minWidth: '60px',
+                textAlign: 'center'
+              }}>
+                사진 업로드
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => handleReturnImageUpload(e, item.id)} 
+                  style={{ display: 'none' }}
+                />
+              </label>
+
+              {/* 반납 요청 버튼 */}
+              <button
+                onClick={() => handleReturnRequest(item.id)}
+                disabled={!uploadedReturnImages[item.id]}
+                style={{
+                  padding: '6px 10px',
+                  backgroundColor: uploadedReturnImages[item.id] ? '#4285f4' : '#cccccc',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: uploadedReturnImages[item.id] ? 'pointer' : 'not-allowed',
+                  fontSize: '12px'
+                }}
+              >
+                반납 요청
+              </button>
+            </div>
+          )}
+
+          {/* 연체 정보 표시 */}
+          {isHistory && item.returnStatus === 'late' && (
+            <div style={{
+              marginTop: '8px',
+              padding: '8px',
+              backgroundColor: '#ffebee',
+              borderRadius: '4px',
+              fontSize: '12px'
+            }}>
+              <p style={{ 
+                color: '#c62828', 
+                fontWeight: 'bold',
+                margin: '0 0 3px 0'
+              }}>
+                <AlertTriangle size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                연체 정보: {item.lateDays || 0}일 연체
+              </p>
+              {Number(item.penaltyPoints) > 0 && (
+                <p style={{ 
+                  color: '#c62828',
+                  margin: '0'
+                }}>
+                  부과된 벌점: {item.penaltyPoints}점
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// CSS 미디어 쿼리를 위한 스타일 (컴포넌트 외부에 추가)
+const mobileStyles = `
+  @media (max-width: 768px) {
+    /* 전체 컨테이너 폭 조정 */
+    .rental-container {
+      width: 100% !important;
+      padding: 10px !important;
+    }
+    
+    /* 탭 메뉴 스타일 */
+    .tab-menu {
+      font-size: 14px !important;
+      padding: 8px 12px !important;
+    }
+    
+    /* 프로필 섹션 조정 */
+    .profile-section {
+      width: 100% !important;
+      margin-bottom: 15px !important;
+    }
+    
+    /* 메인 콘텐츠 레이아웃 조정 */
+    .main-content {
+      flex-direction: column !important;
+    }
+    
+    /* 헤더 요소 */
+    .header-logo {
+      font-size: 28px !important;
+    }
+    
+    .header-subtitle {
+      font-size: 10px !important;
+    }
+    
+    /* 네비게이션 메뉴 항목 */
+    .nav-menu {
+      gap: 10px !important;
+      font-size: 14px !important;
+    }
+    
+    /* 사용자 액션 버튼 */
+    .user-action-button {
+      padding: 4px 8px !important;
+      font-size: 12px !important;
+    }
+  }
+`;
 
   return (
     <div style={{
@@ -1602,4 +1690,3 @@ setReturnRequestedRentals(returnRequestedData);
   );
 };
 
-export default MyPage;
