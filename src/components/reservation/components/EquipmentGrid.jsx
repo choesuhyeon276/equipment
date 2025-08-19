@@ -258,7 +258,7 @@ const EquipmentGrid = ({
     );
   };
 
-  // 데스크탑 카메라 카드 렌더링 - 기존 디자인 유지
+  // 데스크탑 카메라 카드 렌더링 - 오버플로우 수정
   const renderDesktopCamera = (camera) => (
     <div 
       key={camera.id} 
@@ -267,14 +267,15 @@ const EquipmentGrid = ({
               (equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available) ? 
               '1px solid #f39c12' : '1px solid #E0E0E0',
         borderRadius: '8px',
-        overflow: 'hidden',
+        overflow: 'visible', // overflow를 visible로 변경
         position: 'relative',
         transition: 'transform 0.3s, box-shadow 0.3s',
         transform: selectedCameraId === camera.id ? 'scale(1.05)' : 'scale(1)',
         boxShadow: selectedCameraId === camera.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none',
         backgroundColor: equipmentAvailability?.[camera.id]?.available === false ? '#fef2f2' : 
                       (equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available) ? 
-                      '#fff9e6' : 'white'
+                      '#fff9e6' : 'white',
+        zIndex: selectedCameraId === camera.id ? 10 : 1 // 호버된 카드의 z-index 높이기
       }}
       onMouseEnter={() => setSelectedCameraId(camera.id)}
       onMouseLeave={() => setSelectedCameraId(null)}
@@ -283,18 +284,19 @@ const EquipmentGrid = ({
       {rentalDate && returnDate && equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available && (
         <div style={{
           position: 'absolute',
-          top: '20px',
-          right: '-30px',
+          top: '10px',
+          right: '10px',
           backgroundColor: '#f39c12',
           color: 'white',
-          transform: 'rotate(45deg)',
-          padding: '5px 35px',
+          padding: '5px 10px',
           fontSize: '12px',
           fontWeight: 'bold',
           textAlign: 'center',
           zIndex: 10,
+          borderRadius: '4px',
           boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
         }}>
+          사용 불가
         </div> 
       )}
 
@@ -331,7 +333,9 @@ const EquipmentGrid = ({
           padding: '10px',
           zIndex: 20,
           textAlign: 'center',
-          fontSize: '14px'
+          fontSize: '14px',
+          borderTopLeftRadius: '8px',
+          borderTopRightRadius: '8px'
         }}>
           특이사항: {camera.issues}
         </div>
@@ -341,14 +345,14 @@ const EquipmentGrid = ({
         <div style={{
           position: 'absolute',
           top: '10px',
-          right: '-30px',
+          right: '10px',
           backgroundColor: '#e74c3c',
           color: 'white',
-          transform: 'rotate(45deg)',
-          padding: '5px 35px',
+          padding: '5px 10px',
           fontSize: '12px',
           fontWeight: 'bold',
           zIndex: 10,
+          borderRadius: '4px',
           boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
         }}>
           {camera.status === 'rented' ? '수리 중' : '수리 중'}
@@ -357,7 +361,10 @@ const EquipmentGrid = ({
 
       {/* Camera Image */}
       <div style={{
-        height: '250px'
+        height: '250px',
+        overflow: 'hidden', // 이미지 영역만 오버플로우 숨김
+        borderTopLeftRadius: '8px',
+        borderTopRightRadius: '8px'
       }}>
         <ImageWithPlaceholder 
           camera={camera} 
@@ -450,7 +457,9 @@ const EquipmentGrid = ({
       <div style={{ 
         padding: '10px', 
         backgroundColor: camera.status === 'rented' ? '#fef2f2' : 
-          (selectedCameraId === camera.id ? '#f9f9f9' : 'white')
+          (selectedCameraId === camera.id ? '#f9f9f9' : 'white'),
+        borderBottomLeftRadius: '8px',
+        borderBottomRightRadius: '8px'
       }}>
         <div style={{ 
           display: 'flex', 
@@ -508,7 +517,10 @@ const EquipmentGrid = ({
             alignItems: 'center',
             padding: '10px',
             cursor: 'pointer',
-            fontSize: '14px'
+            fontSize: '14px',
+            borderBottomLeftRadius: '8px',
+            borderBottomRightRadius: '8px',
+            zIndex: 15
           }}
           onClick={() => handleAddToCart(camera)}
         >
@@ -523,18 +535,18 @@ const EquipmentGrid = ({
     <div style={{
       display: 'grid',
       gridTemplateColumns: isMobile ? 'repeat(3, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(250px, 1fr))',
-      gap: isMobile ? '1px' : '20px', // 여백 더 줄이기
+      gap: isMobile ? '1px' : '20px',
       width: '100%',
       boxSizing: 'border-box',
-      overflow: 'hidden',
-      padding: isMobile ? '0' : '0' // 여백 제거
+      overflow: 'visible', // 전체 그리드 컨테이너도 overflow visible로 변경
+      padding: isMobile ? '0' : '0'
     }}>
       {currentCameras.map((camera, index) => (
         <div key={camera.id} style={{ 
           width: '100%', 
           boxSizing: 'border-box',
-          overflow: 'hidden',
-          padding: isMobile ? '0' : '0' // 여백 제거
+          overflow: 'visible', // 개별 아이템 컨테이너도 overflow visible로 변경
+          padding: isMobile ? '0' : '0'
         }}>
           {isMobile ? renderMobileCamera(camera, index) : renderDesktopCamera(camera)}
         </div>
@@ -544,5 +556,3 @@ const EquipmentGrid = ({
 };
 
 export default EquipmentGrid;
-
-

@@ -22,6 +22,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './styles/responsive.css';
 import ThingsNotePageWithHeader from "./components/ThingsNotePageWithHeader";
+import AdminSettingsPage from './components/AdminSettingsPage';
 
 const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
@@ -149,6 +150,7 @@ function App() {
             path="/cart"
             element={user ? <div className="page-container"><CartPage /></div> : <Navigate to="/login" state={{ from: "/cart" }} />}
           />
+          <Route path="/admin-settings" element={<AdminSettingsPage />} />
           <Route
             path="/main"
             element={
@@ -193,6 +195,8 @@ function App() {
           <Route 
             path="/mainheader" 
             element={<MainHeader isMobile={isMobile} />} 
+          
+            
           />
 
 <Route 

@@ -1,6 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { DEFAULT_SETTINGS, subscribeAdminSettings } from '../utils/adminSettings';
+
 
 const ThingsNotePage = ({ isMobile }) => {
+
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+ useEffect(() => {
+   const unsub = subscribeAdminSettings(setSettings); // 실시간으로 반영
+   return () => unsub();
+  }, []);
+  
   // 모바일 버전 렌더링 - 향상된 디자인
   if (isMobile) {
     return (
@@ -59,8 +68,7 @@ const ThingsNotePage = ({ isMobile }) => {
                 fontWeight: '300',
                 fontSize: '14px',
               }}>
-                김나영<br />
-                010-7667-9373
+                {settings.adminName}<br/>{settings.adminPhone}
               </div>
             </div>
 
@@ -126,7 +134,7 @@ const ThingsNotePage = ({ isMobile }) => {
                 marginBottom: '8px', 
                 color: '#4caf50',
                 fontSize: '16px',
-              }}>방학중 장비 대여 안내</div>
+              }}>방학 중 장비 대여 안내</div>
               <div style={{ 
                 lineHeight: '1.5', 
                 fontWeight: '300',
@@ -188,8 +196,7 @@ const ThingsNotePage = ({ isMobile }) => {
           <div>
             <div style={{ fontWeight: '200', marginBottom: '5px', position: 'absolute', left: '2px' }}>장비장 연락처</div>
             <div style={{ lineHeight: '1.2', position: 'absolute', left: '2px', top: '30px', fontWeight: '200', }}>
-              김나영<br />
-              010-7667-9373
+              {settings.adminName}<br/>{settings.adminPhone}
             </div>
           </div>
           <div style={{
@@ -226,7 +233,7 @@ const ThingsNotePage = ({ isMobile }) => {
             backgroundColor: 'white',
           }} />
           <div>
-            <div style={{ fontWeight: 'bold', marginBottom: '5px', fontWeight: '200' }}>방학중 장비 대여 안내</div>
+            <div style={{ fontWeight: 'bold', marginBottom: '5px', fontWeight: '200' }}>방학 중 장비 대여 안내</div>
             <div style={{ lineHeight: '1.2', fontWeight: '200', }}>
               장비 교육 수료 여부와 없이<br />
               디지털콘텐츠학과 학생이면 대여가 가능합니다.<br />

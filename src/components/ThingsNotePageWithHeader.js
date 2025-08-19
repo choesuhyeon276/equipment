@@ -1,6 +1,11 @@
-import React from 'react';
+// src/components/ThingsNotePageWithHeader.js
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, ShoppingCart } from 'lucide-react';
+
+
+// 🔹 실시간 설정 구독 유틸 (경로 주의: src/utils/adminSettings.js)
+import { DEFAULT_SETTINGS, subscribeAdminSettings } from '../utils/adminSettings.js';
 
 // NavItem 컴포넌트 - 모바일용
 const NavItem = ({ children, active, onClick }) => (
@@ -234,7 +239,7 @@ const CommonHeader = ({ isMobile }) => {
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
         {/* My page button */}
         <div style={{ 
-          color: isMyPage ? '#FFFFFF' : '#000000',
+          color: '#000000',
           display: 'flex',
           position: 'absolute',
           right: '110px',
@@ -244,9 +249,9 @@ const CommonHeader = ({ isMobile }) => {
           cursor: 'pointer',
           padding: '5px 10px',
           borderRadius: '20px',
-          backgroundColor: isMyPage ? '#212121' : '#f0f0f0',
-          boxShadow: isMyPage ? 'none' : '0 4px 6px rgba(0, 0, 0, 0.2)',
-        }} onClick={handleMyPageNavigation}>
+          backgroundColor: '#f0f0f0',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
+        }} onClick={() => navigate('/mypage')}>
           <User size={20} />
           <span>My page</span>
         </div>
@@ -262,10 +267,10 @@ const CommonHeader = ({ isMobile }) => {
           cursor: 'pointer',
           padding: '5px 10px',
           borderRadius: '20px',
-          backgroundColor: isCartPage ? '#212121' : '#f0f0f0',
-          boxShadow: isCartPage ? 'none' : '0 4px 6px rgba(0, 0, 0, 0.2)',
-          color: isCartPage ? '#FFFFFF' : '#000000'
-        }} onClick={handleCartNavigation}>
+          backgroundColor: '#f0f0f0',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
+          color: '#000000'
+        }} onClick={() => navigate('/cart')}>
           <ShoppingCart size={20} />
           <span>Cart</span>
         </div>
@@ -275,6 +280,15 @@ const CommonHeader = ({ isMobile }) => {
 };
 
 const ThingsNotePageWithHeader = ({ isMobile }) => {
+  // 🔹 공용 설정 실시간 구독 상태
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+
+  useEffect(() => {
+    // 저장 시 자동 반영(onSnapshot)
+    const unsub = subscribeAdminSettings(setSettings);
+    return () => unsub();
+  }, []);
+
   // 모바일 버전 렌더링
   if (isMobile) {
     return (
@@ -337,8 +351,9 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
                 fontWeight: '300',
                 fontSize: '14px',
               }}>
-                김나영<br />
-                010-7667-9373
+                {/* 🔸 실시간 반영 */}
+                {settings.adminName}<br />
+                {settings.adminPhone}
               </div>
             </div>
 
@@ -472,9 +487,10 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
 
             <div>
               <div style={{ fontWeight: '200', marginBottom: '5px', position: 'absolute', left: '2px' }}>장비장 연락처</div>
-              <div style={{ lineHeight: '1.2', position: 'absolute', left: '2px', top: '30px', fontWeight: '200', }}>
-                김나영<br />
-                010-7667-9373
+              <div style={{ lineHeight: '1.2', position: 'absolute', left: '2px', top: '30px', fontWeight: '200' }}>
+                {/* 🔸 실시간 반영 */}
+                {settings.adminName}<br />
+                {settings.adminPhone}
               </div>
             </div>
             <div style={{
@@ -486,7 +502,7 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
             }} />
             <div>
               <div style={{ fontWeight: '200', position: 'absolute', left: '300px' }}>대여일</div>
-              <div style={{ lineHeight: '1.2', position: 'absolute', left: '300px', top: '30px', fontWeight: '200', }}>
+              <div style={{ lineHeight: '1.2', position: 'absolute', left: '300px', top: '30px', fontWeight: '200' }}>
                 대여일 1일 전에는 신청하기<br />
                 당일 대여 불가<br />
                 평일 9:00 - 17:00 동안 장비 수령 가능
@@ -499,7 +515,7 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
               margin: '0 20px'
             }} />
             <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '5px', fontWeight: '200', position: 'absolute', left: '650px' }}>반납시</div>
+              <div style={{ fontWeight: '200', position: 'absolute', left: '650px' }}>반납시</div>
               <div style={{ lineHeight: '1.2', fontWeight: '200', position: 'absolute', left: '650px', top: '30px' }}>
                 마이페이지에 현재 대여 장비란에<br />
                 장비가 나온 반납사진 첨부하여 반납신청하기<br />
@@ -511,8 +527,8 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
               backgroundColor: 'white',
             }} />
             <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '5px', fontWeight: '200' }}>방학중 장비 대여 안내</div>
-              <div style={{ lineHeight: '1.2', fontWeight: '200', }}>
+              <div style={{ fontWeight: '200' }}>방학 중 장비 대여 안내</div>
+              <div style={{ lineHeight: '1.2', fontWeight: '200' }}>
                 장비 교육 수료 여부와 없이<br />
                 디지털콘텐츠학과 학생이면 대여가 가능합니다.<br />
                 사무실은 9:00 - 15:00시까지 운영됩니다.

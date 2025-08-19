@@ -23,7 +23,9 @@ import {
 } from '../firebase/firebaseConfig';
 
 
-import { Home, Calendar } from 'lucide-react';
+
+import { Home, Calendar, Settings as SettingsIcon, } from 'lucide-react';
+
 
 const formatKoreanDateTime = (isoString) => {
   if (!isoString) return '날짜 없음';
@@ -37,6 +39,8 @@ const formatKoreanDateTime = (isoString) => {
 
   return `${year}년 ${month}월 ${day}일 ${hour}시 ${minute}분`;
 };
+
+
 
 
 const AdminPage = () => {
@@ -55,6 +59,9 @@ const AdminPage = () => {
   const [penaltyPoints, setPenaltyPoints] = useState(0);
   const [penaltyReason, setPenaltyReason] = useState('');
   const [sortBy, setSortBy] = useState('userName'); // Default sort by user name
+  const handleSettingsNavigation = () => {
+    navigate('/admin-settings');
+  };
 
   // 선택된 대여 항목 일괄 승인
   const approveSelectedRentals = async () => {
@@ -671,6 +678,7 @@ if (userDoc.exists()) {
               placeholder="벌점 부과 사유를 자세히 입력해주세요."
             />
           </div>
+          
           
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
             <button 
@@ -1328,7 +1336,26 @@ if (userDoc.exists()) {
           <ShoppingCart size={20} />
           <span>예약</span>
         </button>
+
+        <button 
+          onClick={handleSettingsNavigation}
+          style={{ 
+            flex: '1',
+            padding: '12px',
+            border: 'none',
+            backgroundColor: 'transparent',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '5px'
+          }}
+        >
+          <SettingsIcon size={20} />
+          <span>설정</span>
+        </button>
       </div>
+      
       
       {/* Tab Navigation */}
       <div style={{ 
@@ -1403,6 +1430,7 @@ if (userDoc.exists()) {
       <div style={{ marginTop: '30px', textAlign: 'center', color: '#757575', fontSize: '14px' }}>
         <p>© 2025 장비 대여 관리 시스템</p>
       </div>
+      
     </div>
   );
 };

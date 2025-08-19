@@ -1045,7 +1045,7 @@ const returnTimeOptions = generateReturnTimeOptions();
       position: 'relative',
       width: '1440px',
       height: '1700px',
-      background: '#FFFFFF',
+      background: '#000000',
       margin: '0 auto',
       fontFamily: 'Pretendard, sans-serif',
       color: '#000000'
