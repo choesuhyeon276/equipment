@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Settings, Save, Mail, Phone, User, Plus, X,
-  ArrowLeft, AlertTriangle, Check
+  ArrowLeft, AlertTriangle, Check, MessageCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,6 +23,7 @@ const AdminSettingsPage = () => {
     adminEmails: [],
     adminName: '',
     adminPhone: '',
+    kakaoOpenChatUrl: '', // 카카오톡 오픈채팅 링크 추가
   });
 
   const [newEmail, setNewEmail] = useState('');
@@ -136,12 +137,23 @@ const AdminSettingsPage = () => {
       return;
     }
 
+    // 카카오톡 링크 유효성 검사 (입력된 경우에만)
+    if (settings.kakaoOpenChatUrl.trim()) {
+      const isValidKakaoUrl = settings.kakaoOpenChatUrl.includes('open.kakao.com') ||
+                              settings.kakaoOpenChatUrl.includes('kakaotalk://');
+      if (!isValidKakaoUrl) {
+        setMessage({ type: 'error', text: '올바른 카카오톡 오픈채팅 링크를 입력해주세요.' });
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       await saveAdminSettings({
         adminEmails: settings.adminEmails,
         adminName: settings.adminName.trim(),
         adminPhone: settings.adminPhone.trim(),
+        kakaoOpenChatUrl: settings.kakaoOpenChatUrl.trim(),
         updatedBy: admin?.uid || 'unknown',
       });
 
@@ -335,7 +347,7 @@ const AdminSettingsPage = () => {
             style={{
               width: '100%',
               padding: '12px',
-              border: '1px solid #ddd',
+              border: '1px solid #ddd', 
               borderRadius: '6px',
               fontSize: '16px',
               boxSizing: 'border-box',
@@ -344,6 +356,41 @@ const AdminSettingsPage = () => {
             }}
           />
           <small style={{ color: '#666', fontSize: '12px' }}>이메일 내용에 문의 연락처로 포함됩니다.</small>
+        </div>
+
+        {/* 카카오톡 오픈채팅 링크 추가 */}
+        <div style={{ marginBottom: '25px' }}>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '8px',
+              fontWeight: 'bold',
+              color: '#333',
+            }}
+          >
+            <MessageCircle size={18} style={{ marginRight: '8px' }} />
+            카카오톡 오픈채팅 링크
+          </label>
+          <input
+            type="text"
+            value={settings.kakaoOpenChatUrl || ''}
+            onChange={(e) => handleInputChange('kakaoOpenChatUrl', e.target.value)}
+            onKeyDown={(e) => handleKeyDown(e, 'kakaoOpenChatUrl')}
+            placeholder="예: https://open.kakao.com/o/xxxxxxxx"
+            autoComplete="off"
+            style={{
+              width: '100%',
+              padding: '12px',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              fontSize: '16px',
+              boxSizing: 'border-box',
+              backgroundColor: '#fff',
+              color: '#000',
+            }}
+          />
+          <small style={{ color: '#666', fontSize: '12px' }}>카카오톡 오픈채팅방 링크를 입력하면 Things Note 페이지에서 바로 접속할 수 있습니다. (선택사항)</small>
         </div>
 
         {/* 관리자 이메일 목록 */}
@@ -480,6 +527,7 @@ const AdminSettingsPage = () => {
           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.5' }}>
             <li>관리자 이름: 시스템에서 발송하는 모든 이메일의 발신자 이름으로 사용됩니다.</li>
             <li>연락처: 이메일 내용에 문의 연락처로 포함되어 사용자들이 연락할 수 있습니다.</li>
+            <li>카카오톡 오픈채팅: Things Note 페이지에서 카카오톡 아이콘 클릭 시 이동할 오픈채팅방 링크입니다.</li>
             <li>이메일 목록: 대여 신청, 반납 요청 등의 알림을 받을 관리자들의 이메일입니다.</li>
             <li>설정 변경 후 반드시 '설정 저장' 버튼을 클릭해야 변경사항이 적용됩니다.</li>
             <li>Firebase Functions가 자동으로 새로운 설정을 적용하여 이메일을 발송합니다.</li>

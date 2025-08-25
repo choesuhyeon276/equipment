@@ -1,10 +1,9 @@
 // src/components/ThingsNotePageWithHeader.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, ShoppingCart } from 'lucide-react';
+import { User, ShoppingCart, MessageCircle } from 'lucide-react';
 
-
-// 🔹 실시간 설정 구독 유틸 (경로 주의: src/utils/adminSettings.js)
+// 실시간 설정 구독 유틸 (경로 주의: src/utils/adminSettings.js)
 import { DEFAULT_SETTINGS, subscribeAdminSettings } from '../utils/adminSettings.js';
 
 // NavItem 컴포넌트 - 모바일용
@@ -280,7 +279,7 @@ const CommonHeader = ({ isMobile }) => {
 };
 
 const ThingsNotePageWithHeader = ({ isMobile }) => {
-  // 🔹 공용 설정 실시간 구독 상태
+  // 공용 설정 실시간 구독 상태
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
   useEffect(() => {
@@ -288,6 +287,47 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
     const unsub = subscribeAdminSettings(setSettings);
     return () => unsub();
   }, []);
+
+  // 카카오톡 오픈채팅 링크 클릭 핸들러
+  const handleKakaoClick = () => {
+    if (settings.kakaoOpenChatUrl) {
+      window.open(settings.kakaoOpenChatUrl, '_blank');
+    }
+  };
+
+  // 카카오톡 아이콘 컴포넌트 (클릭 가능한 경우와 아닌 경우)
+  const KakaoIcon = ({ size = 24, clickable = false }) => {
+    const iconStyle = {
+      width: `${size}px`,
+      height: `${size}px`,
+      backgroundColor: '#FEE500',
+      borderRadius: '6px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: clickable && settings.kakaoOpenChatUrl ? 'pointer' : 'default',
+      opacity: clickable && !settings.kakaoOpenChatUrl ? 0.3 : 1,
+      transition: 'all 0.2s ease',
+      boxShadow: clickable ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+    };
+
+    const hoverStyle = clickable && settings.kakaoOpenChatUrl ? {
+      transform: 'scale(1.05)',
+      boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+    } : {};
+
+    return (
+      <div 
+        style={iconStyle}
+        onClick={clickable ? handleKakaoClick : undefined}
+        onMouseEnter={clickable ? (e) => Object.assign(e.target.style, hoverStyle) : undefined}
+        onMouseLeave={clickable ? (e) => Object.assign(e.target.style, iconStyle) : undefined}
+        title={clickable && settings.kakaoOpenChatUrl ? '카카오톡 오픈채팅 참여하기' : ''}
+      >
+        <MessageCircle size={size * 0.6} color="#3C1E1E" />
+      </div>
+    );
+  };
 
   // 모바일 버전 렌더링
   if (isMobile) {
@@ -332,7 +372,7 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
             gap: '15px',
             marginTop: '20px',
           }}>
-            {/* 카드 1 */}
+            {/* 카드 1 - 장비장 연락망 */}
             <div style={{
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
               borderRadius: '10px',
@@ -345,13 +385,20 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
                 marginBottom: '8px', 
                 color: '#ff9500',
                 fontSize: '16px',
-              }}>장비장 연락처</div>
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <span>장비장 연락망</span>
+                {settings.kakaoOpenChatUrl && (
+                  <KakaoIcon size={24} clickable={true} />
+                )}
+              </div>
               <div style={{ 
                 lineHeight: '1.5', 
                 fontWeight: '300',
                 fontSize: '14px',
               }}>
-                {/* 🔸 실시간 반영 */}
                 {settings.adminName}<br />
                 {settings.adminPhone}
               </div>
@@ -486,9 +533,21 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
             }}></div>
 
             <div>
-              <div style={{ fontWeight: '200', marginBottom: '5px', position: 'absolute', left: '2px' }}>장비장 연락처</div>
+              <div style={{ 
+                fontWeight: '200', 
+                marginBottom: '5px', 
+                position: 'absolute', 
+                left: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}>
+                장비장 연락망
+                {settings.kakaoOpenChatUrl && (
+                  <KakaoIcon size={20} clickable={true} />
+                )}
+              </div>
               <div style={{ lineHeight: '1.2', position: 'absolute', left: '2px', top: '30px', fontWeight: '200' }}>
-                {/* 🔸 실시간 반영 */}
                 {settings.adminName}<br />
                 {settings.adminPhone}
               </div>

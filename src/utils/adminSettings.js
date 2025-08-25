@@ -6,6 +6,7 @@ export const DEFAULT_SETTINGS = {
   adminEmails: ['choesuhyeon276@gmail.com'],
   adminName: 'DKit 관리자',
   adminPhone: '010-0000-0000',
+  kakaoOpenChatUrl: '', // 카카오톡 오픈채팅 링크 추가
 };
 
 // 타입 안전하게 보정
@@ -21,6 +22,10 @@ export function normalizeSettings(raw) {
       typeof data.adminPhone === 'string' && data.adminPhone.trim()
         ? data.adminPhone
         : DEFAULT_SETTINGS.adminPhone,
+    kakaoOpenChatUrl:
+      typeof data.kakaoOpenChatUrl === 'string'
+        ? data.kakaoOpenChatUrl
+        : DEFAULT_SETTINGS.kakaoOpenChatUrl,
   };
 }
 
@@ -41,9 +46,9 @@ export function subscribeAdminSettings(callback) {
 }
 
 // 저장(병합)
-export async function saveAdminSettings({ adminEmails, adminName, adminPhone, updatedBy = 'unknown' }) {
+export async function saveAdminSettings({ adminEmails, adminName, adminPhone, kakaoOpenChatUrl, updatedBy = 'unknown' }) {
   const ref = doc(db, 'admin_settings', 'main');
-  const payload = normalizeSettings({ adminEmails, adminName, adminPhone });
+  const payload = normalizeSettings({ adminEmails, adminName, adminPhone, kakaoOpenChatUrl });
   await setDoc(
     ref,
     { ...payload, updatedAt: serverTimestamp(), updatedBy },
