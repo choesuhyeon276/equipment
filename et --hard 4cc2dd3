@@ -1,0 +1,161 @@
+[33m4cc2dd3[m rr
+[1mdiff --git a/src/components/AdminSettingsPage.js b/src/components/AdminSettingsPage.js[m
+[1mindex e90d043..5604e9f 100644[m
+[1m--- a/src/components/AdminSettingsPage.js[m
+[1m+++ b/src/components/AdminSettingsPage.js[m
+[36m@@ -1,7 +1,7 @@[m
+ import React, { useState, useEffect } from 'react';[m
+ import {[m
+   Settings, Save, Mail, Phone, User, Plus, X,[m
+[31m-  ArrowLeft, AlertTriangle, Check[m
+[32m+[m[32m  ArrowLeft, AlertTriangle, Check, MessageCircle[m
+ } from 'lucide-react';[m
+ import { useNavigate } from 'react-router-dom';[m
+ [m
+[36m@@ -23,6 +23,7 @@[m [mconst AdminSettingsPage = () => {[m
+     adminEmails: [],[m
+     adminName: '',[m
+     adminPhone: '',[m
+[32m+[m[32m    kakaoOpenChatUrl: '', // 카카오톡 오픈채팅 링크 추가[m
+   });[m
+ [m
+   const [newEmail, setNewEmail] = useState('');[m
+[36m@@ -136,12 +137,23 @@[m [mconst AdminSettingsPage = () => {[m
+       return;[m
+     }[m
+ [m
+[32m+[m[32m    // 카카오톡 링크 유효성 검사 (입력된 경우에만)[m
+[32m+[m[32m    if (settings.kakaoOpenChatUrl.trim()) {[m
+[32m+[m[32m      const isValidKakaoUrl = settings.kakaoOpenChatUrl.includes('open.kakao.com') ||[m
+[32m+[m[32m                              settings.kakaoOpenChatUrl.includes('kakaotalk://');[m
+[32m+[m[32m      if (!isValidKakaoUrl) {[m
+[32m+[m[32m        setMessage({ type: 'error', text: '올바른 카카오톡 오픈채팅 링크를 입력해주세요.' });[m
+[32m+[m[32m        return;[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m
+     setSaving(true);[m
+     try {[m
+       await saveAdminSettings({[m
+         adminEmails: settings.adminEmails,[m
+         adminName: settings.adminName.trim(),[m
+         adminPhone: settings.adminPhone.trim(),[m
+[32m+[m[32m        kakaoOpenChatUrl: settings.kakaoOpenChatUrl.trim(),[m
+         updatedBy: admin?.uid || 'unknown',[m
+       });[m
+ [m
+[36m@@ -335,7 +347,7 @@[m [mconst AdminSettingsPage = () => {[m
+             style={{[m
+               width: '100%',[m
+               padding: '12px',[m
+[31m-              border: '1px solid #ddd',[m
+[32m+[m[32m              border: '1px solid #ddd',[m[41m [m
+               borderRadius: '6px',[m
+               fontSize: '16px',[m
+               boxSizing: 'border-box',[m
+[36m@@ -346,6 +358,41 @@[m [mconst AdminSettingsPage = () => {[m
+           <small style={{ color: '#666', fontSize: '12px' }}>이메일 내용에 문의 연락처로 포함됩니다.</small>[m
+         </div>[m
+ [m
+[32m+[m[32m        {/* 카카오톡 오픈채팅 링크 추가 */}[m
+[32m+[m[32m        <div style={{ marginBottom: '25px' }}>[m
+[32m+[m[32m          <label[m
+[32m+[m[32m            style={{[m
+[32m+[m[32m              display: 'flex',[m
+[32m+[m[32m              alignItems: 'center',[m
+[32m+[m[32m              marginBottom: '8px',[m
+[32m+[m[32m              fontWeight: 'bold',[m
+[32m+[m[32m              color: '#333',[m
+[32m+[m[32m            }}[m
+[32m+[m[32m          >[m
+[32m+[m[32m            <MessageCircle size={18} style={{ marginRight: '8px' }} />[m
+[32m+[m[32m            카카오톡 오픈채팅 링크[m
+[32m+[m[32m          </label>[m
+[32m+[m[32m          <input[m
+[32m+[m[32m            type="text"[m
+[32m+[m[32m            value={settings.kakaoOpenChatUrl || ''}[m
+[32m+[m[32m            onChange={(e) => handleInputChange('kakaoOpenChatUrl', e.target.value)}[m
+[32m+[m[32m            onKeyDown={(e) => handleKeyDown(e, 'kakaoOpenChatUrl')}[m
+[32m+[m[32m            placeholder="예: https://open.kakao.com/o/xxxxxxxx"[m
+[32m+[m[32m            autoComplete="off"[m
+[32m+[m[32m            style={{[m
+[32m+[m[32m              width: '100%',[m
+[32m+[m[32m              padding: '12px',[m
+[32m+[m[32m              border: '1px solid #ddd',[m
+[32m+[m[32m              borderRadius: '6px',[m
+[32m+[m[32m              fontSize: '16px',[m
+[32m+[m[32m              boxSizing: 'border-box',[m
+[32m+[m[32m              backgroundColor: '#fff',[m
+[32m+[m[32m              color: '#000',[m
+[32m+[m[32m            }}[m
+[32m+[m[32m          />[m
+[32m+[m[32m          <small style={{ color: '#666', fontSize: '12px' }}>카카오톡 오픈채팅방 링크를 입력하면 Things Note 페이지에서 바로 접속할 수 있습니다. (선택사항)</small>[m
+[32m+[m[32m        </div>[m
+[32m+[m
+         {/* 관리자 이메일 목록 */}[m
+         <div style={{ marginBottom: '25px' }}>[m
+           <label[m
+[36m@@ -480,6 +527,7 @@[m [mconst AdminSettingsPage = () => {[m
+           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.5' }}>[m
+             <li>관리자 이름: 시스템에서 발송하는 모든 이메일의 발신자 이름으로 사용됩니다.</li>[m
+             <li>연락처: 이메일 내용에 문의 연락처로 포함되어 사용자들이 연락할 수 있습니다.</li>[m
+[32m+[m[32m            <li>카카오톡 오픈채팅: Things Note 페이지에서 카카오톡 아이콘 클릭 시 이동할 오픈채팅방 링크입니다.</li>[m
+             <li>이메일 목록: 대여 신청, 반납 요청 등의 알림을 받을 관리자들의 이메일입니다.</li>[m
+             <li>설정 변경 후 반드시 '설정 저장' 버튼을 클릭해야 변경사항이 적용됩니다.</li>[m
+             <li>Firebase Functions가 자동으로 새로운 설정을 적용하여 이메일을 발송합니다.</li>[m
+[36m@@ -490,4 +538,4 @@[m [mconst AdminSettingsPage = () => {[m
+   );[m
+ };[m
+ [m
+[31m-export default AdminSettingsPage;[m
+[32m+[m[32mexport default AdminSettingsPage;[m
+\ No newline at end of file[m
+[1mdiff --git a/src/components/ThingsNotePage.js b/src/components/ThingsNotePage.js[m
+[1mindex 54d44e1..48c9057 100644[m
+[1m--- a/src/components/ThingsNotePage.js[m
+[1m+++ b/src/components/ThingsNotePage.js[m
+[36m@@ -1,14 +1,55 @@[m
+ import React, { useState, useEffect } from 'react';[m
+[32m+[m[32mimport { MessageCircle } from 'lucide-react';[m
+ import { DEFAULT_SETTINGS, subscribeAdminSettings } from '../utils/adminSettings';[m
+ [m
+[31m-[m
+ const ThingsNotePage = ({ isMobile }) => {[m
+[31m-[m
+   const [settings, setSettings] = useState(DEFAULT_SETTINGS);[m
+[31m- useEffect(() => {[m
+[31m-   const unsub = subscribeAdminSettings(setSettings); // 실시간으로 반영[m
+[31m-   return () => unsub();[m
+[32m+[m[41m  [m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    const unsub = subscribeAdminSettings(setSettings); // 실시간으로 반영[m
+[32m+[m[32m    return () => unsub();[m
+   }, []);[m
+[32m+[m
+[32m+[m[32m  // 카카오톡 오픈채팅 링크 클릭 핸들러[m
+[32m+[m[32m  const handleKakaoClick = () => {[m
+[32m+[m[32m    if (settings.kakaoOpenChatUrl) {[m
+[32m+[m[32m      window.open(settings.kakaoOpenChatUrl, '_blank');[m
+[32m+[m[32m    }[m
+[32m+[m[32m  };[m
+[32m+[m
+[32m+[m[32m  // 카카오톡 아이콘 컴포넌트 (클릭 가능한 경우와 아닌 경우)[m
+[32m+[m[32m  const KakaoIcon = ({ size = 24, clickable = false }) => {[m
+[32m+[m[32m    const iconStyle = {[m
+[32m+[m[32m      width: `${size}px`,[m
+[32m+[m[32m      height: `${size}px`,[m
+[32m+[m[32m      backgroundColor: '#FEE500',[m
+[32m+[m[32m      borderRadius: '6px',[m
+[32m+[m[32m      display: 'flex',[m
+[32m+[m[32m      alignItems: 'center',[m
+[32m+[m[32m      justifyContent: 'center',[m
+[32m+[m[32m      cursor: clickable && settings.kakaoOpenChatUrl ? 'pointer' : 'default',[m
+[32m+[m[32m      opacity: clickable && !settings.kakaoOpenChatUrl ? 0.3 : 1,[m
+[32m+[m[32m      transition: 'all 0.2s ease',[m
+[32m+[m[32m      boxShadow: clickable ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',[m
+[32m+[m[32m    };[m
+[32m+[m
+[32m+[m[32m    const hoverStyle = clickable && settings.kakaoOpenChatUrl ? {[m
+[32m+[m[32m      transform: 'scale(1.05)',[m
+[32m+[m[32m      boxShadow: '0 4px 8px rgba(0,0,0,0.2)',[m
+[32m+[m[32m    

@@ -140,17 +140,27 @@ function App() {
       <GoogleOAuthProvider clientId={clientId}>
         
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* 기본 경로를 메인으로 변경 */}
+          <Route path="/" element={<Navigate to="/main" replace />} />
+          
           <Route path="/login" element={user ? <Navigate to="/main" /> : <Login isMobile={isMobile} />} />
+          
+          {/* 예약 페이지 - 로그인 필요한 기능 사용 시에만 로그인 요구 */}
           <Route
             path="/reservation"
-            element={user ? <div className="page-container"><ReservationMainPage /></div> : <Navigate to="/login" state={{ from: "/reservation" }} />}
+            element={<div className="page-container"><ReservationMainPage user={user} /></div>}
           />
+          
+          {/* 장바구니 페이지 - 로그인 필요 */}
           <Route
             path="/cart"
             element={user ? <div className="page-container"><CartPage /></div> : <Navigate to="/login" state={{ from: "/cart" }} />}
           />
-          <Route path="/admin-settings" element={<AdminSettingsPage />} />
+          
+          {/* 관리자 설정 - 로그인 필요 */}
+          <Route path="/admin-settings" element={user ? <AdminSettingsPage /> : <Navigate to="/login" state={{ from: "/admin-settings" }} />} />
+          
+          {/* 메인 페이지 - 로그인 없이도 접근 가능 */}
           <Route
             path="/main"
             element={
@@ -164,72 +174,92 @@ function App() {
                     longTermRental: longTermRentalRef
                   }}
                   isMobile={isMobile}
+                  user={user}
                 />
                 <div ref={calendarRef} id="calendar-section" style={!isMobile ? sectionStyle : {}}>
                   {/* 여기서는 헤더가 없는 독립형 Calendar 사용 */}
-                  <CalendarStandalone isMobile={isMobile} />
+                  <CalendarStandalone isMobile={isMobile} user={user} />
                 </div>
                 <div ref={rentalMethodRef} id="rental-method-section" style={!isMobile ? sectionStyle : {}}>
-                  <RentalMethodPage scrollToSection={scrollToSection} isMobile={isMobile} />
+                  <RentalMethodPage scrollToSection={scrollToSection} isMobile={isMobile} user={user} />
                 </div>
                 <div ref={thingsNoteRef} id="things-note-section" style={!isMobile ? sectionStyle : {}}>
-                  <ThingsNotePage isMobile={isMobile} />
+                  <ThingsNotePage isMobile={isMobile} user={user} />
                 </div>
                 <div ref={longTermRentalRef} id="long-term-rental-section" style={!isMobile ? sectionStyle : {}}>
-                  <LongTermRentalPage isMobile={isMobile} />
-                  
+                  <LongTermRentalPage isMobile={isMobile} user={user} />
                 </div>
                 {/* 모바일 버전에서는 위로가기 버튼 제거 */}
                 {!isMobile && <ScrollToTopButton isMobile={false} />}
               </div>
             }
           />
+          
+          {/* 예약 메인 페이지 - 로그인 없이도 접근 가능 */}
           <Route 
             path="/reservationMainPage" 
-            element={<div className="page-container"><ReservationMainPage /></div>} 
+            element={<div className="page-container"><ReservationMainPage user={user} /></div>} 
           />
           <Route 
             path="/reservation-main" 
-            element={<div className="page-container"><ReservationMainPage /></div>} 
+            element={<div className="page-container"><ReservationMainPage user={user} /></div>} 
           />
+          
+          {/* 메인 헤더 - 로그인 없이도 접근 가능 */}
           <Route 
             path="/mainheader" 
-            element={<MainHeader isMobile={isMobile} />} 
-          
-            
+            element={<MainHeader isMobile={isMobile} user={user} />} 
           />
 
-<Route 
-  path="/thingsnote-with-header" 
-  element={<div className="page-container"><ThingsNotePageWithHeader isMobile={isMobile} /></div>} 
-/>
-
+          {/* 공지사항 페이지 - 로그인 없이도 접근 가능 */}
           <Route 
-  path="/calendar-with-header" 
-  element={<div className="page-container"><CalendarWithHeader isMobile={isMobile} /></div>} 
-/>
+            path="/thingsnote-with-header" 
+            element={<div className="page-container"><ThingsNotePageWithHeader isMobile={isMobile} user={user} /></div>} 
+          />
+
+          {/* 캘린더 페이지 - 로그인 없이도 접근 가능 */}
+          <Route 
+            path="/calendar-with-header" 
+            element={<div className="page-container"><CalendarWithHeader isMobile={isMobile} user={user} /></div>} 
+          />
+          
+          {/* 공지사항 페이지 - 로그인 없이도 접근 가능 */}
           <Route 
             path="/thingsnote" 
-            element={<div className="page-container"><ThingsNotePage isMobile={isMobile} /></div>} 
+            element={<div className="page-container"><ThingsNotePage isMobile={isMobile} user={user} /></div>} 
           />
+          
+          {/* 마이페이지 - 로그인 필요 */}
           <Route 
             path="/mypage" 
             element={
-              <div className="page-container">
-                <MyPage />
-              </div>
+              user ? (
+                <div className="page-container">
+                  <MyPage />
+                </div>
+              ) : (
+                <Navigate to="/login" state={{ from: "/mypage" }} />
+              )
             } 
           />
+          
+          {/* 관리자 페이지 - 로그인 필요 */}
           <Route 
             path="/admins" 
-            element={<div className="page-container"><AdminPage isMobile={isMobile} /></div>} 
+            element={user ? <div className="page-container"><AdminPage isMobile={isMobile} /></div> : <Navigate to="/login" state={{ from: "/admins" }} />} 
           />
+          
+          {/* 카메라 관리 페이지 - 로그인 필요 */}
           <Route
             path="/cameramanagement"
             element={
-              <div className="admin-page-container">
-                <AdminCameraManagement isMobile={isMobile} />
-              </div>
+              user ? (
+                <div className="admin-page-container">
+                  <AdminCameraManagement isMobile={isMobile} />
+                </div>
+              ) : (
+                <Navigate to="/login" state={{ from: "/cameramanagement" }} />
+              )
             }
           />
         </Routes>

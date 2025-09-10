@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, signInWithPopup, provider } from "../firebase/firebaseConfig";
+import { auth } from "../firebase/firebaseConfig";
 import { toast } from 'react-toastify';
 
 function MainHeader({ scrollToSection, refs }) {
@@ -89,15 +89,11 @@ useEffect(() => {
     return () => window.removeEventListener('scroll', toggleVisibility);
   }, []);
 
-  // 로그인 처리 함수
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, provider);
-      alert("로그인되었습니다");
-    } catch (error) {
-      console.error("로그인 실패: ", error.message);
-    }
-  };
+  // 로그인 페이지로 이동
+ const handleLogin = () => {
+   // 로그인 후 돌아올 위치를 기억하고 싶으면 state로 from 전달 가능
+   navigate('/login', { state: { from: '/reservation' } });
+ };
 
   // 로그아웃 처리 함수
   const handleLogout = async () => {
@@ -114,16 +110,12 @@ useEffect(() => {
 
   // 예약 페이지로 이동하는 함수
   const handleReservation = () => {
-    if (!isLoggedIn) {
-      // 로그인되지 않은 상태에서 예약 시도 시 알림
-      alert("예약을 위해서는 로그인이 필요합니다.");
-      return;
-    }
-    navigate('/ReservationMainPage');
-    setTimeout(() => {
-      window.scrollTo(0, 0);
-    }, 100);
-  };
+   // 라우터에 등록된 경로로 정확히 이동 (소문자 권장)
+   navigate('/reservation'); // 또는 '/reservationMainPage' 정확히 소문자 r
+   setTimeout(() => {
+     window.scrollTo(0, 0);
+   }, 100);
+ };
 
   // 맨 위로 스크롤하는 함수
   const scrollToTop = () => {

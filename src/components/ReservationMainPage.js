@@ -525,12 +525,7 @@ const ReservationMainPage = () => {
         setUser(currentUser);
         fetchCartItemCount();
       } else {
-        navigate('/login', { 
-          state: { 
-            from: location.pathname, 
-            message: '장바구니 및 예약 기능을 사용하려면 로그인이 필요합니다.' 
-          } 
-        });
+        
       }
     });
     return () => unsubscribe();
@@ -538,34 +533,54 @@ const ReservationMainPage = () => {
 
 // 대여 날짜 및 반납 날짜가 모두 선택되었을 때 장비 가용성 확인
 useEffect(() => {
-  const checkAvailability = async () => {
-    if (rentalDate && returnDate) {
+  // 날짜가 없으면 초기화 후 종료
+  if (!rentalDate || !returnDate) {
+    setEquipmentAvailability({});
+    return;
+  }
+
+  // 비로그인: 가용성 계산 스킵 (권한 에러/전부 불가 방지)
+  if (!user) {
+    setEquipmentAvailability({});
+    setCheckingAvailability(false);
+    return;
+  }
+
+  let cancelled = false;
+
+  (async () => {
+    try {
       setCheckingAvailability(true);
       const startDate = `${rentalDate}T${rentalTime}`;
       const endDate = `${returnDate}T${returnTime}`;
-  
-      // 👉 병렬로 호출하는 방식
+
       const results = await Promise.all(
         cameras.map(async (camera) => {
-          const result = await checkEquipmentAvailability(camera.id, startDate, endDate);
-          return { id: camera.id, result };
+          const result = await checkEquipmentAvailability(
+            camera.id,
+            startDate,
+            endDate,
+            auth,
+            db
+          );
+          return [camera.id, result]; // [id, result]
         })
       );
-  
-      // 결과 재구성
-      const availabilityData = {};
-      results.forEach(({ id, result }) => {
-        availabilityData[id] = result;
-      });
-  
-      setEquipmentAvailability(availabilityData);
-      setCheckingAvailability(false);
-    }
-  };
-  
 
-  checkAvailability();
-}, [rentalDate, returnDate, rentalTime, returnTime, cameras]);
+      if (cancelled) return;
+      setEquipmentAvailability(Object.fromEntries(results));
+    } catch (e) {
+      console.error('availability check error:', e);
+    } finally {
+      if (!cancelled) setCheckingAvailability(false);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [rentalDate, rentalTime, returnDate, returnTime, cameras, user]);
+
 
 
 
@@ -582,6 +597,11 @@ useEffect(() => {
   
   // 장바구니 추가 핸들러
   const handleAddToCart = async (camera) => {
+     if (!user) {
+   toast.info("로그인 후 대여할 수 있어요.");
+   navigate('/login', { state: { from: '/reservation' } });
+   return;
+ }
     if (!rentalDate || !rentalTime || !returnDate || !returnTime) {
       toast.warn(
         "대여 및 반납 날짜와 시간을 먼저 선택해주세요!",{

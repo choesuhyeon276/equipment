@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const AuthContext = createContext();
 
@@ -8,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const auth = getAuth();
@@ -24,13 +25,27 @@ export const AuthProvider = ({ children }) => {
       } else {
         console.log('Firebase 인증된 유저 없음');
         setUser(null);
-        setLoading(false);
-        navigate('/login');
+        localStorage.removeItem('user');
+        
+        // 로그인이 필요한 페이지들만 리다이렉트
+        const loginRequiredPages = [
+          '/cart',
+          '/mypage', 
+          '/admins',
+          '/cameramanagement',
+          '/admin-settings'
+        ];
+        
+        // 현재 페이지가 로그인이 필요한 페이지인 경우에만 리다이렉트
+        if (loginRequiredPages.includes(location.pathname)) {
+          navigate('/login', { state: { from: location.pathname } });
+        }
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
