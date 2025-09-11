@@ -151,8 +151,8 @@ const AdminPage = () => {
     navigate('/calendar');
   };
 
-  const handleNoteNavigation = () => {
-    navigate('/thingsnote');
+  const handleManagmentNavigation = () => {
+    navigate('/cameramanagement');
   };
 
   const handleReservateNavigation = () => {
@@ -1302,7 +1302,7 @@ if (userDoc.exists()) {
         </button>
         
         <button 
-          onClick={handleNoteNavigation}
+          onClick={handleManagementNavigation}
           style={{ 
             flex: '1',
             padding: '12px',
@@ -1316,7 +1316,7 @@ if (userDoc.exists()) {
           }}
         >
           <FileText size={20} />
-          <span>노트</span>
+          <span>장비관리</span>
         </button>
         
         <button 
