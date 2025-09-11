@@ -1,67 +1,88 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../firebase/firebaseConfig";
+import { auth, db } from "../firebase/firebaseConfig";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { db } from "../firebase/firebaseConfig";
 
 function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleGoogleLogin = async () => {
+  // 🔒 에러 메시지 정리 함수 (사용자 친화적으로)
+  const friendly = (err) => {
+    const code = err?.code || "";
+    if (code === "auth/popup-closed-by-user") return "팝업이 닫혀 로그인에 실패했습니다.";
+    if (code === "auth/cancelled-popup-request") return "이미 로그인 창이 열려 있습니다. 잠시 후 다시 시도하세요.";
+    if (code === "auth/popup-blocked") return "브라우저가 팝업을 차단했습니다. 팝업 허용 후 다시 시도하세요.";
+    if (code === "auth/unauthorized-domain") return "허용되지 않은 도메인에서 요청되었습니다. 관리자에게 문의하세요.";
+    if (code === "auth/network-request-failed") return "네트워크 오류가 발생했습니다. 연결을 확인해 주세요.";
+    return err?.message || "로그인에 실패했습니다.";
+  };
+
+  // ✅ 팝업 로그인 (Redirect 미사용)
+  const handleGoogleLogin = useCallback(async () => {
     setLoading(true);
     setError("");
     console.log("구글 로그인 시작");
 
     try {
       const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: "select_account" });
+      provider.setCustomParameters({
+        // 계정 선택 강제
+        prompt: "select_account",
+      });
 
+      // 팝업 로그인
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // ✅ 학교 이메일이 아니면 차단
-      if (!user.email.endsWith("@khu.ac.kr")) {
-        await auth.signOut();
+      // 학교 이메일 제한
+      const email = user?.email || "";
+      if (!email.endsWith("@khu.ac.kr")) {
+        // 비허용 메일 → 즉시 로그아웃
+        await auth.signOut().catch(() => {});
         setLoading(false);
         setError("경희대학교 이메일(@khu.ac.kr)로만 로그인할 수 있습니다.");
         return;
       }
 
-      // ✅ access token 저장
+      // (선택) 액세스 토큰 저장 — 필요 없으면 제거 가능
       const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential.accessToken;
-      localStorage.setItem("googleAccessToken", accessToken);
-      localStorage.setItem("user", JSON.stringify(user));
+      const accessToken = credential?.accessToken || "";
+      try {
+        localStorage.setItem("googleAccessToken", accessToken);
+        localStorage.setItem("user", JSON.stringify(user));
+      } catch (_) {
+        // iOS 사파리 프라이빗 등 로컬스토리지 불가 환경 무시
+      }
 
-      // ✅ Firestore에 사용자 정보 저장
+      // Firestore 프로필 upsert
       const userRef = doc(db, "user_profiles", user.uid);
       await setDoc(
         userRef,
         {
           name: user.displayName || "",
-          email: user.email || "",
+          email: email,
           uid: user.uid,
           photoURL: user.photoURL || "",
+          // createdAt / updatedAt 서버타임스탬프를 쓰고 싶으면 추가 구현
         },
         { merge: true }
       );
 
-      const profileSnap = await getDoc(userRef);
-      const profileData = profileSnap.data();
+      // 프로필 완전성 확인
+      const snap = await getDoc(userRef);
+      const profile = snap.exists() ? snap.data() : {};
 
       const isIncomplete =
-        !profileData.phoneNumber ||
-        !profileData.studentId ||
-        !profileData.agreementURL;
+        !profile?.phoneNumber ||
+        !profile?.studentId ||
+        !profile?.agreementURL;
 
       if (isIncomplete) {
         console.log("정보 누락 → MyPage로 리디렉션");
-        navigate("/mypage", {
-          state: { showAgreementReminder: true },
-        });
+        navigate("/mypage", { state: { showAgreementReminder: true } });
       } else {
         console.log("정보 완전 → 메인으로 이동");
         navigate("/Main");
@@ -69,11 +90,13 @@ function Login() {
 
       setLoading(false);
     } catch (err) {
-      console.error("로그인 오류:", err.message);
+      console.error("로그인 오류(raw):", err);
       setLoading(false);
-      setError("로그인 실패: " + err.message);
+      setError("로그인 실패: " + friendly(err));
+      // ❗ 여기서 Redirect로 폴백하지 않습니다.
+      //    폴백 시 세션 스토리지 문제(초기 상태 누락)가 재발할 수 있어요.
     }
-  };
+  }, [navigate]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-white px-4">
