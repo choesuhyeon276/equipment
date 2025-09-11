@@ -151,7 +151,7 @@ const AdminPage = () => {
     navigate('/calendar');
   };
 
-  const handleManagmentNavigation = () => {
+  const handleManagementNavigation = () => {
     navigate('/cameramanagement');
   };
 
