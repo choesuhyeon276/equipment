@@ -277,7 +277,7 @@ const EquipmentGrid = ({
       onMouseLeave={() => setSelectedCameraId(null)}
     >
       {/* 장비 가용성 표시 */}
-      {rentalDate && returnDate && equipmentAvailability[camera.id] && !equipmentAvailability[camera[id]]?.available && (
+      {rentalDate && returnDate && equipmentAvailability[camera.id] && !equipmentAvailability[camera.id]?.available && (
         <div style={{
           position: 'absolute',
           top: '10px',
