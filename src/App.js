@@ -24,6 +24,7 @@ import './styles/responsive.css';
 import ThingsNotePageWithHeader from "./components/ThingsNotePageWithHeader";
 import AdminSettingsPage from './components/AdminSettingsPage';
 
+
 const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 function App() {
