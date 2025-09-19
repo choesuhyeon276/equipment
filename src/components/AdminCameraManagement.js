@@ -85,7 +85,7 @@ const AdminEquipmentManagement = () => {
     recommendSDCard: ''
   });
   const [imageFile, setImageFile] = useState(null);
-  const [internalImageFile, setInternalImageFile] = useState(null);
+  const [internalImageFiles, setInternalImageFiles] = useState([]); // 배열로 변경
   const [editingEquipment, setEditingEquipment] = useState(null);
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -214,23 +214,26 @@ const AdminEquipmentManagement = () => {
     });
   };
 
-  const handleImageUpload = async (file, folder = 'camera-images') => {
+  // 수정된 handleImageUpload 함수 - 내부사진은 원본 화질로 업로드
+  const handleImageUpload = async (file, folder = 'camera-images', isInternal = false) => {
     if (!file) return null;
     try {
-      const processedFile = await processImage(file);
-      const uniqueFileName = `${Date.now()}_${processedFile.name}`;
+      // 내부사진이 아닌 경우에만 processImage 적용
+      const fileToUpload = isInternal ? file : await processImage(file);
+      
+      const uniqueFileName = `${Date.now()}_${fileToUpload.name}`;
       const storageRef = ref(storage, `${folder}/${uniqueFileName}`);
       const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-      if (!allowedTypes.includes(processedFile.type)) {
+      if (!allowedTypes.includes(fileToUpload.type)) {
         toast.warn('지원되지 않는 파일 형식입니다. JPEG, PNG, GIF 파일만 업로드 가능합니다.');
         return null;
       }
-      const maxSize = 5 * 1024 * 1024;
-      if (processedFile.size > maxSize) {
-        toast.warn('파일 크기가 너무 큽니다. 5MB 이하의 파일만 업로드 가능합니다.');
+      const maxSize = 10 * 1024 * 1024; // 내부사진을 위해 10MB로 증가
+      if (fileToUpload.size > maxSize) {
+        toast.warn('파일 크기가 너무 큽니다. 10MB 이하의 파일만 업로드 가능합니다.');
         return null;
       }
-      const snapshot = await uploadBytes(storageRef, processedFile);
+      const snapshot = await uploadBytes(storageRef, fileToUpload);
       const downloadURL = await getDownloadURL(snapshot.ref);
       return { downloadURL, storageRef };
     } catch (error) {
@@ -246,9 +249,9 @@ const AdminEquipmentManagement = () => {
       let imageUrl = null;
       let internalImageUrl = null;
 
-      // 메인 이미지 업로드
+      // 메인 이미지 업로드 (기존과 동일 - 압축됨)
       if (imageFile) {
-        const uploadResult = await handleImageUpload(imageFile, 'camera-images');
+        const uploadResult = await handleImageUpload(imageFile, 'camera-images', false);
         if (uploadResult) {
           imageUrl = uploadResult.downloadURL;
           if (editingEquipment && editingEquipment.imageURL) {
@@ -266,14 +269,21 @@ const AdminEquipmentManagement = () => {
         imageUrl = editingEquipment.imageURL;
       }
 
-      // 내부사진 업로드
-      if (internalImageFile) {
-        const uploadResult = await handleImageUpload(internalImageFile, 'camera-internal-images');
-        if (uploadResult) {
-          internalImageUrl = uploadResult.downloadURL;
-          if (editingEquipment && editingEquipment.internalImageURL) {
+      // 내부사진 업로드 (여러 장, 원본 화질 유지)
+      let internalImageUrls = [];
+      if (internalImageFiles && internalImageFiles.length > 0) {
+        for (const file of internalImageFiles) {
+          const uploadResult = await handleImageUpload(file, 'camera-internal-images', true);
+          if (uploadResult) {
+            internalImageUrls.push(uploadResult.downloadURL);
+          }
+        }
+        
+        // 기존 내부사진들 삭제
+        if (editingEquipment && editingEquipment.internalImageURLs && editingEquipment.internalImageURLs.length > 0) {
+          for (const url of editingEquipment.internalImageURLs) {
             try {
-              const existingImageRef = ref(storage, editingEquipment.internalImageURL);
+              const existingImageRef = ref(storage, url);
               await deleteObject(existingImageRef);
             } catch (deleteError) {
               console.error("기존 내부사진 삭제 중 오류:", deleteError);
@@ -281,7 +291,7 @@ const AdminEquipmentManagement = () => {
           }
         }
       } else if (editingEquipment) {
-        internalImageUrl = editingEquipment.internalImageURL;
+        internalImageUrls = editingEquipment.internalImageURLs || [];
       }
 
       // displayOrder 유효성 검사
@@ -296,7 +306,7 @@ const AdminEquipmentManagement = () => {
         ...newEquipment,
         displayOrder: finalDisplayOrder,
         imageURL: imageUrl || (editingEquipment ? editingEquipment.imageURL : ''),
-        internalImageURL: internalImageUrl || (editingEquipment ? editingEquipment.internalImageURL : ''),
+        internalImageURLs: internalImageUrls, // 배열로 저장
         createdAt: editingEquipment ? editingEquipment.createdAt : new Date()
       };
 
@@ -326,7 +336,7 @@ const AdminEquipmentManagement = () => {
         recommendSDCard: ''
       });
       setImageFile(null);
-      setInternalImageFile(null);
+      setInternalImageFiles([]); // 배열 초기화
     } catch (error) {
       console.error("장비 추가/수정 중 오류:", error);
       toast.error('장비 추가/수정 중 오류가 발생했습니다.');
@@ -339,9 +349,16 @@ const AdminEquipmentManagement = () => {
         const imageRef = ref(storage, equipment.imageURL);
         await deleteObject(imageRef);
       }
-      if (equipment.internalImageURL) {
-        const internalImageRef = ref(storage, equipment.internalImageURL);
-        await deleteObject(internalImageRef);
+      // 여러 내부사진 삭제
+      if (equipment.internalImageURLs && equipment.internalImageURLs.length > 0) {
+        for (const url of equipment.internalImageURLs) {
+          try {
+            const internalImageRef = ref(storage, url);
+            await deleteObject(internalImageRef);
+          } catch (deleteError) {
+            console.error("내부사진 삭제 중 오류:", deleteError);
+          }
+        }
       }
       await deleteDoc(doc(db, 'cameras', equipment.id));
       fetchEquipments();
@@ -366,11 +383,12 @@ const AdminEquipmentManagement = () => {
       condition: equipment.condition || '정상',
       dailyRentalPrice: equipment.dailyRentalPrice || '',
       imageURL: equipment.imageURL || '',
-      internalImageURL: equipment.internalImageURL || '',
+      internalImageURLs: equipment.internalImageURLs || [], // 배열로 처리
       batteryModel: equipment.batteryModel || '',
       mountType: equipment.mountType || '',
       recommendSDCard: equipment.recommendSDCard || ''
     });
+    setInternalImageFiles([]); // 새 파일 선택을 위해 초기화
   };
 
   // 자동 스크롤 함수
@@ -612,7 +630,7 @@ const AdminEquipmentManagement = () => {
                   <p style={{ color: 'black', fontSize: '12px', margin: '3px 0' }}>장비 상태: {equipment.condition}</p>
 
                   {/* 내부사진 여부 표시 */}
-                  {equipment.internalImageURL && (
+                  {equipment.internalImageURLs && equipment.internalImageURLs.length > 0 && (
                     <div style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -625,7 +643,7 @@ const AdminEquipmentManagement = () => {
                       marginBottom: '8px'
                     }}>
                       <span style={{ color: '#1976d2', fontWeight: 'bold' }}>📷</span>
-                      내부사진
+                      내부사진 ({equipment.internalImageURLs.length}장)
                     </div>
                   )}
 
@@ -793,7 +811,7 @@ const AdminEquipmentManagement = () => {
           />
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>메인 이미지</label>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>메인 이미지 (압축됨)</label>
             <input
               type="file"
               onChange={(e) => setImageFile(e.target.files[0])}
@@ -802,12 +820,26 @@ const AdminEquipmentManagement = () => {
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>내부사진</label>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>내부사진 (원본 화질, 여러 장 가능)</label>
             <input
               type="file"
-              onChange={(e) => setInternalImageFile(e.target.files[0])}
+              multiple
+              onChange={(e) => setInternalImageFiles(Array.from(e.target.files))}
               style={{ padding: '10px', border: '1px solid #333', borderRadius: '5px', width: '100%' }}
             />
+            <small style={{ fontSize: '12px', color: '#666' }}>
+              여러 장 선택 가능 (Ctrl/Cmd 클릭), 원본 화질로 저장됩니다 (각각 최대 10MB)
+            </small>
+            {internalImageFiles.length > 0 && (
+              <div style={{ marginTop: '5px', fontSize: '12px', color: '#333' }}>
+                선택된 파일: {internalImageFiles.length}장
+              </div>
+            )}
+            {editingEquipment && editingEquipment.internalImageURLs && editingEquipment.internalImageURLs.length > 0 && (
+              <div style={{ marginTop: '5px', fontSize: '12px', color: '#666' }}>
+                기존 내부사진: {editingEquipment.internalImageURLs.length}장 (새 파일 선택 시 교체됨)
+              </div>
+            )}
           </div>
 
           <button 

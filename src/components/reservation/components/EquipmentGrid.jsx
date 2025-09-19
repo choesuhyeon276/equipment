@@ -107,72 +107,220 @@ const mountColors = {
 
 // 내부사진 모달 컴포넌트
 const InternalImageModal = ({ isOpen, onClose, equipment }) => {
-  if (!isOpen || !equipment?.internalImageURL) return null;
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // 내부사진 URL 배열 처리 (단일 URL과 배열 모두 지원)
+  const internalImages = equipment?.internalImageURLs 
+    ? (Array.isArray(equipment.internalImageURLs) ? equipment.internalImageURLs : [equipment.internalImageURLs])
+    : equipment?.internalImageURL 
+    ? [equipment.internalImageURL]
+    : [];
+
+  if (!isOpen || internalImages.length === 0) return null;
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + internalImages.length) % internalImages.length);
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % internalImages.length);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowLeft') handlePrevImage();
+    if (e.key === 'ArrowRight') handleNextImage();
+    if (e.key === 'Escape') onClose();
+  };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '20px'
+      }} 
+      onClick={onClose}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
       <div style={{
         backgroundColor: 'white',
-        borderRadius: '10px',
+        borderRadius: '12px',
         maxWidth: '90vw',
         maxHeight: '90vh',
         overflow: 'hidden',
-        position: 'relative'
-      }}>
+        position: 'relative',
+        boxShadow: '0 20px 50px rgba(0,0,0,0.3)'
+      }} onClick={(e) => e.stopPropagation()}>
         <button
           onClick={onClose}
           style={{
             position: 'absolute',
-            top: '10px',
-            right: '10px',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            top: '15px',
+            right: '15px',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
             color: 'white',
             border: 'none',
             borderRadius: '50%',
-            width: '30px',
-            height: '30px',
+            width: '35px',
+            height: '35px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            zIndex: 1001
+            zIndex: 1001,
+            transition: 'background-color 0.2s',
+            ':hover': {
+              backgroundColor: 'rgba(0, 0, 0, 0.9)'
+            }
           }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.9)'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.8)'}
         >
-          <X size={16} />
+          <X size={18} />
         </button>
         
         <div style={{
-          padding: '15px',
+          padding: '20px',
           borderBottom: '1px solid #eee',
           backgroundColor: '#f9f9f9'
         }}>
-          <h3 style={{ margin: 0, fontSize: '18px' }}>{equipment.name} - 내부사진</h3>
+          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>{equipment.name}</h3>
+          <p style={{ margin: '5px 0 0', fontSize: '14px', color: '#666' }}>
+            내부사진 ({currentImageIndex + 1} / {internalImages.length})
+          </p>
         </div>
         
-        <div style={{ padding: '20px', textAlign: 'center' }}>
+        <div style={{ position: 'relative', padding: '20px', textAlign: 'center' }}>
+          {/* 이전/다음 버튼 (여러 장일 때만 표시) */}
+          {internalImages.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrevImage();
+                }}
+                style={{
+                  position: 'absolute',
+                  left: '20px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 1002,
+                  fontSize: '18px',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.9)'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'}
+              >
+                ‹
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNextImage();
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '20px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 1002,
+                  fontSize: '18px',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.9)'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'}
+              >
+                ›
+              </button>
+            </>
+          )}
+          
           <img 
-            src={equipment.internalImageURL}
-            alt={`${equipment.name} 내부사진`}
+            src={internalImages[currentImageIndex]}
+            alt={`${equipment.name} 내부사진 ${currentImageIndex + 1}`}
             style={{
               maxWidth: '100%',
               maxHeight: '70vh',
               objectFit: 'contain',
-              borderRadius: '8px'
+              borderRadius: '8px',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
             }}
           />
         </div>
+        
+        {/* 썸네일 네비게이션 (여러 장일 때만 표시) */}
+        {internalImages.length > 1 && (
+          <div style={{
+            padding: '15px',
+            borderTop: '1px solid #eee',
+            backgroundColor: '#f9f9f9',
+            display: 'flex',
+            gap: '8px',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            maxHeight: '120px',
+            overflowY: 'auto'
+          }}>
+            {internalImages.map((imageUrl, index) => (
+              <div
+                key={index}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex(index);
+                }}
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  border: index === currentImageIndex ? '3px solid #1976d2' : '2px solid #ddd',
+                  transition: 'border-color 0.2s'
+                }}
+              >
+                <img
+                  src={imageUrl}
+                  alt={`썸네일 ${index + 1}`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -252,8 +400,12 @@ const EquipmentGrid = ({
             equipmentAvailability={equipmentAvailability}
           />
           
-          {/* 내부사진 정보 아이콘 */}
-          {camera.internalImageURL && (
+          {/* 내부사진 정보 아이콘 - 모바일 개선 */}
+          {(
+            (camera.internalImageURLs && Array.isArray(camera.internalImageURLs) && camera.internalImageURLs.length > 0) ||
+            (camera.internalImageURL && camera.internalImageURL.trim() !== '') ||
+            (camera.internalImageURLs && typeof camera.internalImageURLs === 'string' && camera.internalImageURLs.trim() !== '')
+          ) && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -262,22 +414,32 @@ const EquipmentGrid = ({
               style={{
                 position: 'absolute',
                 top: '5px',
-                right: camera.condition === '수리' || camera.status === 'rented' ? '50px' : '5px',
+                right: '5px',
                 backgroundColor: '#1976d2',
                 color: 'white',
                 border: 'none',
                 borderRadius: '50%',
-                width: '18px',
-                height: '18px',
+                width: '22px',
+                height: '22px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
                 fontSize: '8px',
-                zIndex: 7
+                zIndex: 15, // z-index 증가
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#1565c0';
+                e.target.style.transform = 'scale(1.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#1976d2';
+                e.target.style.transform = 'scale(1)';
               }}
             >
-              <Info size={10} />
+              <Info size={12} />
             </button>
           )}
           
@@ -286,14 +448,14 @@ const EquipmentGrid = ({
             <div style={{
               position: 'absolute',
               top: '5px',
-              right: '5px',
-              backgroundColor: 'rgba(255, 0, 0, 0.8)',
+              left: '5px',
+              backgroundColor: 'rgba(255, 0, 0, 0.9)',
               color: 'white',
-              padding: '2px 5px',
+              padding: '3px 6px',
               borderRadius: '4px',
               fontSize: '9px',
               fontWeight: 'bold',
-              zIndex: 6
+              zIndex: 10
             }}>
               {camera.condition === '수리' ? '수리 중' : '대여 중'}
             </div>
@@ -303,7 +465,7 @@ const EquipmentGrid = ({
           {mountArray.length > 0 && (
             <div style={{
               position: 'absolute',
-              top: '5px',
+              bottom: '5px',
               left: '5px',
               backgroundColor: mountColors[mountArray[0]] || mountColors['기타'],
               color: 'white',
@@ -327,7 +489,7 @@ const EquipmentGrid = ({
               bottom: 0,
               left: 0,
               right: 0,
-              backgroundColor: 'rgba(0,0,0,0.7)',
+              backgroundColor: 'rgba(0,0,0,0.85)',
               display: 'flex',
               flexDirection: 'column',
               padding: '6px'
@@ -373,7 +535,7 @@ const EquipmentGrid = ({
                         handleAddBattery(camera);
                       }}
                       style={{
- flex: 1,
+                        flex: 1,
                         height: '24px',
                         backgroundColor: '#f8f8f8',
                         color: '#333',
@@ -492,12 +654,12 @@ const EquipmentGrid = ({
           border: camera.status === 'rented' ? '1px solid #e74c3c' : 
                 (equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available) ? 
                 '1px solid #f39c12' : '1px solid #E0E0E0',
-          borderRadius: '8px',
+          borderRadius: '10px',
           overflow: 'visible',
           position: 'relative',
           transition: 'transform 0.3s, box-shadow 0.3s',
-          transform: selectedCameraId === camera.id ? 'scale(1.05)' : 'scale(1)',
-          boxShadow: selectedCameraId === camera.id ? '0 4px 10px rgba(0,0,0,0.1)' : 'none',
+          transform: selectedCameraId === camera.id ? 'scale(1.03)' : 'scale(1)',
+          boxShadow: selectedCameraId === camera.id ? '0 8px 25px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.05)',
           backgroundColor: equipmentAvailability?.[camera.id]?.available === false ? '#fef2f2' : 
                         (equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available) ? 
                         '#fff9e6' : 'white',
@@ -514,13 +676,13 @@ const EquipmentGrid = ({
             right: '10px',
             backgroundColor: '#f39c12',
             color: 'white',
-            padding: '5px 10px',
+            padding: '6px 12px',
             fontSize: '12px',
             fontWeight: 'bold',
             textAlign: 'center',
-            zIndex: 10,
-            borderRadius: '4px',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+            zIndex: 12,
+            borderRadius: '6px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}>
             사용 불가
           </div> 
@@ -536,12 +698,12 @@ const EquipmentGrid = ({
             left: '10px',
             backgroundColor: '#3498db',
             color: 'white',
-            padding: '5px 10px',
+            padding: '6px 12px',
             fontSize: '12px',
             fontWeight: 'bold',
-            zIndex: 10,
-            borderRadius: '5px',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+            zIndex: 12,
+            borderRadius: '6px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}>
             장바구니에 있음
           </div>
@@ -554,14 +716,14 @@ const EquipmentGrid = ({
             top: 0,
             left: 0,
             right: 0,
-            backgroundColor: 'rgba(0,0,0,0.8)',
+            backgroundColor: 'rgba(0,0,0,0.9)',
             color: 'white',
-            padding: '10px',
+            padding: '12px',
             zIndex: 20,
             textAlign: 'center',
             fontSize: '14px',
-            borderTopLeftRadius: '8px',
-            borderTopRightRadius: '8px',
+            borderTopLeftRadius: '10px',
+            borderTopRightRadius: '10px',
             overflowWrap: 'anywhere',
             wordBreak: 'break-word'
           }}>
@@ -569,8 +731,12 @@ const EquipmentGrid = ({
           </div>
         )}
 
-        {/* 내부사진 정보 아이콘 - 데스크탑 */}
-        {camera.internalImageURL && (
+        {/* 내부사진 정보 아이콘 - 데스크탑 개선 */}
+        {(
+          (camera.internalImageURLs && Array.isArray(camera.internalImageURLs) && camera.internalImageURLs.length > 0) ||
+          (camera.internalImageURL && camera.internalImageURL.trim() !== '') ||
+          (camera.internalImageURLs && typeof camera.internalImageURLs === 'string' && camera.internalImageURLs.trim() !== '')
+        ) && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -579,23 +745,33 @@ const EquipmentGrid = ({
             style={{
               position: 'absolute',
               top: '10px',
-              right: (camera.status === 'rented' || camera.condition === '수리') ? '110px' : 
-                     (equipmentAvailability[camera.id] && !equipmentAvailability[camera.id].available) ? '110px' : '10px',
+              right: '10px',
               backgroundColor: '#1976d2',
               color: 'white',
               border: 'none',
               borderRadius: '50%',
-              width: '28px',
-              height: '28px',
+              width: '32px',
+              height: '32px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              zIndex: 11,
-              boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+              zIndex: 25, // z-index 크게 증가
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = '#1565c0';
+              e.target.style.transform = 'scale(1.1)';
+              e.target.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = '#1976d2';
+              e.target.style.transform = 'scale(1)';
+              e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
             }}
           >
-            <Info size={14} />
+            <Info size={16} />
           </button>
         )}
         
@@ -603,15 +779,19 @@ const EquipmentGrid = ({
           <div style={{
             position: 'absolute',
             top: '10px',
-            right: '10px',
+            right: (
+              (camera.internalImageURLs && Array.isArray(camera.internalImageURLs) && camera.internalImageURLs.length > 0) ||
+              (camera.internalImageURL && camera.internalImageURL.trim() !== '') ||
+              (camera.internalImageURLs && typeof camera.internalImageURLs === 'string' && camera.internalImageURLs.trim() !== '')
+            ) ? '50px' : '10px', // 내부사진 버튼과 겹치지 않도록
             backgroundColor: '#e74c3c',
             color: 'white',
-            padding: '5px 10px',
+            padding: '6px 12px',
             fontSize: '12px',
             fontWeight: 'bold',
-            zIndex: 10,
-            borderRadius: '4px',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+            zIndex: 15,
+            borderRadius: '6px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}>
             {camera.status === 'rented' ? '대여 중' : '수리 중'}
           </div>
@@ -621,8 +801,8 @@ const EquipmentGrid = ({
         <div style={{
           height: '250px',
           overflow: 'hidden',
-          borderTopLeftRadius: '8px',
-          borderTopRightRadius: '8px'
+          borderTopLeftRadius: '10px',
+          borderTopRightRadius: '10px'
         }}>
           <ImageWithPlaceholder 
             camera={camera} 
@@ -645,49 +825,61 @@ const EquipmentGrid = ({
           return mountArray.map((type, idx) => (
             <div key={idx} style={{
               position: 'absolute',
-              top: `${10 + idx * 26}px`,
+              top: `${10 + idx * 30}px`,
               left: '10px',
               backgroundColor: mountColors[type] || mountColors['기타'],
               color: 'white',
-              borderRadius: '10px',
-              padding: '4px 8px',
-              fontSize: '10px',
-              fontWeight: '500',
-              zIndex: 5,
+              borderRadius: '12px',
+              padding: '5px 10px',
+              fontSize: '11px',
+              fontWeight: '600',
+              zIndex: 8,
               overflowWrap: 'anywhere',
-              wordBreak: 'break-word'
+              wordBreak: 'break-word',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
             }}>
               {type} {labelType}
             </div>
           ));
         })()}
 
-        {/* 배터리 & SD카드 버튼은 hover 시에만 표시 */}
+        {/* 배터리 & SD카드 버튼은 hover 시에만 표시 - 위치 조정 */}
         <div style={{
           position: 'absolute',
-          top: '210px',
+          bottom: '80px', // 하단에서 더 위로 올려서 장바구니 버튼과 겹치지 않도록
           right: '10px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-end',
-          gap: '5px',
-          zIndex: 5,
+          gap: '6px',
+          zIndex: 12,
           visibility: selectedCameraId === camera.id ? 'visible' : 'hidden',
           opacity: selectedCameraId === camera.id ? 1 : 0,
-          transform: selectedCameraId === camera.id ? 'translateY(0)' : 'translateY(5px)',
+          transform: selectedCameraId === camera.id ? 'translateY(0)' : 'translateY(10px)',
           transition: 'opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease'
         }}>
           {camera.batteryModel && (
             <button 
               onClick={() => handleAddBattery(camera)}
               style={{
-                padding: '4px 10px',
+                padding: '6px 12px',
                 backgroundColor: '#3498db',
                 color: 'white',
                 border: 'none',
-                borderRadius: '15px',
-                fontSize: '10px',
-                cursor: 'pointer'
+                borderRadius: '18px',
+                fontSize: '11px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                boxShadow: '0 3px 10px rgba(0,0,0,0.2)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#2980b9';
+                e.target.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#3498db';
+                e.target.style.transform = 'scale(1)';
               }}
             >
               + 배터리
@@ -697,13 +889,24 @@ const EquipmentGrid = ({
             <button 
               onClick={() => handleAddSDCard(camera)}
               style={{
-                padding: '4px 10px',
+                padding: '6px 12px',
                 backgroundColor: '#27ae60',
                 color: 'white',
                 border: 'none',
-                borderRadius: '15px',
-                fontSize: '10px',
-                cursor: 'pointer'
+                borderRadius: '18px',
+                fontSize: '11px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                boxShadow: '0 3px 10px rgba(0,0,0,0.2)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#229954';
+                e.target.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#27ae60';
+                e.target.style.transform = 'scale(1)';
               }}
             >
               + SD카드
@@ -713,11 +916,11 @@ const EquipmentGrid = ({
 
         {/* Camera Details */}
         <div style={{ 
-          padding: '10px', 
+          padding: '12px', 
           backgroundColor: camera.status === 'rented' ? '#fef2f2' : 
             (selectedCameraId === camera.id ? '#f9f9f9' : 'white'),
-          borderBottomLeftRadius: '8px',
-          borderBottomRightRadius: '8px'
+          borderBottomLeftRadius: '10px',
+          borderBottomRightRadius: '10px'
         }}>
           {/* 이름/가격 영역: 이름 줄바꿈 허용 */}
           <div style={{ 
@@ -727,9 +930,9 @@ const EquipmentGrid = ({
             gap: '8px'
           }}>
             <span style={{ 
-              fontWeight: 'bold',
+              fontWeight: '600',
               color: camera.status === 'rented' ? '#e74c3c' : 'black',
-              fontSize: '14px',
+              fontSize: '15px',
               flex: 1,
               overflowWrap: 'anywhere',
               wordBreak: 'break-word'
@@ -739,7 +942,8 @@ const EquipmentGrid = ({
             <span style={{ 
               color: '#666', 
               fontSize: '14px',
-              flexShrink: 0
+              flexShrink: 0,
+              fontWeight: '500'
             }}>
               {camera.dailyRentalPrice}
             </span>
@@ -748,7 +952,7 @@ const EquipmentGrid = ({
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
-            marginTop: '5px',
+            marginTop: '6px',
             color: '#666',
             fontSize: '12px',
             gap: '6px',
@@ -773,21 +977,29 @@ const EquipmentGrid = ({
               bottom: 0,
               left: 0,
               right: 0,
-              backgroundColor: 'rgba(0,0,0,0.7)',
+              backgroundColor: 'rgba(0,0,0,0.85)',
               color: 'white',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              padding: '10px',
+              padding: '12px',
               cursor: 'pointer',
-              fontSize: '14px',
-              borderBottomLeftRadius: '8px',
-              borderBottomRightRadius: '8px',
-              zIndex: 15
+              fontSize: '15px',
+              fontWeight: '600',
+              borderBottomLeftRadius: '10px',
+              borderBottomRightRadius: '10px',
+              zIndex: 18,
+              transition: 'all 0.2s ease'
             }}
             onClick={() => handleAddToCart(camera)}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = 'rgba(0,0,0,0.95)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = 'rgba(0,0,0,0.85)';
+            }}
           >
-            <ShoppingCart size={20} style={{ marginRight: '10px' }} />
+            <ShoppingCart size={22} style={{ marginRight: '10px' }} />
             장바구니 담기
           </div>
         )}
