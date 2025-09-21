@@ -1,9 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  User, ShoppingCart, Clock, FileText, AlertTriangle, 
-  ChevronDown, ChevronUp, Check, X, Award, RefreshCw 
-} from 'lucide-react';
+// src/components/AdminPage.js
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  User,
+  ShoppingCart,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  X,
+  RefreshCw,
+  Home,
+  Calendar,
+  Settings as SettingsIcon,
+} from 'lucide-react';
+
 import {
   app,
   db,
@@ -16,87 +27,317 @@ import {
   query,
   where,
   getDocs,
-  getImageURL,
   serverTimestamp,
   writeBatch,
-  orderBy
+  // ❌ orderBy 는 firebaseConfig에서 export되지 않으므로 사용 안함
 } from '../firebase/firebaseConfig';
 
+/** YYYY년 MM월 DD일 HH시 mm분 표시 */
+const formatKoreanDateTime = (isoStringOrDateOrTimestamp) => {
+  if (!isoStringOrDateOrTimestamp) return '날짜 없음';
 
+  // Firebase Timestamp 지원 + string/Date 지원
+  let date;
+  if (isoStringOrDateOrTimestamp?.toDate) {
+    date = isoStringOrDateOrTimestamp.toDate();
+  } else if (typeof isoStringOrDateOrTimestamp === 'string' || isoStringOrDateOrTimestamp instanceof Date) {
+    date = new Date(isoStringOrDateOrTimestamp);
+  }
 
-import { Home, Calendar, Settings as SettingsIcon, } from 'lucide-react';
-
-
-const formatKoreanDateTime = (isoString) => {
-  if (!isoString) return '날짜 없음';
-  const date = new Date(isoString);
+  if (!date || Number.isNaN(date.getTime())) return '날짜 없음';
 
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0'); // 0부터 시작함
+  const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   const hour = String(date.getHours()).padStart(2, '0');
   const minute = String(date.getMinutes()).padStart(2, '0');
-
   return `${year}년 ${month}월 ${day}일 ${hour}시 ${minute}분`;
 };
 
-
-
-
 const AdminPage = () => {
   const navigate = useNavigate();
+
   const [admin, setAdmin] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const [pendingRentals, setPendingRentals] = useState([]);
   const [activeRentals, setActiveRentals] = useState([]);
   const [returnRequests, setReturnRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [imageUrls, setImageUrls] = useState({});
-  const [activeTab, setActiveTab] = useState('pending');
+  const [completedRentals, setCompletedRentals] = useState([]);
+
+  const [activeTab, setActiveTab] = useState('pending'); // pending | active | return | completed
   const [expandedItems, setExpandedItems] = useState({});
   const [selectedItems, setSelectedItems] = useState([]);
+
+  const [sortBy, setSortBy] = useState('userName'); // userName | userId | rentalDate | name
+
+  // penalty modal
   const [penaltyModalOpen, setPenaltyModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [penaltyPoints, setPenaltyPoints] = useState(0);
   const [penaltyReason, setPenaltyReason] = useState('');
-  const [sortBy, setSortBy] = useState('userName'); // Default sort by user name
-  const handleSettingsNavigation = () => {
-    navigate('/admin-settings');
+
+  // ------- Nav Handlers -------
+  const handleHomeNavigation = () => navigate('/main');
+  const handleCalendarNavigation = () => navigate('/calendar-with-header');
+  const handleManagementNavigation = () => navigate('/cameramanagement');
+  const handleReservateNavigation = () => navigate('/ReservationMainPage');
+  const handleSettingsNavigation = () => navigate('/admin-settings');
+
+  // ------- Auth + Admin check -------
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+      if (!firebaseUser) {
+        setAdmin(null);
+        setLoading(false);
+        navigate('/login');
+        return;
+      }
+
+      const isAdmin = await checkAdminRole(firebaseUser.uid);
+      if (!isAdmin) {
+        alert('관리자 권한이 없습니다.');
+        navigate('/main');
+        return;
+      }
+
+      setAdmin({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || '관리자',
+      });
+
+      await fetchRentalData();
+    });
+
+    return () => unsubscribe();
+    
+  }, []);
+
+  const checkAdminRole = async (userId) => {
+    try {
+      const userRef = doc(db, 'user_profiles', userId);
+      const userDoc = await getDoc(userRef);
+      return userDoc.exists() && userDoc.data().role === 'admin';
+    } catch (e) {
+      console.error('Error checking admin role:', e);
+      return false;
+    }
   };
 
-  // 선택된 대여 항목 일괄 승인
-  const approveSelectedRentals = async () => {
-    if (selectedItems.length === 0) {
-      alert('선택된 항목이 없습니다.');
-      return;
-    }
+  // ------- Fetch all rental data -------
+  const fetchRentalData = async () => {
+    setLoading(true);
+    try {
+      // 1) pending
+      const pendingSnapshot = await getDocs(
+        query(collection(db, 'reservations'), where('status', '==', 'pending'))
+      );
+      const pendingDataRaw = pendingSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const pendingData = await enrichWithUserProfiles(pendingDataRaw);
 
+      // 2) active
+      const activeSnapshot = await getDocs(
+        query(collection(db, 'reservations'), where('status', '==', 'active'))
+      );
+      const activeDataRaw = activeSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const activeData = await enrichWithUserProfiles(activeDataRaw);
+
+      // 3) return_requested
+      const returnSnapshot = await getDocs(
+        query(collection(db, 'reservations'), where('status', '==', 'return_requested'))
+      );
+      const returnDataRaw = returnSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const returnData = await enrichWithUserProfiles(returnDataRaw);
+
+      // 4) completed (returned) - orderBy 없이 클라에서 정렬
+      const completedSnapshot = await getDocs(
+        query(collection(db, 'reservations'), where('status', '==', 'returned'))
+      );
+      const completedRaw = completedSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const completedData = (await enrichWithUserProfiles(completedRaw)).sort((a, b) => {
+        const at = a.returnedAt?.toDate ? a.returnedAt.toDate().getTime() : 0;
+        const bt = b.returnedAt?.toDate ? b.returnedAt.toDate().getTime() : 0;
+        return bt - at; // 최신 반환 먼저
+      });
+
+      setPendingRentals(sortRentalData(pendingData, sortBy));
+      setActiveRentals(sortRentalData(activeData, sortBy));
+      setReturnRequests(sortRentalData(returnData, sortBy));
+      setCompletedRentals(sortRentalData(completedData, sortBy));
+
+      setSelectedItems([]);
+    } catch (e) {
+      console.error('Error fetching rental data:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 사용자 정보 보강
+  const enrichWithUserProfiles = async (list) => {
+    return Promise.all(
+      list.map(async (rental) => {
+        if (!rental.userId) return rental;
+        try {
+          const userRef = doc(db, 'user_profiles', rental.userId);
+          const userDoc = await getDoc(userRef);
+          if (userDoc.exists()) {
+            const u = userDoc.data();
+            return {
+              ...rental,
+              userName: u.name || rental.userName || '이름 없음',
+              userEmail: u.email || rental.userEmail || '이메일 없음',
+              userPhone: u.phoneNumber || '',
+              userStudentId: u.studentId || '',
+              userPenalty: u.penaltyPoints || 0,
+              userPenaltyHistory: u.penaltyHistory || [],
+              userPledge: u.pledgeFileURL || '',
+            };
+          }
+        } catch (e) {
+          console.error('Error fetching user profile:', e);
+        }
+        return rental;
+      })
+    );
+  };
+
+  // ------- Sort -------
+  const sortRentalData = (data, sortKey) => {
+    const copy = [...data];
+    return copy.sort((a, b) => {
+      switch (sortKey) {
+        case 'userName':
+          return (a.userName || '').localeCompare(b.userName || '');
+        case 'userId':
+          return (a.userId || '').localeCompare(b.userId || '');
+        case 'rentalDate': {
+          const at =
+            new Date(a.startDateTime || a.rentalDate || 0).getTime() ||
+            (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0);
+          const bt =
+            new Date(b.startDateTime || b.rentalDate || 0).getTime() ||
+            (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0);
+          return at - bt;
+        }
+        case 'name': {
+          // 메인 아이템명(요청서의 대표 이름)이 있다면 name, 없으면 첫 장비 이름
+          const an = a.name || a.items?.[0]?.name || '';
+          const bn = b.name || b.items?.[0]?.name || '';
+          return an.localeCompare(bn);
+        }
+        default:
+          return 0;
+      }
+    });
+  };
+
+  const handleSortChange = (key) => {
+    setSortBy(key);
+    if (activeTab === 'pending') setPendingRentals(sortRentalData(pendingRentals, key));
+    if (activeTab === 'active') setActiveRentals(sortRentalData(activeRentals, key));
+    if (activeTab === 'return') setReturnRequests(sortRentalData(returnRequests, key));
+    if (activeTab === 'completed') setCompletedRentals(sortRentalData(completedRentals, key));
+  };
+
+  // ------- selection -------
+  const toggleSelectItem = (id) => {
+    setSelectedItems((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+  const toggleSelectAll = (items) => {
+    if (selectedItems.length === items.length) setSelectedItems([]);
+    else setSelectedItems(items.map((i) => i.id));
+  };
+
+  // ------- Approve / Reject (single) -------
+  const approveRental = async (rentalId) => {
+    try {
+      const rentalRef = doc(db, 'reservations', rentalId);
+      await updateDoc(rentalRef, {
+        status: 'active',
+        approvedAt: serverTimestamp(),
+        approvedBy: admin.uid,
+      });
+
+      // 장비 상태 업데이트
+      const rentalDoc = await getDoc(rentalRef);
+      const rentalData = rentalDoc.data();
+      if (rentalData?.equipmentId) {
+        await updateDoc(doc(db, 'cameras', rentalData.equipmentId), {
+          status: 'rented',
+          lastRentalId: rentalId,
+        });
+      }
+
+      // 구글 캘린더 등록(실패 무시)
+      try {
+        await fetch('/api/addEventToCalendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: `[장비 대여 승인] ${rentalData.name || rentalData.items?.[0]?.name || ''}`,
+            description: `사용자: ${rentalData.userName || rentalData.userId}\n사용 목적: ${
+              rentalData.purpose || '없음'
+            }`,
+            startDate: rentalData.rentalDate,
+            startTime: rentalData.rentalTime,
+            endDate: rentalData.returnDate,
+            endTime: rentalData.returnTime,
+          }),
+        });
+      } catch (e) {
+        console.warn('캘린더 등록 실패(무시):', e);
+      }
+
+      alert('대여 신청이 승인되었습니다.');
+      fetchRentalData();
+    } catch (e) {
+      console.error('Error approving rental:', e);
+      alert('승인 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const rejectRental = async (rentalId) => {
+    try {
+      await updateDoc(doc(db, 'reservations', rentalId), {
+        status: 'rejected',
+        rejectedAt: serverTimestamp(),
+        rejectedBy: admin.uid,
+      });
+      alert('대여 신청이 거절되었습니다.');
+      fetchRentalData();
+    } catch (e) {
+      console.error('Error rejecting rental:', e);
+      alert('처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  // ------- Approve / Reject (batch) -------
+  const approveSelectedRentals = async () => {
+    if (selectedItems.length === 0) return alert('선택된 항목이 없습니다.');
     if (!confirm(`선택한 ${selectedItems.length}개 항목을 승인하시겠습니까?`)) return;
 
     try {
       const batch = writeBatch(db);
-
-      for (const rentalId of selectedItems) {
-        const rentalRef = doc(db, 'reservations', rentalId);
-        batch.update(rentalRef, {
+      selectedItems.forEach((id) => {
+        batch.update(doc(db, 'reservations', id), {
           status: 'active',
           approvedAt: serverTimestamp(),
           approvedBy: admin.uid,
         });
-      }
-
+      });
       await batch.commit();
 
-      // Update equipment status for each approved rental
+      // 각 장비 상태 업데이트
       for (const rentalId of selectedItems) {
-        const rentalRef = doc(db, 'reservations', rentalId);
-        const rentalDoc = await getDoc(rentalRef);
-        const rentalData = rentalDoc.data();
-        
-        if (rentalData.equipmentId) {
-          const equipmentRef = doc(db, 'cameras', rentalData.equipmentId);
-          await updateDoc(equipmentRef, {
+        const rDoc = await getDoc(doc(db, 'reservations', rentalId));
+        const rData = rDoc.data();
+        if (rData?.equipmentId) {
+          await updateDoc(doc(db, 'cameras', rData.equipmentId), {
             status: 'rented',
-            lastRentalId: rentalId
+            lastRentalId: rentalId,
           });
         }
       }
@@ -104,602 +345,307 @@ const AdminPage = () => {
       alert(`${selectedItems.length}개 항목이 승인되었습니다.`);
       setSelectedItems([]);
       fetchRentalData();
-    } catch (error) {
-      console.error('Error approving rentals:', error);
+    } catch (e) {
+      console.error('Error approving rentals:', e);
       alert('일괄 승인 중 오류가 발생했습니다.');
     }
   };
 
-  // 선택된 대여 항목 일괄 거절
   const rejectSelectedRentals = async () => {
-    if (selectedItems.length === 0) {
-      alert('선택된 항목이 없습니다.');
-      return;
-    }
-
+    if (selectedItems.length === 0) return alert('선택된 항목이 없습니다.');
     if (!confirm(`선택한 ${selectedItems.length}개 항목을 거절하시겠습니까?`)) return;
 
     try {
       const batch = writeBatch(db);
-
-      for (const rentalId of selectedItems) {
-        const rentalRef = doc(db, 'reservations', rentalId);
-        batch.update(rentalRef, {
+      selectedItems.forEach((id) => {
+        batch.update(doc(db, 'reservations', id), {
           status: 'rejected',
           rejectedAt: serverTimestamp(),
           rejectedBy: admin.uid,
         });
-      }
-
+      });
       await batch.commit();
 
       alert(`${selectedItems.length}개 항목이 거절되었습니다.`);
       setSelectedItems([]);
       fetchRentalData();
-    } catch (error) {
-      console.error('Error rejecting rentals:', error);
+    } catch (e) {
+      console.error('Error rejecting rentals:', e);
       alert('일괄 거절 중 오류가 발생했습니다.');
     }
   };
 
-  // 내비게이션 핸들러
-  const handleHomeNavigation = () => {
-    navigate('/main');
-  };
-
-  const handleCalendarNavigation = () => {
-    navigate('/calendar');
-  };
-
-  const handleManagementNavigation = () => {
-    navigate('/cameramanagement');
-  };
-
-  const handleReservateNavigation = () => {
-    navigate('/ReservationMainPage');
-  };
-
-  // Page load - authentication and data fetching
-  useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      if (firebaseUser) {
-        // 관리자 권한 확인
-        checkAdminRole(firebaseUser.uid).then(isAdmin => {
-          if (isAdmin) {
-            const adminData = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              name: firebaseUser.displayName || '관리자'
-            };
-            
-            setAdmin(adminData);
-            fetchRentalData();
-          } else {
-            // 관리자가 아닌 경우 메인 페이지로 리디렉션
-            alert('관리자 권한이 없습니다.');
-            navigate('/main');
-          }
-        });
-      } else {
-        console.log('Firebase 인증된 유저 없음');
-        setAdmin(null);
-        setLoading(false);
-        navigate('/login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // 관리자 권한 체크
-  const checkAdminRole = async (userId) => {
-    try {
-      const userRef = doc(db, 'user_profiles', userId);
-      const userDoc = await getDoc(userRef);
-      
-      if (userDoc.exists()) {
-        return userDoc.data().role === 'admin';
-      }
-      return false;
-    } catch (error) {
-      console.error('Error checking admin role:', error);
-      return false;
-    }
-  };
-
-  // 대여 데이터 불러오기
-  const fetchRentalData = async () => {
-    try {
-      const pendingQuery = query(
-        collection(db, 'reservations'),
-        where('status', '==', 'pending')
-      );
-      const pendingSnapshot = await getDocs(pendingQuery);
-      const pendingData = pendingSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      console.log('Pending data:', pendingData);
-      
-      // 유저 정보 추가 로드 (필요한 경우)
-      const enhancedPendingData = await Promise.all(pendingData.map(async (rental) => {
-        if (rental.userId) {
-          try {
-            const userRef = doc(db, 'user_profiles', rental.userId);
-            const userDoc = await getDoc(userRef);
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              return {
-                ...rental,
-                userName: userData.name || '이름 없음',
-                userEmail: userData.email || rental.userEmail || '이메일 없음',
-                userPhone: userData.phoneNumber || '',
-                userStudentId: userData.studentId || '',
-                userPenalty: userData.penaltyPoints || 0,
-                userPenaltyHistory: userData.penaltyHistory || [],
-                userPledge: userData.pledgeFileURL || ''
-              };
-            }
-          } catch (error) {
-            console.error('Error fetching user data:', error);
-          }
-        }
-      
-        return rental;
-      }));
-      
-      // 정렬 적용
-      const sortedPendingData = sortRentalData(enhancedPendingData, sortBy);
-      setPendingRentals(sortedPendingData);
-      
-      // 2. 현재 대여 중인 장비 목록
-      const activeQuery = query(
-        collection(db, 'reservations'),
-        where('status', '==', 'active')
-      );
-      
-      const activeSnapshot = await getDocs(activeQuery);
-      const activeData = activeSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setActiveRentals(activeData);
-      
-      // 3. 반납 요청 목록
-      const returnQuery = query(
-        collection(db, 'reservations'),
-        where('status', '==', 'return_requested')
-      );
-      
-      const returnSnapshot = await getDocs(returnQuery);
-      const returnData = returnSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setReturnRequests(returnData);
-      
-      // 모든 아이템 이미지 로드
-      const allItems = [...enhancedPendingData, ...activeData, ...returnData];
-
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching rental data:', error);
-      setLoading(false);
-    }
-  };
-
-  // 데이터 정렬 함수
-  const sortRentalData = (data, sortKey) => {
-    return [...data].sort((a, b) => {
-      switch (sortKey) {
-        case 'userName':
-          return (a.userName || '').localeCompare(b.userName || '');
-        case 'rentalDate':
-          return new Date(a.startDateTime || a.rentalDate || 0) - new Date(b.startDateTime || b.rentalDate || 0);
-        case 'name':
-          return (a.name || '').localeCompare(b.name || '');
-        case 'userId':
-          return (a.userId || '').localeCompare(b.userId || '');
-        default:
-          return 0;
-      }
-    });
-  };
-
-  // 정렬 변경 처리
-  const handleSortChange = (key) => {
-    setSortBy(key);
-    
-    // 현재 탭에 따라 다른 상태 업데이트
-    if (activeTab === 'pending') {
-      setPendingRentals(sortRentalData(pendingRentals, key));
-    } else if (activeTab === 'active') {
-      setActiveRentals(sortRentalData(activeRentals, key));
-    } else if (activeTab === 'return') {
-      setReturnRequests(sortRentalData(returnRequests, key));
-    }
-  };
-
-  
-
-  // 선택된 아이템 토글
-  const toggleSelectItem = (itemId) => {
-    setSelectedItems(prev => {
-      if (prev.includes(itemId)) {
-        return prev.filter(id => id !== itemId);
-      } else {
-        return [...prev, itemId];
-      }
-    });
-  };
-
-  
-
-  // 모든 아이템 선택/해제
-  const toggleSelectAll = (items) => {
-    if (selectedItems.length === items.length) {
-      setSelectedItems([]);
-    } else {
-      setSelectedItems(items.map(item => item.id));
-    }
-  };
-
-  // 대여 신청 승인
-  const approveRental = async (rentalId) => {
-    try {
-      // 1. Firebase 상태 업데이트
-      const rentalRef = doc(db, 'reservations', rentalId);
-      await updateDoc(rentalRef, {
-        status: 'active',
-        approvedAt: serverTimestamp(),
-        approvedBy: admin.uid
-      });
-  
-      // 2. 장비 상태를 'rented'로 변경
-      const rentalDoc = await getDoc(rentalRef);
-      const rentalData = rentalDoc.data();
-  
-      if (rentalData.equipmentId) {
-        const equipmentRef = doc(db, 'cameras', rentalData.equipmentId);
-        await updateDoc(equipmentRef, {
-          status: 'rented',
-          lastRentalId: rentalId
-        });
-      }
-  
-      // ✅ 3. Google Calendar 등록 시도 (실패해도 무시)
-      try {
-        const response = await fetch('/api/addEventToCalendar', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            title: `[장비 대여 승인] ${rentalData.name}`,
-            description: `사용자: ${rentalData.userName || rentalData.userId}\n사용 목적: ${rentalData.purpose || '없음'}`,
-            startDate: rentalData.rentalDate,
-            startTime: rentalData.rentalTime,
-            endDate: rentalData.returnDate,
-            endTime: rentalData.returnTime
-          })
-        });
-  
-        if (!response.ok) {
-          console.warn('⚠️ 캘린더 등록 실패 (응답 오류):', await response.text());
-        }
-      } catch (calendarError) {
-        console.warn('⚠️ 캘린더 등록 중 예외 발생 (무시함):', calendarError);
-      }
-  
-      // 승인 완료 알림
-      alert('대여 신청이 승인되었습니다.');
-      fetchRentalData();
-    } catch (error) {
-      console.error('Error approving rental:', error);
-      alert('승인 처리 중 오류가 발생했습니다.');
-    }
-  };
-  ``
-  
-
-
-
-
-  // 대여 신청 거절 (Missing function implementation)
-  const rejectRental = async (rentalId) => {
-    try {
-      const rentalRef = doc(db, 'reservations', rentalId);
-      await updateDoc(rentalRef, {
-        status: 'rejected',
-        rejectedAt: serverTimestamp(),
-        rejectedBy: admin.uid
-      });
-
-      alert('대여 신청이 거절되었습니다.');
-      fetchRentalData();
-    } catch (error) {
-      console.error('Error rejecting rental:', error);
-      alert('처리 중 오류가 발생했습니다.');
-    }
-  };
-
-  // 반납 처리 (Missing function implementation)
+  // ------- Return processing -------
   const processReturn = async (rentalId) => {
     try {
-      // Get rental data first
       const rentalRef = doc(db, 'reservations', rentalId);
       const rentalDoc = await getDoc(rentalRef);
       const rentalData = rentalDoc.data();
-      
-      // Ask if there are any damages
+
       const hasIssues = confirm('반납된 장비에 문제가 있습니까? (확인: 예, 취소: 아니오)');
-      
       if (hasIssues) {
-        // Open penalty modal if there are issues
         setCurrentUser({
           id: rentalData.userId,
           name: rentalData.userName || '사용자',
-          rentalId: rentalId
+          rentalId,
         });
+        setPenaltyPoints(0);
+        setPenaltyReason('');
         setPenaltyModalOpen(true);
-      } else {
-        // Normal return process
-        await updateDoc(rentalRef, {
-          status: 'returned',
-          returnedAt: serverTimestamp(),
-          processedBy: admin.uid,
-          returnStatus: 'normal'
-        });
-        
-        // Update equipment status
-        if (rentalData.equipmentId) {
-          const equipmentRef = doc(db, 'cameras', rentalData.equipmentId);
-          await updateDoc(equipmentRef, {
-            status: 'available',
-            lastRentalId: null
-          });
-        }
-        
-        alert('반납 처리가 완료되었습니다.');
-        fetchRentalData();
+        return;
       }
-    } catch (error) {
-      console.error('Error processing return:', error);
+
+      // 정상 반납
+      await updateDoc(rentalRef, {
+        status: 'returned',
+        returnedAt: serverTimestamp(),
+        processedBy: admin.uid,
+        returnStatus: 'normal',
+      });
+
+      if (rentalData?.equipmentId) {
+        await updateDoc(doc(db, 'cameras', rentalData.equipmentId), {
+          status: 'available',
+          lastRentalId: null,
+        });
+      }
+
+      alert('반납 처리가 완료되었습니다.');
+      fetchRentalData();
+    } catch (e) {
+      console.error('Error processing return:', e);
       alert('처리 중 오류가 발생했습니다.');
     }
   };
 
-  // 벌점 부과 및 반납 처리
   const applyPenaltyAndProcessReturn = async () => {
     if (!currentUser || penaltyPoints <= 0 || !penaltyReason) {
       alert('벌점 정보를 모두 입력해주세요.');
       return;
     }
-    
+
     try {
-      // 1. 대여 상태 업데이트
+      // 1) 대여 반납 + 벌점 기록
       const rentalRef = doc(db, 'reservations', currentUser.rentalId);
       await updateDoc(rentalRef, {
         status: 'returned',
         returnedAt: serverTimestamp(),
         processedBy: admin.uid,
         returnStatus: 'damaged',
-        penaltyPoints: penaltyPoints,
-        penaltyReason: penaltyReason
+        penaltyPoints,
+        penaltyReason,
       });
-      
-      // 2. 사용자 프로필에 벌점 추가
-      const userRef = doc(db, 'user_profiles', currentUser.id); // ✅ currentUser.id는 UID여야 함
-const userDoc = await getDoc(userRef);
 
-if (userDoc.exists()) {
-  const currentPenalty = userDoc.data().penaltyPoints || 0;
-
-  await updateDoc(userRef, {
-    penaltyPoints: currentPenalty + penaltyPoints,
-    penaltyHistory: [
-      ...(userDoc.data().penaltyHistory || []),
-      {
-        points: penaltyPoints,
-        reason: penaltyReason,
-        date: new Date(), // ✅ 수정됨!
-        rentalId: currentUser.rentalId,
-        adminId: admin.uid
+      // 2) 사용자 벌점
+      const userRef = doc(db, 'user_profiles', currentUser.id);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        const currentPenalty = userDoc.data().penaltyPoints || 0;
+        await updateDoc(userRef, {
+          penaltyPoints: currentPenalty + Number(penaltyPoints),
+          penaltyHistory: [
+            ...(userDoc.data().penaltyHistory || []),
+            {
+              points: Number(penaltyPoints),
+              reason: penaltyReason,
+              date: new Date(), // 클라이언트 시간 기록(간단)
+              rentalId: currentUser.rentalId,
+              adminId: admin.uid,
+            },
+          ],
+        });
+      } else {
+        console.warn('user_profiles 문서가 존재하지 않습니다.');
       }
-    ]
-  });
-  
 
-  console.log('✅ 벌점 성공적으로 업데이트됨');
-} else {
-  console.warn('❗ user_profiles 문서가 존재하지 않음');
-}
-
-      
-      // 3. 장비 상태 업데이트
-      const rentalDoc = await getDoc(rentalRef);
-      const equipmentId = rentalDoc.data().equipmentId;
-      
+      // 3) 장비 damageHistory
+      const rDoc = await getDoc(rentalRef);
+      const equipmentId = rDoc.data()?.equipmentId;
       if (equipmentId) {
-        const equipmentRef = doc(db, 'cameras', equipmentId);
-        const equipmentDoc = await getDoc(equipmentRef);
-        
-        if (equipmentDoc.exists()) {
-          await updateDoc(equipmentRef, {
+        const eqRef = doc(db, 'cameras', equipmentId);
+        const eqDoc = await getDoc(eqRef);
+        if (eqDoc.exists()) {
+          await updateDoc(eqRef, {
             status: 'available',
             lastRentalId: null,
             damageHistory: [
-              ...(equipmentDoc.data().damageHistory || []),
+              ...(eqDoc.data().damageHistory || []),
               {
                 date: serverTimestamp(),
                 description: penaltyReason,
                 rentalId: currentUser.rentalId,
-                userId: currentUser.id
-              }
-            ]
+                userId: currentUser.id,
+              },
+            ],
           });
         }
       }
-      
+
       alert(`반납 처리 및 ${penaltyPoints}점의 벌점이 부과되었습니다.`);
       setPenaltyModalOpen(false);
       setPenaltyPoints(0);
       setPenaltyReason('');
       setCurrentUser(null);
       fetchRentalData();
-    } catch (error) {
-      console.error('Error applying penalty:', error);
+    } catch (e) {
+      console.error('Error applying penalty:', e);
       alert('처리 중 오류가 발생했습니다.');
     }
   };
 
-  // 일괄 반납 처리
   const processSelectedReturns = async () => {
-    if (selectedItems.length === 0) {
-      alert('선택된 항목이 없습니다.');
-      return;
-    }
-    
+    if (selectedItems.length === 0) return alert('선택된 항목이 없습니다.');
     if (!confirm(`선택한 ${selectedItems.length}개 항목을 정상 반납 처리하시겠습니까?`)) return;
-    
+
     try {
       const batch = writeBatch(db);
-      
-      for (const rentalId of selectedItems) {
-        const rentalRef = doc(db, 'reservations', rentalId);
-        batch.update(rentalRef, {
+      selectedItems.forEach((id) => {
+        batch.update(doc(db, 'reservations', id), {
           status: 'returned',
           returnedAt: serverTimestamp(),
           processedBy: admin.uid,
-          returnStatus: 'normal'
+          returnStatus: 'normal',
         });
-      }
-      
+      });
       await batch.commit();
-      
-      // 장비 상태 업데이트
+
+      // 장비 상태 각각 업데이트
       for (const rentalId of selectedItems) {
-        const rentalRef = doc(db, 'reservations', rentalId);
-        const rentalDoc = await getDoc(rentalRef);
-        const equipmentId = rentalDoc.data().equipmentId;
-        
-        if (equipmentId) {
-          const equipmentRef = doc(db, 'cameras', equipmentId);
-          await updateDoc(equipmentRef, {
+        const rDoc = await getDoc(doc(db, 'reservations', rentalId));
+        const eqId = rDoc.data()?.equipmentId;
+        if (eqId) {
+          await updateDoc(doc(db, 'cameras', eqId), {
             status: 'available',
-            lastRentalId: null
+            lastRentalId: null,
           });
         }
       }
-      
+
       alert(`${selectedItems.length}개 항목이 반납 처리되었습니다.`);
       setSelectedItems([]);
       fetchRentalData();
-    } catch (error) {
-      console.error('Error batch processing returns:', error);
+    } catch (e) {
+      console.error('Error batch processing returns:', e);
       alert('일괄 처리 중 오류가 발생했습니다.');
     }
   };
 
-  // 항목 확장 토글
-  const toggleExpand = (itemId) => {
-    setExpandedItems(prev => ({
-      ...prev,
-      [itemId]: !prev[itemId]
-    }));
+  // ------- UI helpers -------
+  const toggleExpand = (id) => {
+    setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // 날짜 포맷팅
-  const formatDate = (dateString, timeString) => {
-    if (!dateString) return 'N/A';
-    const formattedDate = dateString;
-    return timeString ? `${formattedDate} ${timeString}` : formattedDate;
-  };
+  const renderSortControls = () => (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        marginBottom: 15,
+        padding: 10,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 4,
+      }}
+    >
+      <span style={{ marginRight: 15, fontWeight: 'bold', color: '#000' }}>정렬:</span>
+      <div style={{ display: 'flex', gap: 10 }}>
+        {[
+          { key: 'userName', label: '이름순' },
+          { key: 'userId', label: '사용자ID순' },
+          { key: 'rentalDate', label: '날짜순' },
+          { key: 'name', label: '장비순' },
+        ].map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => handleSortChange(opt.key)}
+            style={{
+              padding: '5px 10px',
+              backgroundColor: sortBy === opt.key ? '#2196F3' : '#E0E0E0',
+              color: sortBy === opt.key ? 'white' : 'black',
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer',
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
-  // 벌점 모달
   const renderPenaltyModal = () => {
     if (!penaltyModalOpen) return null;
-    
     return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000,
-        color: "#000000"
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          padding: '30px',
-          borderRadius: '10px',
-          width: '500px'
-        }}>
-          <h3 style={{ marginTop: 0, marginBottom: '20px' }}>벌점 부과</h3>
-          <p><strong>사용자:</strong> {currentUser?.name}</p>
-          
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>벌점 (1-10점):</label>
-            <input 
-              type="number" 
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          color: '#000',
+        }}
+      >
+        <div style={{ backgroundColor: '#fff', padding: 30, borderRadius: 10, width: 500 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 20 }}>벌점 부과</h3>
+          <p>
+            <strong>사용자:</strong> {currentUser?.name}
+          </p>
+          <div style={{ marginBottom: 15 }}>
+            <label style={{ display: 'block', marginBottom: 5 }}>벌점 (1-10점):</label>
+            <input
+              type="number"
               min="1"
               max="10"
-              value={penaltyPoints} 
-              onChange={(e) => setPenaltyPoints(parseInt(e.target.value))}
+              value={penaltyPoints}
+              onChange={(e) => setPenaltyPoints(parseInt(e.target.value || '0', 10))}
               style={{
                 width: '100%',
-                padding: '8px',
+                padding: 8,
                 border: '1px solid #ccc',
-                borderRadius: '4px'
+                borderRadius: 4,
               }}
             />
           </div>
-          
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>사유:</label>
-            <textarea 
-              value={penaltyReason} 
-              onChange={(e) => setPenaltyReason(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
-                minHeight: '100px'
-              }}
-              placeholder="벌점 부과 사유를 자세히 입력해주세요."
-            />
-          </div>
-          
-          
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-            <button 
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', marginBottom: 5 }}>사유:</label>
+              <textarea
+                value={penaltyReason}
+                onChange={(e) => setPenaltyReason(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: 8,
+                  border: '1px solid #ccc',
+                  borderRadius: 4,
+                  minHeight: 100,
+                }}
+                placeholder="벌점 부과 사유를 자세히 입력해주세요."
+              />
+            </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button
               onClick={() => setPenaltyModalOpen(false)}
               style={{
                 padding: '8px 15px',
                 border: '1px solid #ccc',
-                borderRadius: '4px',
-                backgroundColor: '#f5f5f5'
+                borderRadius: 4,
+                backgroundColor: '#f5f5f5',
               }}
             >
               취소
             </button>
-            <button 
+            <button
               onClick={applyPenaltyAndProcessReturn}
               style={{
                 padding: '8px 15px',
                 backgroundColor: '#e53935',
-                color: 'white',
+                color: '#fff',
                 border: 'none',
-                borderRadius: '4px'
+                borderRadius: 4,
               }}
             >
               벌점 부과 및 반납 처리
@@ -710,155 +656,80 @@ if (userDoc.exists()) {
     );
   };
 
-  // 정렬 컨트롤 렌더링
-  const renderSortControls = () => {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center',
-        marginBottom: '15px',
-        padding: '10px',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '4px'
-      }}>
-        <span style={{ marginRight: '15px', fontWeight: 'bold', color:'#000000' }}>정렬:</span>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
-            onClick={() => handleSortChange('userName')}
-            style={{
-              padding: '5px 10px',
-              backgroundColor: sortBy === 'userName' ? '#2196F3' : '#E0E0E0',
-              color: sortBy === 'userName' ? 'white' : 'black',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            이름순
-          </button>
-          <button 
-            onClick={() => handleSortChange('userId')}
-            style={{
-              padding: '5px 10px',
-              backgroundColor: sortBy === 'userId' ? '#2196F3' : '#E0E0E0',
-              color: sortBy === 'userId' ? 'white' : 'black',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            사용자ID순
-          </button>
-          <button 
-            onClick={() => handleSortChange('rentalDate')}
-            style={{
-              padding: '5px 10px',
-              backgroundColor: sortBy === 'rentalDate' ? '#2196F3' : '#E0E0E0',
-              color: sortBy === 'rentalDate' ? 'white' : 'black',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            날짜순
-          </button>
-          <button 
-            onClick={() => handleSortChange('name')}
-            style={{
-              padding: '5px 10px',
-              backgroundColor: sortBy === 'name' ? '#2196F3' : '#E0E0E0',
-              color: sortBy === 'name' ? 'white' : 'black',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            장비순
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // 대여 아이템 렌더링
   const renderRentalItem = (item, type) => {
-    console.log("렌더링되는 item:", item); // 여기!
-    console.log("items 배열 내부:", item.items);
     const isExpanded = expandedItems[item.id] || false;
     const isSelected = selectedItems.includes(item.id);
-    
+
     return (
-      <div 
-        key={item.id} 
+      <div
+        key={item.id}
         style={{
           border: '1px solid #E0E0E0',
-          borderRadius: '8px',
-          padding: '15px',
-          marginBottom: '15px',
-          backgroundColor: isSelected ? '#f0f7ff' : '#fff'
+          borderRadius: 8,
+          padding: 15,
+          marginBottom: 15,
+          backgroundColor: isSelected ? '#f0f7ff' : '#fff',
         }}
       >
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '10px'
-        }}>
+        {/* Header line */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <input 
-              type="checkbox"
-              checked={isSelected}
-              onChange={() => toggleSelectItem(item.id)}
-              style={{ marginRight: '10px' }}
-            />
-            <h3 style={{ 
-              fontSize: '18px', 
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              margin: 0,
-              color: '#000000'
-            }}
-            onClick={() => toggleExpand(item.id)}
+            {type !== 'completed' && (
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleSelectItem(item.id)}
+                style={{ marginRight: 10 }}
+              />
+            )}
+            <h3
+              style={{
+                fontSize: 18,
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                margin: 0,
+                color: '#000',
+              }}
+              onClick={() => toggleExpand(item.id)}
             >
               {item.userName || '신청자'} - 장비 {item.items?.length || 0}개
-
             </h3>
           </div>
-          
+
           <div style={{ display: 'flex', alignItems: 'center' }}>
             {type === 'pending' && (
               <>
-                <button 
+                <button
                   onClick={() => approveRental(item.id)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '5px',
+                    gap: 5,
                     padding: '5px 10px',
                     backgroundColor: '#4caf50',
-                    color: 'white',
+                    color: '#fff',
                     border: 'none',
-                    borderRadius: '4px',
-                    marginRight: '10px',
-                    cursor: 'pointer'
+                    borderRadius: 4,
+                    marginRight: 10,
+                    cursor: 'pointer',
                   }}
                 >
                   <Check size={16} />
                   승인
                 </button>
-                <button 
+                <button
                   onClick={() => rejectRental(item.id)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '5px',
+                    gap: 5,
                     padding: '5px 10px',
                     backgroundColor: '#f44336',
-                    color: 'white',
+                    color: '#fff',
                     border: 'none',
-                    borderRadius: '4px',
-                    marginRight: '10px',
-                    cursor: 'pointer'
+                    borderRadius: 4,
+                    marginRight: 10,
+                    cursor: 'pointer',
                   }}
                 >
                   <X size={16} />
@@ -866,198 +737,240 @@ if (userDoc.exists()) {
                 </button>
               </>
             )}
-            
+
             {type === 'return' && (
-              <button 
+              <button
                 onClick={() => processReturn(item.id)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '5px',
+                  gap: 5,
                   padding: '5px 10px',
                   backgroundColor: '#2196f3',
-                  color:'#000000',
+                  color: '#fff',
                   border: 'none',
-                  borderRadius: '4px',
-                  marginRight: '10px',
-                  cursor: 'pointer'
+                  borderRadius: 4,
+                  marginRight: 10,
+                  cursor: 'pointer',
                 }}
               >
                 <RefreshCw size={16} />
                 반납 처리
               </button>
             )}
-            
-            <button 
+
+            {type === 'completed' && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '5px 10px',
+                  backgroundColor: '#4caf50',
+                  color: '#fff',
+                  borderRadius: 4,
+                  marginRight: 10,
+                  fontSize: 14,
+                }}
+              >
+                <Check size={16} />
+                완료
+              </div>
+            )}
+
+            <button
               onClick={() => toggleExpand(item.id)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '5px',
+                padding: 5,
                 background: 'none',
                 border: 'none',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
           </div>
         </div>
-        
+
+        {/* Expanded */}
         {isExpanded && (
-          <div style={{ 
-            padding: '10px', 
-            backgroundColor: '#f9f9f9', 
-            borderRadius: '4px',
-            marginTop: '10px'
-          }}>
+          <div
+            style={{
+              padding: 10,
+              backgroundColor: '#f9f9f9',
+              borderRadius: 4,
+              marginTop: 10,
+              color: '#000',
+            }}
+          >
+            {/* 사용자 & 일정 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 15 }}>
+              <p>
+                <strong>이름:</strong> {item.userName}
+              </p>
+              <p>
+                <strong>학번:</strong> {item.userStudentId}
+              </p>
+              <p>
+                <strong>연락처:</strong> {item.userPhone}
+              </p>
+              <p>
+                <strong>이메일:</strong> {item.userEmail}
+              </p>
+              <p>
+                <strong>대여일자:</strong> {formatKoreanDateTime(item.startDateTime)}
+              </p>
+              <p>
+                <strong>반납일자:</strong> {formatKoreanDateTime(item.endDateTime)}
+              </p>
 
-{isExpanded && (
-  
-  <div style={{ 
-    padding: '10px', 
-    backgroundColor: '#f9f9f9', 
-    color: '#000', 
-    borderRadius: '4px',
-    marginTop: '10px'
-  }}>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
-      <p><strong>이름:</strong> {item.userName}</p>
-      <p><strong>학번:</strong> {item.userStudentId}</p>
-      <p><strong>연락처:</strong> {item.userPhone}</p>
-      <p><strong>이메일:</strong> {item.userEmail}</p>
-      <p><strong>대여일자:</strong> {formatKoreanDateTime(item.startDateTime)}</p>
-      <p><strong>반납일자:</strong> {formatKoreanDateTime(item.endDateTime)}</p>
-    </div>
+              {/* 완료 탭 추가 정보 */}
+              {type === 'completed' && item.returnedAt && (
+                <p>
+                  <strong>실제 반납일:</strong> {formatKoreanDateTime(item.returnedAt)}
+                </p>
+              )}
+              {type === 'completed' && item.returnStatus && (
+                <p>
+                  <strong>반납 상태:</strong>{' '}
+                  <span
+                    style={{
+                      color:
+                        item.returnStatus === 'normal'
+                          ? '#4caf50'
+                          : item.returnStatus === 'damaged'
+                          ? '#ff9800'
+                          : '#e53935',
+                      fontWeight: 'bold',
+                      marginLeft: 5,
+                    }}
+                  >
+                    {item.returnStatus === 'normal'
+                      ? '정상 반납'
+                      : item.returnStatus === 'damaged'
+                      ? '문제 있음 (벌점 부과)'
+                      : item.returnStatus === 'late'
+                      ? '연체'
+                      : item.returnStatus}
+                  </span>
+                </p>
+              )}
+              {type === 'completed' && item.penaltyPoints > 0 && (
+                <p>
+                  <strong>부과된 벌점:</strong>{' '}
+                  <span style={{ color: '#e53935', fontWeight: 'bold', marginLeft: 5 }}>
+                    {item.penaltyPoints}점
+                  </span>
+                  {item.penaltyReason && <span> ({item.penaltyReason})</span>}
+                </p>
+              )}
+            </div>
 
-    {item.items && item.items.length > 0 ? (
-      item.items.map((equip, idx) => (
-        <div key={idx} style={{ display: 'flex', marginBottom: '30px' }}>
-          <div style={{ marginRight: '20px' }}>
-            {equip.imageURL ? (
-              <img 
-                src={equip.imageURL}
-                alt={equip.name}
-                style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }}
-              />
+            {/* 장비 목록 */}
+            {Array.isArray(item.items) && item.items.length > 0 ? (
+              item.items.map((equip, idx) => (
+                <div key={idx} style={{ display: 'flex', marginBottom: 20 }}>
+                  <div style={{ marginRight: 20 }}>
+                    {equip.imageURL ? (
+                      <img
+                        src={equip.imageURL}
+                        alt={equip.name}
+                        style={{
+                          width: 100,
+                          height: 100,
+                          objectFit: 'cover',
+                          borderRadius: 8,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 240,
+                          height: 240,
+                          backgroundColor: '#E0E0E0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 8,
+                        }}
+                      >
+                        <span>이미지 없음</span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p>
+                      <strong>장비 이름:</strong> {equip.name}
+                    </p>
+                  </div>
+                </div>
+              ))
             ) : (
-              <div style={{ 
-                width: '240px', height: '240px',
-                backgroundColor: '#E0E0E0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px'
-              }}>
-                <span>이미지 없음</span>
+              <p>장비 정보 없음</p>
+            )}
+
+            {/* 반납 사진 */}
+            {(type === 'completed' || type === 'return') && item.returnImageURL && (
+              <div style={{ marginTop: 10 }}>
+                <p>
+                  <strong>반납 확인 사진:</strong>
+                </p>
+                <img
+                  src={item.returnImageURL}
+                  alt="반납 이미지"
+                  style={{ width: 540, borderRadius: 8, objectFit: 'cover' }}
+                />
               </div>
             )}
-          </div>
-          <div>
-            <p><strong>장비 이름:</strong> {equip.name}</p>
-          </div>
-        </div>
-        
-      ))
-    ) : (
-      <p>장비 정보 없음</p>
-    )}
 
-    {item.notes && (
-      <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#fffde7', borderRadius: '4px' }}>
-        <p><strong>추가 메모:</strong></p>
-        <p>{item.notes}</p>
-      </div>
-    )}
-
-    {/* 장기 대여자 여부 표시 */}
-{item.long_imageURL && (
-  <div style={{
-    display: 'inline-block',
-    backgroundColor: '#fdd835',
-    color: '#000',
-    padding: '3px 8px',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: 'bold',
-    marginBottom: '10px'
-  }}>
-    장기 대여자
-  </div>
-)}
-
-{/* 장기 대여 첨부 이미지 표시 */}
-{item.long_imageURL && (
-  <div style={{ marginTop: '10px' }}>
-    <p><strong>장기 대여 첨부 이미지:</strong></p>
-    <img 
-      src={item.long_imageURL} 
-      alt="장기 대여 이미지" 
-      style={{ width: '540px', borderRadius: '8px', objectFit: 'cover' }} 
-    />
-  </div>
-)}
-
-  </div>
-  
-
-  
-)}
-
-            <div style={{ display: 'flex', marginBottom: '15px' }}>
-            <div style={{ flex: '0 0 200px', marginRight: '20px' }}>
-            {item.image ? (
-  <img 
-    src={item.imageURL} 
-    alt={item.name} 
-    style={{ 
-      width: '180px', 
-      height: '180px', 
-      objectFit: 'cover',
-      borderRadius: '4px' 
-    }} 
-  />
-) : (
-  <div style={{ 
-    width: '1px', 
-    height: '1px', 
-    backgroundColor: '#E0E0E0',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '4px'
-  }}>
-    <span></span>
-  </div>
-)}
-              </div>
-              
-              <div style={{ flex: '1' }}>
-                
-                {item.status === 'active' && (
-                  <p><strong>대여 기간:</strong> {item.rentalPeriod || '1일'}</p>
-                )}
-                
-                {item.penaltyPoints > 0 && (
-                  <p style={{ color: '#f44336' }}>
-                    <strong>벌점:</strong> {item.penaltyPoints}점 ({item.penaltyReason})
+            {/* 장기 대여자 표시 */}
+            {item.long_imageURL && (
+              <>
+                <div
+                  style={{
+                    display: 'inline-block',
+                    backgroundColor: '#fdd835',
+                    color: '#000',
+                    padding: '3px 8px',
+                    borderRadius: 4,
+                    fontSize: 12,
+                    fontWeight: 'bold',
+                    marginBottom: 10,
+                    marginTop: 10,
+                  }}
+                >
+                  장기 대여자
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <p>
+                    <strong>장기 대여 첨부 이미지:</strong>
                   </p>
-                )}
-              </div>
-            </div>
-            {item.returnImageURL && (
-  <div style={{ marginTop: '10px', color:"black" }}>
-    <p><strong>반납 확인 사진:</strong></p>
-    <img 
-      src={item.returnImageURL} 
-      alt="반납 이미지" 
-      style={{ width: '540px', borderRadius: '8px', objectFit: 'cover' }} 
-    />
-  </div>
-)}
+                  <img
+                    src={item.long_imageURL}
+                    alt="장기 대여 이미지"
+                    style={{ width: 540, borderRadius: 8, objectFit: 'cover' }}
+                  />
+                </div>
+              </>
+            )}
 
+            {/* 비고 */}
             {item.notes && (
-              <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#fffde7', borderRadius: '4px' }}>
-                <p><strong>추가 메모:</strong></p>
-                
+              <div style={{ marginTop: 10, padding: 10, backgroundColor: '#fffde7', borderRadius: 4 }}>
+                <p>
+                  <strong>추가 메모:</strong>
+                </p>
                 <p>{item.notes}</p>
               </div>
+            )}
+
+            {/* 벌점 info (항목 자체에 저장된 경우) */}
+            {item.penaltyPoints > 0 && (
+              <p style={{ color: '#f44336' }}>
+                <strong>벌점:</strong> {item.penaltyPoints}점 ({item.penaltyReason || '사유 없음'})
+              </p>
             )}
           </div>
         )}
@@ -1065,372 +978,363 @@ if (userDoc.exists()) {
     );
   };
 
-  // 탭 컨텐츠 렌더링
+  // ------- Tabs -------
   const renderTabContent = () => {
-    switch (activeTab) {
-      case 'pending':
-        return (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', color:'#000000 '}}>
-              <div>
-                <h3>대기 중인 신청 ({pendingRentals.length})</h3>
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button 
-                  onClick={() => toggleSelectAll(pendingRentals)}
-                  style={{
-                    padding: '5px 10px',
-                    backgroundColor: '#E0E0E0',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {selectedItems.length === pendingRentals.length && pendingRentals.length > 0 ? '전체 해제' : '전체 선택'}
-                </button>
-                
-                <button 
-                  onClick={approveSelectedRentals}
-                  disabled={selectedItems.length === 0}
-                  style={{
-                    padding: '5px 10px',
-                    backgroundColor: selectedItems.length > 0 ? '#4caf50' : '#E0E0E0',
-                    color: selectedItems.length > 0 ? 'white' : '#9E9E9E',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: selectedItems.length > 0 ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  선택 항목 승인
-                </button>
-                
-                <button 
-                  onClick={rejectSelectedRentals}
-                  disabled={selectedItems.length === 0}
-                  style={{
-                    padding: '5px 10px',
-                    backgroundColor: selectedItems.length > 0 ? '#f44336' : '#E0E0E0',
-                    color: selectedItems.length > 0 ? 'white' : '#9E9E9E',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: selectedItems.length > 0 ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  선택 항목 거절
-                </button>
-              </div>
+    if (activeTab === 'pending') {
+      return (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15, color: '#000' }}>
+            <div>
+              <h3>대기 중인 신청 ({pendingRentals.length})</h3>
             </div>
-            
-            {renderSortControls()}
-            
-            {pendingRentals.length > 0 ? (
-              pendingRentals.map(item => renderRentalItem(item, 'pending'))
-              
-            ) : (
-              
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => toggleSelectAll(pendingRentals)}
+                style={{
+                  padding: '5px 10px',
+                  backgroundColor: '#E0E0E0',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                {selectedItems.length === pendingRentals.length && pendingRentals.length > 0 ? '전체 해제' : '전체 선택'}
+              </button>
+              <button
+                onClick={approveSelectedRentals}
+                disabled={selectedItems.length === 0}
+                style={{
+                  padding: '5px 10px',
+                  backgroundColor: selectedItems.length > 0 ? '#4caf50' : '#E0E0E0',
+                  color: selectedItems.length > 0 ? 'white' : '#9E9E9E',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: selectedItems.length > 0 ? 'pointer' : 'not-allowed',
+                }}
+              >
+                선택 항목 승인
+              </button>
+              <button
+                onClick={rejectSelectedRentals}
+                disabled={selectedItems.length === 0}
+                style={{
+                  padding: '5px 10px',
+                  backgroundColor: selectedItems.length > 0 ? '#f44336' : '#E0E0E0',
+                  color: selectedItems.length > 0 ? 'white' : '#9E9E9E',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: selectedItems.length > 0 ? 'pointer' : 'not-allowed',
+                }}
+              >
+                선택 항목 거절
+              </button>
+            </div>
+          </div>
 
-              <div style={{ 
-                padding: '30px', 
-                textAlign: 'center', 
+          {renderSortControls()}
+
+          {pendingRentals.length > 0 ? (
+            pendingRentals.map((item) => renderRentalItem(item, 'pending'))
+          ) : (
+            <div
+              style={{
+                padding: 30,
+                textAlign: 'center',
                 backgroundColor: '#f5f5f5',
-                borderRadius: '8px',
-                color: '#000000'
-              }}>
-                <p>대기 중인 대여 신청이 없습니다.</p>
-              </div>
-            )}
-          </>
-        );
-        
-      case 'active':
-        return (
-          <>
-            <h3>현재 대여 중인 장비 ({activeRentals.length})</h3>
-            {activeRentals.length > 0 ? (
-              activeRentals.map(item => renderRentalItem(item, 'active'))
-            ) : (
-              <div style={{ 
-                padding: '30px', 
-                textAlign: 'center', 
-                backgroundColor: '#f5f5f5',
-                borderRadius: '8px',
-                color: '#000000'
-              }}>
-                <p>현재 대여 중인 장비가 없습니다.</p>
-              </div>
-            )}
-          </>
-        );
-        
-      case 'return':
-        return (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-              <div>
-                <h3>반납 요청 ({returnRequests.length})</h3>
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button 
-                  onClick={() => toggleSelectAll(returnRequests)}
-                  style={{
-                    padding: '5px 10px',
-                    backgroundColor: '#E0E0E0',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {selectedItems.length === returnRequests.length && returnRequests.length > 0 ? '전체 해제' : '전체 선택'}
-                </button>
-                
-                <button 
-                  onClick={processSelectedReturns}
-                  disabled={selectedItems.length === 0}
-                  style={{
-                    padding: '5px 10px',
-                    backgroundColor: selectedItems.length > 0 ? '#2196f3' : '#E0E0E0',
-                    color: selectedItems.length > 0 ? 'white' : '#9E9E9E',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: selectedItems.length > 0 ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  선택 항목 일괄 반납 처리
-                </button>
-              </div>
+                borderRadius: 8,
+                color: '#000',
+              }}
+            >
+              <p>대기 중인 대여 신청이 없습니다.</p>
             </div>
-            
-            {returnRequests.length > 0 ? (
-              returnRequests.map(item => renderRentalItem(item, 'return'))
-            ) : (
-              <div style={{ 
-                padding: '30px', 
-                textAlign: 'center', 
-                backgroundColor: '#f5f5f5',
-                borderRadius: '8px',
-                color:'#000000'
-              }}>
-                <p>처리 대기 중인 반납 요청이 없습니다.</p>
-              </div>
-            )}
-          </>
-        );
-        
-      default:
-        return null;
+          )}
+        </>
+      );
     }
+
+    if (activeTab === 'active') {
+      return (
+        <>
+          <h3>현재 대여 중인 장비 ({activeRentals.length})</h3>
+          {renderSortControls()}
+          {activeRentals.length > 0 ? (
+            activeRentals.map((item) => renderRentalItem(item, 'active'))
+          ) : (
+            <div
+              style={{
+                padding: 30,
+                textAlign: 'center',
+                backgroundColor: '#f5f5f5',
+                borderRadius: 8,
+                color: '#000',
+              }}
+            >
+              <p>현재 대여 중인 장비가 없습니다.</p>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    if (activeTab === 'return') {
+      return (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
+            <div>
+              <h3>반납 요청 ({returnRequests.length})</h3>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => toggleSelectAll(returnRequests)}
+                style={{
+                  padding: '5px 10px',
+                  backgroundColor: '#E0E0E0',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                {selectedItems.length === returnRequests.length && returnRequests.length > 0
+                  ? '전체 해제'
+                  : '전체 선택'}
+              </button>
+
+              <button
+                onClick={processSelectedReturns}
+                disabled={selectedItems.length === 0}
+                style={{
+                  padding: '5px 10px',
+                  backgroundColor: selectedItems.length > 0 ? '#2196f3' : '#E0E0E0',
+                  color: selectedItems.length > 0 ? 'white' : '#9E9E9E',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: selectedItems.length > 0 ? 'pointer' : 'not-allowed',
+                }}
+              >
+                선택 항목 일괄 반납 처리
+              </button>
+            </div>
+          </div>
+
+          {renderSortControls()}
+
+          {returnRequests.length > 0 ? (
+            returnRequests.map((item) => renderRentalItem(item, 'return'))
+          ) : (
+            <div
+              style={{
+                padding: 30,
+                textAlign: 'center',
+                backgroundColor: '#f5f5f5',
+                borderRadius: 8,
+                color: '#000',
+              }}
+            >
+              <p>처리 대기 중인 반납 요청이 없습니다.</p>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    if (activeTab === 'completed') {
+      return (
+        <>
+          <h3>반납 완료 ({completedRentals.length})</h3>
+          {renderSortControls()}
+          {completedRentals.length > 0 ? (
+            completedRentals.map((item) => renderRentalItem(item, 'completed'))
+          ) : (
+            <div
+              style={{
+                padding: 30,
+                textAlign: 'center',
+                backgroundColor: '#f5f5f5',
+                borderRadius: 8,
+                color: '#000',
+              }}
+            >
+              <p>반납 완료된 기록이 없습니다.</p>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    return null;
   };
 
-  // 로딩 상태
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        height: '100vh'
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <p>로딩 중...</p>
       </div>
     );
   }
 
-  // 메인 렌더링
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 20 }}>
       {/* Header */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '20px',
-        padding: '15px',
-        backgroundColor: '#1976d2',
-        color: 'white',
-        borderRadius: '8px'
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20,
+          padding: 15,
+          backgroundColor: '#1976d2',
+          color: '#fff',
+          borderRadius: 8,
+        }}
+      >
         <h1 style={{ margin: 0 }}>관리자 페이지</h1>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <User size={18} style={{ marginRight: '5px' }} />
+          <User size={18} style={{ marginRight: 5 }} />
           <span>{admin?.name || '관리자'}</span>
         </div>
       </div>
-      
-      {/* Navigation */}
-      <div style={{ 
-        display: 'flex', 
-        marginBottom: '20px', 
-        backgroundColor: '#f5f5f5',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        color:'#000000'
-      }}>
-        <button 
+
+      {/* Top Nav */}
+      <div
+        style={{
+          display: 'flex',
+          marginBottom: 20,
+          backgroundColor: '#f5f5f5',
+          borderRadius: 8,
+          overflow: 'hidden',
+          color: '#000',
+        }}
+      >
+        <button
           onClick={handleHomeNavigation}
-          style={{ 
-            flex: '1',
-            padding: '12px',
+          style={{
+            flex: 1,
+            padding: 12,
             border: 'none',
             backgroundColor: 'transparent',
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '5px'
+            gap: 5,
           }}
         >
           <Home size={20} />
           <span>홈</span>
         </button>
-        
-        <button 
+
+        <button
           onClick={handleCalendarNavigation}
-          style={{ 
-            flex: '1',
-            padding: '12px',
+          style={{
+            flex: 1,
+            padding: 12,
             border: 'none',
             backgroundColor: 'transparent',
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '5px'
+            gap: 5,
           }}
         >
           <Calendar size={20} />
           <span>캘린더</span>
         </button>
-        
-        <button 
+
+        <button
           onClick={handleManagementNavigation}
-          style={{ 
-            flex: '1',
-            padding: '12px',
+          style={{
+            flex: 1,
+            padding: 12,
             border: 'none',
             backgroundColor: 'transparent',
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '5px'
+            gap: 5,
           }}
         >
           <FileText size={20} />
           <span>장비관리</span>
         </button>
-        
-        <button 
+
+        <button
           onClick={handleReservateNavigation}
-          style={{ 
-            flex: '1',
-            padding: '12px',
+          style={{
+            flex: 1,
+            padding: 12,
             border: 'none',
             backgroundColor: 'transparent',
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '5px'
+            gap: 5,
           }}
         >
           <ShoppingCart size={20} />
           <span>예약</span>
         </button>
 
-        <button 
+        <button
           onClick={handleSettingsNavigation}
-          style={{ 
-            flex: '1',
-            padding: '12px',
+          style={{
+            flex: 1,
+            padding: 12,
             border: 'none',
             backgroundColor: 'transparent',
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '5px'
+            gap: 5,
           }}
         >
           <SettingsIcon size={20} />
           <span>설정</span>
         </button>
       </div>
-      
-      
-      {/* Tab Navigation */}
-      <div style={{ 
-        display: 'flex', 
-        marginBottom: '20px',
-        borderBottom: '1px solid #E0E0E0'
-      }}>
-        <button 
-          onClick={() => {
-            setActiveTab('pending');
-            setSelectedItems([]);
-          }}
-          style={{ 
-            padding: '10px 20px',
-            border: 'none',
-            backgroundColor: 'transparent',
-            borderBottom: activeTab === 'pending' ? '3px solid #1976d2' : 'none',
-            color: activeTab === 'pending' ? '#1976d2' : '#616161',
-            fontWeight: activeTab === 'pending' ? 'bold' : 'normal',
-            cursor: 'pointer'
-          }}
-        >
-          대여 신청 관리
-        </button>
-        
-        <button 
-          onClick={() => {
-            setActiveTab('active');
-            setSelectedItems([]);
-          }}
-          style={{ 
-            padding: '10px 20px',
-            border: 'none',
-            backgroundColor: 'transparent',
-            borderBottom: activeTab === 'active' ? '3px solid #1976d2' : 'none',
-            color: activeTab === 'active' ? '#1976d2' : '#616161',
-            fontWeight: activeTab === 'active' ? 'bold' : 'normal',
-            cursor: 'pointer'
-          }}
-        >
-          대여 중인 장비
-        </button>
-        
-        <button 
-          onClick={() => {
-            setActiveTab('return');
-            setSelectedItems([]);
-          }}
-          style={{ 
-            padding: '10px 20px',
-            border: 'none',
-            backgroundColor: 'transparent',
-            borderBottom: activeTab === 'return' ? '3px solid #1976d2' : 'none',
-            color: activeTab === 'return' ? '#1976d2' : '#616161',
-            fontWeight: activeTab === 'return' ? 'bold' : 'normal',
-            cursor: 'pointer'
-          }}
-        >
-          반납 요청 관리
-        </button>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', marginBottom: 20, borderBottom: '1px solid #E0E0E0' }}>
+        {[
+          { key: 'pending', label: '대여 신청 관리' },
+          { key: 'active', label: '대여 중인 장비' },
+          { key: 'return', label: '반납 요청 관리' },
+          { key: 'completed', label: '반납 완료' },
+        ].map((t) => (
+          <button
+            key={t.key}
+            onClick={() => {
+              setActiveTab(t.key);
+              setSelectedItems([]);
+            }}
+            style={{
+              padding: '10px 20px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              borderBottom: activeTab === t.key ? '3px solid #1976d2' : 'none',
+              color: activeTab === t.key ? '#1976d2' : '#616161',
+              fontWeight: activeTab === t.key ? 'bold' : 'normal',
+              cursor: 'pointer',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
-      
-      {/* Main Content */}
-      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px' }}>
-        {renderTabContent()}
-      </div>
-      
+
+      {/* Content */}
+      <div style={{ backgroundColor: '#fff', padding: 20, borderRadius: 8 }}>{renderTabContent()}</div>
+
       {/* Penalty Modal */}
       {renderPenaltyModal()}
-      
+
       {/* Footer */}
-      <div style={{ marginTop: '30px', textAlign: 'center', color: '#757575', fontSize: '14px' }}>
+      <div style={{ marginTop: 30, textAlign: 'center', color: '#757575', fontSize: 14 }}>
         <p>© 2025 장비 대여 관리 시스템</p>
       </div>
-      
     </div>
   );
 };

@@ -759,7 +759,7 @@ if (availability && !availability.available) {
   const fetchCameras = async () => {
     try {
       const cameraRef = collection(db, 'cameras');
-      const cameraQuery = query(cameraRef, orderBy("description", "asc"));
+      const cameraQuery = query(cameraRef, orderBy("displayOrder", "asc"));
       const snapshot = await getDocs(cameraQuery);
       
       const cameraData = snapshot.docs.map(doc => ({
