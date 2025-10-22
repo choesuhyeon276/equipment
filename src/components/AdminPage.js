@@ -13,6 +13,7 @@ import {
   Home,
   Calendar,
   Settings as SettingsIcon,
+  Database,
 } from 'lucide-react';
 
 import {
@@ -83,6 +84,7 @@ const AdminPage = () => {
   const handleManagementNavigation = () => navigate('/cameramanagement');
   const handleReservateNavigation = () => navigate('/ReservationMainPage');
   const handleSettingsNavigation = () => navigate('/admin-settings');
+  const handleSyncNavigation = () => navigate('/sync');
 
   // ------- Auth + Admin check -------
   useEffect(() => {
@@ -1275,6 +1277,24 @@ const AdminPage = () => {
         >
           <ShoppingCart size={20} />
           <span>예약</span>
+        </button>
+
+        <button
+          onClick={handleSyncNavigation}
+          style={{
+            flex: 1,
+            padding: 12,
+            border: 'none',
+            backgroundColor: 'transparent',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          <Database size={20} />
+          <span>스프레드시트</span>
         </button>
 
         <button

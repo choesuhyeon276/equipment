@@ -23,6 +23,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import './styles/responsive.css';
 import ThingsNotePageWithHeader from "./components/ThingsNotePageWithHeader";
 import AdminSettingsPage from './components/AdminSettingsPage';
+import SyncManagement from './components/SyncManagement';
+
 
 
 const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -243,7 +245,8 @@ function App() {
               )
             } 
           />
-          
+          <Route path="/sync" element={<SyncManagement />} />
+
           {/* 관리자 페이지 - 로그인 필요 */}
           <Route 
             path="/admins" 
