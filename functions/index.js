@@ -1,8 +1,19 @@
 const functions = require('firebase-functions');
 const nodemailer = require('nodemailer');
-const { addEvent } = require('./calendar');
 const admin = require('firebase-admin');
+const { google } = require('googleapis');
+const cors = require('cors')({ origin: true }); // ⭐ CORS 추가
+
 admin.initializeApp();
+
+// calendar.js에서 addEvent를 사용하는 경우만 import (없으면 제거 가능)
+let addEvent;
+try {
+  const calendar = require('./calendar');
+  addEvent = calendar.addEvent;
+} catch (error) {
+  console.log('⚠️ calendar.js 파일이 없습니다. 기존 캘린더 기능은 사용하지 않습니다.');
+}
 
 // 🔐 Gmail 환경변수
 const gmailEmail = functions.config().gmail.user;
@@ -19,6 +30,22 @@ const transporter = nodemailer.createTransport({
 
 // 🗄️ Firestore 인스턴스 (기존 방식으로 유지)
 const db = admin.firestore();
+
+// 🔐 Service Account 인증 설정
+const getCalendarAuth = () => {
+  const serviceAccount = functions.config().google?.serviceaccount;
+  
+  if (!serviceAccount) {
+    throw new Error('Service Account 설정이 없습니다. firebase functions:config:set 명령어로 설정하세요.');
+  }
+
+  return new google.auth.JWT(
+    serviceAccount.client_email,
+    null,
+    serviceAccount.private_key.replace(/\\n/g, '\n'),
+    ['https://www.googleapis.com/auth/calendar']
+  );
+};
 
 // 📧 관리자 이메일 목록 가져오기 - 방법 1 (기존 admin.firestore 사용)
 const getAdminEmails_Method1 = async () => {
@@ -157,6 +184,137 @@ const sendMail = async (to, subject, text) => {
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
+// 📅 캘린더 이벤트 생성 API (프론트엔드에서 호출)
+///////////////////////////////////////////////////////////////////////////////////////
+exports.createCalendarEvent = functions.https.onRequest((req, res) => {
+  // ⭐ CORS 미들웨어로 감싸기
+  cors(req, res, async () => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method Not Allowed' });
+      return;
+    }
+
+    try {
+      const { summary, description, startDateTime, endDateTime, calendarId, timeZone } = req.body;
+
+      console.log('📅 캘린더 이벤트 생성 요청:', {
+        summary,
+        startDateTime,
+        endDateTime,
+        calendarId
+      });
+
+      // 필수 파라미터 체크
+      if (!summary || !startDateTime || !endDateTime || !calendarId) {
+        res.status(400).json({ 
+          error: 'Missing required parameters',
+          required: ['summary', 'startDateTime', 'endDateTime', 'calendarId']
+        });
+        return;
+      }
+
+      const auth = getCalendarAuth();
+      const calendar = google.calendar({ version: 'v3', auth });
+
+      const event = {
+        summary,
+        description: description || '',
+        start: {
+          dateTime: startDateTime,
+          timeZone: timeZone || 'Asia/Seoul',
+        },
+        end: {
+          dateTime: endDateTime,
+          timeZone: timeZone || 'Asia/Seoul',
+        },
+        colorId: '9', // 파란색
+      };
+
+      const response = await calendar.events.insert({
+        calendarId: calendarId,
+        resource: event,
+      });
+
+      console.log('✅ 캘린더 이벤트 생성 성공:', response.data.id);
+
+      res.status(200).json({
+        success: true,
+        eventId: response.data.id,
+        htmlLink: response.data.htmlLink,
+      });
+
+    } catch (error) {
+      console.error('❌ 캘린더 이벤트 생성 실패:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        details: error.response?.data || error.stack
+      });
+    }
+  });
+});
+
+///////////////////////////////////////////////////////////////////////////////////////
+// 🗑️ 캘린더 이벤트 삭제 API (프론트엔드에서 호출)
+///////////////////////////////////////////////////////////////////////////////////////
+exports.deleteCalendarEvent = functions.https.onRequest((req, res) => {
+  // ⭐ CORS 미들웨어로 감싸기
+  cors(req, res, async () => {
+    if (req.method !== 'POST' && req.method !== 'DELETE') {
+      res.status(405).json({ error: 'Method Not Allowed' });
+      return;
+    }
+
+    try {
+      const { eventId, calendarId } = req.body;
+
+      console.log('🗑️ 캘린더 이벤트 삭제 요청:', { eventId, calendarId });
+
+      if (!eventId || !calendarId) {
+        res.status(400).json({ 
+          error: 'Missing required parameters',
+          required: ['eventId', 'calendarId']
+        });
+        return;
+      }
+
+      const auth = getCalendarAuth();
+      const calendar = google.calendar({ version: 'v3', auth });
+
+      await calendar.events.delete({
+        calendarId: calendarId,
+        eventId: eventId,
+      });
+
+      console.log('✅ 캘린더 이벤트 삭제 성공');
+
+      res.status(200).json({
+        success: true,
+        message: 'Event deleted successfully',
+      });
+
+    } catch (error) {
+      console.error('❌ 캘린더 이벤트 삭제 실패:', error);
+      
+      // 이미 삭제된 이벤트인 경우 (410 Gone)
+      if (error.code === 410 || error.message.includes('deleted')) {
+        res.status(200).json({
+          success: true,
+          message: 'Event already deleted',
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        details: error.response?.data || error.stack
+      });
+    }
+  });
+});
+
+///////////////////////////////////////////////////////////////////////////////////////
 // ✅ 1. 대여 신청 생성 시 → 관리자에게 메일만 발송
 ///////////////////////////////////////////////////////////////////////////////////////
 exports.onRentalCreatedAdminNotify = functions.firestore
@@ -280,9 +438,38 @@ const handleRentalApproval = async (reservationData, rentalId) => {
       const title = `${userName}`;
       const description = `📝 학번: ${userStudentId}\n☎️ 전화번호: ${userPhone}\n📦 장비 목록:\n${equipmentList}\n📌 사용 목적: ${purpose}`;
 
+      console.log('📅 등록할 이벤트 데이터:', {
+        title,
+        description,
+        startDate,
+        startTime,
+        endDate,
+        endTime
+      });
+
       try {
-        await addEvent({ title, description, startDate, startTime, endDate, endTime });
-        console.log('✅ Google 캘린더 등록 완료 - ID:', rentalId);
+        // ⭐ addEvent의 반환값 받기
+        const calendarEventId = await addEvent({ 
+          title, 
+          description, 
+          startDate, 
+          startTime, 
+          endDate, 
+          endTime 
+        });
+        
+        console.log('✅ Google 캘린더 등록 완료 - ID:', calendarEventId);
+        
+        // ⭐ Firestore에 calendarEventId 저장
+        if (calendarEventId) {
+          await db.collection('reservations').doc(rentalId).update({
+            calendarEventId: calendarEventId
+          });
+          console.log('✅ Firestore에 calendarEventId 저장 완료:', calendarEventId);
+        } else {
+          console.warn('⚠️ calendarEventId가 없어서 Firestore 저장 스킵됨');
+        }
+        
       } catch (calendarError) {
         console.error('❌ Google 캘린더 등록 실패 (계속 진행):', {
           rentalId,

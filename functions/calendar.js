@@ -1,6 +1,5 @@
 require('dotenv').config();
 
-
 const { google } = require('googleapis');
 const { JWT } = require('google-auth-library');
 
@@ -30,10 +29,16 @@ const addEvent = async ({ title, description, startDate, startTime, endDate, end
 
   console.log('📅 등록할 이벤트 데이터:', { title, description, startDate, startTime, endDate, endTime });
 
-  await calendar.events.insert({
+  // ⭐ response를 받아서 eventId 반환
+  const response = await calendar.events.insert({
     calendarId,
     resource: event,
   });
+
+  console.log('✅ 캘린더 이벤트 생성 완료 - Event ID:', response.data.id);
+
+  // ⭐ eventId 반환 (핵심!)
+  return response.data.id;
 };
 
-module.exports = { addEvent }; // 꼭 이렇게 export해야 돼!
+module.exports = { addEvent };

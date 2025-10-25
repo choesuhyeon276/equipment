@@ -312,22 +312,74 @@ const MyPage = () => {
     }));
   };
   
-  // 예약 취소 핸들러
+  // ⭐ 예약 취소 핸들러 (Cloud Function 사용)
   const cancelReservation = async (reservationId) => {
+    if (!window.confirm('정말로 대여를 취소하시겠습니까?')) return;
+    
     try {
-      await updateDoc(doc(db, 'reservations', reservationId), {
+      // 1. 예약 정보 가져오기
+      const reservation = currentRentals.find(r => r.id === reservationId) || 
+                         pendingRentals.find(r => r.id === reservationId);
+      
+      if (!reservation) {
+        throw new Error('예약 정보를 찾을 수 없습니다.');
+      }
+
+      console.log('🔍 예약 정보:', reservation);
+      console.log('📅 캘린더 이벤트 ID:', reservation.calendarEventId);
+
+      // 2. Firestore에서 예약 취소
+      const reservationRef = doc(db, 'reservations', reservationId);
+      await updateDoc(reservationRef, {
         status: 'cancelled',
         cancelledAt: serverTimestamp()
       });
-      toast.success('예약이 취소되었습니다.');
-      
-      // 데이터 새로고침
-      if (user) {
-        fetchUserData(user.uid);
+      console.log('✅ Firestore 예약 취소 완료');
+
+      // 3. 캘린더 이벤트 삭제 (Cloud Function 호출)
+      if (reservation.calendarEventId) {
+        console.log('🔄 캘린더 이벤트 삭제 시도:', reservation.calendarEventId);
+        
+        try {
+          // ⭐ Cloud Function 엔드포인트 URL
+          const deleteEndpoint = 'https://us-central1-equipment-rental-system-838f0.cloudfunctions.net/deleteCalendarEvent';
+          
+          const response = await fetch(deleteEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              eventId: reservation.calendarEventId,
+              calendarId: process.env.REACT_APP_GOOGLE_CALENDAR_ID || 'primary'
+            })
+          });
+
+          const result = await response.json();
+          
+          if (result.success) {
+            console.log('✅ 캘린더 이벤트 삭제 완료');
+          } else {
+            console.warn('⚠️ 캘린더 이벤트 삭제 실패:', result.error);
+          }
+        } catch (calError) {
+          console.error('❌ 캘린더 이벤트 삭제 실패:', calError);
+          // 캘린더 삭제 실패해도 예약은 취소됨
+        }
+      } else {
+        console.warn('⚠️ calendarEventId가 없습니다.');
       }
-    } catch (err) {
-      console.error('예약 취소 실패:', err);
-      toast.warn('예약 취소에 실패했습니다.');
+
+      toast.success('대여가 취소되었습니다.');
+      
+      // 4. 데이터 새로고침
+      if (user) {
+        await fetchUserData(user.uid);
+      }
+      
+    } catch (error) {
+      console.error('❌ 취소 실패:', error);
+      toast.error('취소 중 오류가 발생했습니다: ' + error.message);
     }
   };
   

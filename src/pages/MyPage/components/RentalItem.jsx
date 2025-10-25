@@ -15,8 +15,7 @@ const RentalItem = ({
   cancelReservation,
   isMobile
 }) => {
-  // renderRentalItem 함수 수정 - 제목 없이 카테고리와 화살표를 같은 줄에 배치
- const isExpanded = expandedItems[item.id] || false;
+  const isExpanded = expandedItems[item.id] || false;
   
   return (
     <div 
@@ -206,7 +205,7 @@ const RentalItem = ({
           {item.status === 'pending' && (
             <button
               onClick={(e) => {
-                e.stopPropagation(); // 이벤트 버블링 방지
+                e.stopPropagation();
                 cancelReservation(item.id);
               }}
               style={{
@@ -254,16 +253,15 @@ const RentalItem = ({
                 display: 'inline-block',
                 fontSize: '12px',
                 fontWeight: '500'
-              
               }}
-              onClick={(e) => e.stopPropagation()} // 이벤트 버블링 방지
+              onClick={(e) => e.stopPropagation()}
               >
                 반납 사진 업로드
                 <input 
                   type="file" 
                   accept="image/*"
                   onChange={(e) => {
-                    e.stopPropagation(); // 이벤트 버블링 방지
+                    e.stopPropagation();
                     handleReturnImageUpload(e, item.id);
                   }} 
                   style={{ display: 'none' }}
@@ -272,7 +270,7 @@ const RentalItem = ({
 
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // 이벤트 버블링 방지
+                  e.stopPropagation();
                   handleReturnRequest(item.id);
                 }}
                 disabled={!uploadedReturnImages[item.id]}
@@ -287,6 +285,24 @@ const RentalItem = ({
                 }}
               >
                 반납 요청
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cancelReservation(item.id);
+                }}
+                style={{
+                  padding: '6px 10px',
+                  backgroundColor: '#ff5252',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                대여 취소
               </button>
             </div>
           )}

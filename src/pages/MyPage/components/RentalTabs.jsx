@@ -71,6 +71,7 @@ const RentalTabs = ({
                   handleReturnRequest={handleReturnRequest}
                   handleReturnImageUpload={handleReturnImageUpload}
                   uploadedReturnImages={uploadedReturnImages}
+                  cancelReservation={cancelReservation}
                   isMobile={isMobile}
                 />
               ))}

@@ -170,65 +170,109 @@ const CartPage = () => {
 
   // 임시로 Firebase에만 예약 정보 저장하는 함수 (관리자 캘린더 API가 아직 없을 경우)
   const saveReservationToFirebase = async () => {
-    if (!user || !user.uid) {
-      console.error("❗ 유저 정보가 없습니다.");
-      toast.warn("로그인 후 이용해주세요.");
-      return;
-    }
-    
-    if (isSubmitting) {
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    try {
-      const firstItem = cartItems[0];
-      const startDateTime = `${firstItem.rentalDate}T${firstItem.rentalTime}:00`;
-      const endDateTime = `${firstItem.returnDate}T${firstItem.returnTime}:00`;
+  if (!user || !user.uid) {
+    console.error("❗ 유저 정보가 없습니다.");
+    toast.warn("로그인 후 이용해주세요.");
+    return;
+  }
   
-      // 사용자 정보를 포함하여 예약 문서 생성
-      const reservationId = `${user.uid}_${Date.now()}`;
-      const reservationsRef = doc(db, 'reservations', reservationId);
-      await setDoc(reservationsRef,  {
-        userId: user.uid,
-        items: cartItems,
-        startDateTime,
-        endDateTime,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      
-        // 🔽 user_profiles에서 불러온 정보 추가
-        userName: userProfile?.name || '',
-        userPhone: userProfile?.phoneNumber || '',
-        userStudentId: userProfile?.studentId || '',
-        userEmail: userProfile?.email || '',
-        long_imageURL: uploadedFileURL || null, // (있는 경우에만)
-      });
+  if (isSubmitting) {
+    return;
+  }
+  
+  setIsSubmitting(true);
+  
+  try {
+    const firstItem = cartItems[0];
+    const startDateTime = `${firstItem.rentalDate}T${firstItem.rentalTime}:00`;
+    const endDateTime = `${firstItem.returnDate}T${firstItem.returnTime}:00`;
+
+    // 1️⃣ 구글 캘린더 이벤트 생성
+    let calendarEventId = null;
     
-      
-      // 성공 시 장바구니 비우기
-      if (user) {
-        try {
-          const userCartRef = doc(db, 'user_carts', user.uid);
-          await updateDoc(userCartRef, {
-            items: []
-          });
-        } catch (error) {
-          console.error('Firebase 장바구니 비우기 실패:', error);
-        }
+    if (window.gapi && window.gapi.client && window.gapi.client.calendar) {
+      try {
+        const itemListText = cartItems.map((item, index) =>
+          `${index + 1}. ${item.name} (${item.category})`
+        ).join('\n');
+
+        const event = {
+          summary: `DKit 대여 - ${userProfile?.name || user.email}`,
+          description: `예약자: ${userProfile?.name || '미입력'}\n연락처: ${userProfile?.phoneNumber || '미입력'}\n학번: ${userProfile?.studentId || '미입력'}\n\n대여 장비:\n${itemListText}`,
+          start: {
+            dateTime: startDateTime,
+            timeZone: 'Asia/Seoul',
+          },
+          end: {
+            dateTime: endDateTime,
+            timeZone: 'Asia/Seoul',
+          },
+          colorId: '9', // 파란색
+        };
+
+        const response = await window.gapi.client.calendar.events.insert({
+          calendarId: 'primary',
+          resource: event,
+        });
+
+        calendarEventId = response.result.id;
+        console.log('✅ 캘린더 이벤트 생성 완료:', calendarEventId);
+      } catch (calError) {
+        console.error('⚠️ 캘린더 이벤트 생성 실패:', calError);
+        // 캘린더 실패해도 예약은 진행
       }
-    
-      localStorage.removeItem('cart');
-      setCartItems([]);
-      toast.success('예약 신청이 완료되었습니다! 관리자 확인 후 최종 승인됩니다.');
-    } catch (error) {
-      console.error('예약 저장 오류:', error);
-      toast.warn('예약 저장 중 오류가 발생했습니다: ' + error.message);
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      console.warn('⚠️ Google Calendar API가 로드되지 않았습니다.');
     }
-  };
+
+    // 2️⃣ Firestore에 예약 저장 (calendarEventId 포함)
+    const reservationId = `${user.uid}_${Date.now()}`;
+    const reservationsRef = doc(db, 'reservations', reservationId);
+    
+    await setDoc(reservationsRef, {
+      userId: user.uid,
+      items: cartItems,
+      startDateTime,
+      endDateTime,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      
+      // 사용자 정보
+      userName: userProfile?.name || '',
+      userPhone: userProfile?.phoneNumber || '',
+      userStudentId: userProfile?.studentId || '',
+      userEmail: userProfile?.email || '',
+      long_imageURL: uploadedFileURL || null,
+      
+      // 🔥 캘린더 이벤트 ID 저장
+      calendarEventId: calendarEventId,
+    });
+    
+    console.log('✅ Firestore 예약 저장 완료');
+
+    // 3️⃣ 장바구니 비우기
+    if (user) {
+      try {
+        const userCartRef = doc(db, 'user_carts', user.uid);
+        await updateDoc(userCartRef, {
+          items: []
+        });
+      } catch (error) {
+        console.error('Firebase 장바구니 비우기 실패:', error);
+      }
+    }
+  
+    localStorage.removeItem('cart');
+    setCartItems([]);
+    toast.success('예약 신청이 완료되었습니다! 관리자 확인 후 최종 승인됩니다.');
+    
+  } catch (error) {
+    console.error('예약 저장 오류:', error);
+    toast.warn('예약 저장 중 오류가 발생했습니다: ' + error.message);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   // 페이지 로드 시 인증 및 세션 유지
   useEffect(() => {
