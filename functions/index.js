@@ -2,18 +2,9 @@ const functions = require('firebase-functions');
 const nodemailer = require('nodemailer');
 const admin = require('firebase-admin');
 const { google } = require('googleapis');
-const cors = require('cors')({ origin: true }); // ⭐ CORS 추가
+const cors = require('cors')({ origin: true }); // ✅ CORS 패키지 추가
 
 admin.initializeApp();
-
-// calendar.js에서 addEvent를 사용하는 경우만 import (없으면 제거 가능)
-let addEvent;
-try {
-  const calendar = require('./calendar');
-  addEvent = calendar.addEvent;
-} catch (error) {
-  console.log('⚠️ calendar.js 파일이 없습니다. 기존 캘린더 기능은 사용하지 않습니다.');
-}
 
 // 🔐 Gmail 환경변수
 const gmailEmail = functions.config().gmail.user;
@@ -28,7 +19,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// 🗄️ Firestore 인스턴스 (기존 방식으로 유지)
+// 🗄️ Firestore 인스턴스
 const db = admin.firestore();
 
 // 🔐 Service Account 인증 설정
@@ -45,6 +36,45 @@ const getCalendarAuth = () => {
     serviceAccount.private_key.replace(/\\n/g, '\n'),
     ['https://www.googleapis.com/auth/calendar']
   );
+};
+
+// ✅ addEvent 함수 (calendar.js 삭제 후 여기로 이동)
+const addEvent = async ({ title, description, startDate, startTime, endDate, endTime }) => {
+  try {
+    const auth = getCalendarAuth();
+    const calendar = google.calendar({ version: 'v3', auth });
+
+    // 🔍 Firebase Functions 환경변수에서 Calendar ID 가져오기
+    const calendarId = functions.config().google?.calendar_id || 'primary';
+
+    const event = {
+      summary: title,
+      description: description || '',
+      start: {
+        dateTime: `${startDate}T${startTime}:00`,
+        timeZone: 'Asia/Seoul',
+      },
+      end: {
+        dateTime: `${endDate}T${endTime}:00`,
+        timeZone: 'Asia/Seoul',
+      },
+      colorId: '9',
+    };
+
+    console.log('📅 등록할 이벤트 데이터:', { title, startDate, startTime, endDate, endTime, calendarId });
+
+    const response = await calendar.events.insert({
+      calendarId: calendarId,
+      resource: event,
+    });
+
+    console.log('✅ 캘린더 이벤트 생성 완료 - Event ID:', response.data.id);
+    
+    return response.data.id;
+  } catch (error) {
+    console.error('❌ addEvent 실패:', error);
+    throw error;
+  }
 };
 
 // 📧 관리자 이메일 목록 가져오기 - 방법 1 (기존 admin.firestore 사용)
@@ -186,132 +216,174 @@ const sendMail = async (to, subject, text) => {
 ///////////////////////////////////////////////////////////////////////////////////////
 // 📅 캘린더 이벤트 생성 API (프론트엔드에서 호출)
 ///////////////////////////////////////////////////////////////////////////////////////
-exports.createCalendarEvent = functions.https.onRequest((req, res) => {
-  // ⭐ CORS 미들웨어로 감싸기
-  cors(req, res, async () => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method Not Allowed' });
+exports.createCalendarEvent = functions.https.onRequest(async (req, res) => {
+  // CORS 설정
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://equipment-rental-system.vercel.app',
+    'https://equipment-rental-system-838f0.web.app',
+    'https://equipment-rental-system-838f0.firebaseapp.com'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+  } else {
+    res.set('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const { summary, description, startDateTime, endDateTime, calendarId, timeZone } = req.body;
+
+    console.log('📅 캘린더 이벤트 생성 요청:', {
+      summary,
+      startDateTime,
+      endDateTime,
+      calendarId
+    });
+
+    // 필수 파라미터 체크
+    if (!summary || !startDateTime || !endDateTime || !calendarId) {
+      res.status(400).json({ 
+        error: 'Missing required parameters',
+        required: ['summary', 'startDateTime', 'endDateTime', 'calendarId']
+      });
       return;
     }
 
-    try {
-      const { summary, description, startDateTime, endDateTime, calendarId, timeZone } = req.body;
+    const auth = getCalendarAuth();
+    const calendar = google.calendar({ version: 'v3', auth });
 
-      console.log('📅 캘린더 이벤트 생성 요청:', {
-        summary,
-        startDateTime,
-        endDateTime,
-        calendarId
-      });
+    const event = {
+      summary,
+      description: description || '',
+      start: {
+        dateTime: startDateTime,
+        timeZone: timeZone || 'Asia/Seoul',
+      },
+      end: {
+        dateTime: endDateTime,
+        timeZone: timeZone || 'Asia/Seoul',
+      },
+      colorId: '9',
+    };
 
-      // 필수 파라미터 체크
-      if (!summary || !startDateTime || !endDateTime || !calendarId) {
-        res.status(400).json({ 
-          error: 'Missing required parameters',
-          required: ['summary', 'startDateTime', 'endDateTime', 'calendarId']
-        });
-        return;
-      }
+    const response = await calendar.events.insert({
+      calendarId: calendarId,
+      resource: event,
+    });
 
-      const auth = getCalendarAuth();
-      const calendar = google.calendar({ version: 'v3', auth });
+    console.log('✅ 캘린더 이벤트 생성 성공:', response.data.id);
 
-      const event = {
-        summary,
-        description: description || '',
-        start: {
-          dateTime: startDateTime,
-          timeZone: timeZone || 'Asia/Seoul',
-        },
-        end: {
-          dateTime: endDateTime,
-          timeZone: timeZone || 'Asia/Seoul',
-        },
-        colorId: '9', // 파란색
-      };
+    res.status(200).json({
+      success: true,
+      eventId: response.data.id,
+      htmlLink: response.data.htmlLink,
+    });
 
-      const response = await calendar.events.insert({
-        calendarId: calendarId,
-        resource: event,
-      });
-
-      console.log('✅ 캘린더 이벤트 생성 성공:', response.data.id);
-
-      res.status(200).json({
-        success: true,
-        eventId: response.data.id,
-        htmlLink: response.data.htmlLink,
-      });
-
-    } catch (error) {
-      console.error('❌ 캘린더 이벤트 생성 실패:', error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        details: error.response?.data || error.stack
-      });
-    }
-  });
+  } catch (error) {
+    console.error('❌ 캘린더 이벤트 생성 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.response?.data || error.stack
+    });
+  }
 });
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // 🗑️ 캘린더 이벤트 삭제 API (프론트엔드에서 호출)
 ///////////////////////////////////////////////////////////////////////////////////////
-exports.deleteCalendarEvent = functions.https.onRequest((req, res) => {
-  // ⭐ CORS 미들웨어로 감싸기
-  cors(req, res, async () => {
-    if (req.method !== 'POST' && req.method !== 'DELETE') {
-      res.status(405).json({ error: 'Method Not Allowed' });
+exports.deleteCalendarEvent = functions.https.onRequest(async (req, res) => {
+  // CORS 설정
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://equipment-rental-system.vercel.app',
+    'https://equipment-rental-system-838f0.web.app',
+    'https://equipment-rental-system-838f0.firebaseapp.com'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+  } else {
+    res.set('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.set('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST' && req.method !== 'DELETE') {
+    res.status(405).json({ error: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const { eventId, calendarId } = req.body;
+
+    console.log('🗑️ 캘린더 이벤트 삭제 요청:', { eventId, calendarId });
+
+    if (!eventId || !calendarId) {
+      res.status(400).json({ 
+        error: 'Missing required parameters',
+        required: ['eventId', 'calendarId']
+      });
       return;
     }
 
-    try {
-      const { eventId, calendarId } = req.body;
+    const auth = getCalendarAuth();
+    const calendar = google.calendar({ version: 'v3', auth });
 
-      console.log('🗑️ 캘린더 이벤트 삭제 요청:', { eventId, calendarId });
+    await calendar.events.delete({
+      calendarId: calendarId,
+      eventId: eventId,
+    });
 
-      if (!eventId || !calendarId) {
-        res.status(400).json({ 
-          error: 'Missing required parameters',
-          required: ['eventId', 'calendarId']
-        });
-        return;
-      }
+    console.log('✅ 캘린더 이벤트 삭제 성공');
 
-      const auth = getCalendarAuth();
-      const calendar = google.calendar({ version: 'v3', auth });
+    res.status(200).json({
+      success: true,
+      message: 'Event deleted successfully',
+    });
 
-      await calendar.events.delete({
-        calendarId: calendarId,
-        eventId: eventId,
-      });
-
-      console.log('✅ 캘린더 이벤트 삭제 성공');
-
+  } catch (error) {
+    console.error('❌ 캘린더 이벤트 삭제 실패:', error);
+    
+    // 이미 삭제된 이벤트인 경우 (410 Gone)
+    if (error.code === 410 || error.message.includes('deleted')) {
       res.status(200).json({
         success: true,
-        message: 'Event deleted successfully',
+        message: 'Event already deleted',
       });
-
-    } catch (error) {
-      console.error('❌ 캘린더 이벤트 삭제 실패:', error);
-      
-      // 이미 삭제된 이벤트인 경우 (410 Gone)
-      if (error.code === 410 || error.message.includes('deleted')) {
-        res.status(200).json({
-          success: true,
-          message: 'Event already deleted',
-        });
-        return;
-      }
-
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        details: error.response?.data || error.stack
-      });
+      return;
     }
-  });
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.response?.data || error.stack
+    });
+  }
 });
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -412,7 +484,7 @@ const handleRentalApproval = async (reservationData, rentalId) => {
     let userPhone = reservationData.userPhone || '전화번호 없음';
     let userEmail = reservationData.userEmail;
 
-    // 🔄 user_profiles에서 정보 보강 (기존 방식 유지)
+    // 🔄 user_profiles에서 정보 보강
     try {
       const userProfileSnap = await db.collection('user_profiles').doc(userId).get();
       if (userProfileSnap.exists) {
