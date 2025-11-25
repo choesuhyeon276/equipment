@@ -674,7 +674,7 @@ const EquipmentGrid = ({
             position: 'absolute',
             top: '10px',
             right: '10px',
-            backgroundColor: '#f39c12',
+            backgroundColor: '#ff0000',
             color: 'white',
             padding: '6px 12px',
             fontSize: '12px',
@@ -684,7 +684,7 @@ const EquipmentGrid = ({
             borderRadius: '6px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}>
-            사용 불가
+           대여 중
           </div> 
         )}
 
@@ -793,7 +793,7 @@ const EquipmentGrid = ({
             borderRadius: '6px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}>
-            {camera.status === 'rented' ? '대여 중' : '수리 중'}
+            {camera.status === 'rented' ? '수리 중' : '수리 중'}
           </div>
         )}
 
@@ -825,13 +825,13 @@ const EquipmentGrid = ({
           return mountArray.map((type, idx) => (
             <div key={idx} style={{
               position: 'absolute',
-              top: `${10 + idx * 30}px`,
+              top: `${10 + idx * 25}px`,
               left: '10px',
               backgroundColor: mountColors[type] || mountColors['기타'],
               color: 'white',
               borderRadius: '12px',
-              padding: '5px 10px',
-              fontSize: '11px',
+              padding: '3px 8px',
+              fontSize: '10px',
               fontWeight: '600',
               zIndex: 8,
               overflowWrap: 'anywhere',

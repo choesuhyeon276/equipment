@@ -5,9 +5,7 @@ import MainHeader from "./components/MainHeader";
 import CalendarWithHeader from "./components/CalendarWithHeader";
 // 독립형 캘린더 컴포넌트 (헤더 없는 버전)
 import CalendarStandalone from "./components/CalendarStandalone"; 
-import RentalMethodPage from "./components/RentalMethodPage";
 import ThingsNotePage from "./components/ThingsNotePage";
-import LongTermRentalPage from "./components/LongTermRentalPage";
 import ReservationMainPage from "./components/reservation/ReservationMainPage";
 import AdminCameraManagement from "./components/AdminCameraManagement";
 import CartPage from "./components/cart";
@@ -183,15 +181,11 @@ function App() {
                   {/* 여기서는 헤더가 없는 독립형 Calendar 사용 */}
                   <CalendarStandalone isMobile={isMobile} user={user} />
                 </div>
-                <div ref={rentalMethodRef} id="rental-method-section" style={!isMobile ? sectionStyle : {}}>
-                  <RentalMethodPage scrollToSection={scrollToSection} isMobile={isMobile} user={user} />
-                </div>
+                
                 <div ref={thingsNoteRef} id="things-note-section" style={!isMobile ? sectionStyle : {}}>
                   <ThingsNotePage isMobile={isMobile} user={user} />
                 </div>
-                <div ref={longTermRentalRef} id="long-term-rental-section" style={!isMobile ? sectionStyle : {}}>
-                  <LongTermRentalPage isMobile={isMobile} user={user} />
-                </div>
+              
                 {/* 모바일 버전에서는 위로가기 버튼 제거 */}
                 {!isMobile && <ScrollToTopButton isMobile={false} />}
               </div>
