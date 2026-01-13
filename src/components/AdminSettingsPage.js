@@ -72,45 +72,71 @@ const AdminSettingsPage = () => {
   //   2) admin_settings/main.adminEmails 에 내 이메일이 있으면
   //      => 자동 admin 인정 + user_profiles 문서에 role 저장(병합)
   // ──────────────────────────────────────────────
-  const checkAdminRole = async (userId, email, displayName) => {
-    try {
-      // 1) user_profiles에 admin이면 통과
-      const userRef = doc(db, 'user_profiles', userId);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists() && userSnap.data()?.role === 'admin') return true;
+  // ──────────────────────────────────────────────
+// 관리자 권한 체크
+//   1) user_profiles/{uid}.role === 'admin'
+//   2) admin_settings/main.adminEmails 에 내 이메일이 있으면
+//      => 자동 admin 인정 + user_profiles 문서에 role 저장(병합)
+//   3) 🆕 특정 이메일이면 무조건 관리자로 등록 (최초 설정용)
+// ──────────────────────────────────────────────
+const checkAdminRole = async (userId, email, displayName) => {
+  try {
+    // 🔹 여기에 본인의 이메일을 추가하세요!
+    const INITIAL_ADMIN_EMAILS = [
+      'your-email@example.com',  // ⬅️ 본인 이메일로 변경
+      'another-admin@example.com', // 추가 관리자 (선택)
+    ];
 
-      // 2) admin_settings의 adminEmails에 포함되어 있으면 admin으로 승격
-      const s = await fetchAdminSettings();
-      const listed =
-        Array.isArray(s.adminEmails) && email
-          ? s.adminEmails.includes(email)
-          : false;
+    // 1) user_profiles에 admin이면 통과
+    const userRef = doc(db, 'user_profiles', userId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists() && userSnap.data()?.role === 'admin') return true;
 
-      if (listed) {
-        await setDoc(
-          userRef,
-          {
-            uid: userId,
-            email,
-            name: displayName || '관리자',
-            role: 'admin',
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-        return true;
-      }
-
-      return false;
-    } catch (err) {
-      console.error('Error checking admin role:', err);
-      return false;
+    // 2) 🆕 초기 관리자 이메일이면 자동 등록
+    if (email && INITIAL_ADMIN_EMAILS.includes(email.toLowerCase())) {
+      await setDoc(
+        userRef,
+        {
+          uid: userId,
+          email,
+          name: displayName || '관리자',
+          role: 'admin',
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      console.log('✅ 초기 관리자로 자동 등록:', email);
+      return true;
     }
-  };
 
-  // ──────────────────────────────────────────────
-  // 설정 불러오기
-  // ──────────────────────────────────────────────
+    // 3) admin_settings의 adminEmails에 포함되어 있으면 admin으로 승격
+    const s = await fetchAdminSettings();
+    const listed =
+      Array.isArray(s.adminEmails) && email
+        ? s.adminEmails.includes(email)
+        : false;
+
+    if (listed) {
+      await setDoc(
+        userRef,
+        {
+          uid: userId,
+          email,
+          name: displayName || '관리자',
+          role: 'admin',
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error('Error checking admin role:', err);
+    return false;
+  }
+};
   const loadAdminSettings = async () => {
     try {
       const loaded = await fetchAdminSettings();
