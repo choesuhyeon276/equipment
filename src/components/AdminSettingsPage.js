@@ -39,7 +39,7 @@ const AdminSettingsPage = () => {
         return;
       }
 
-      // 권한 체크 (admin_profiles or adminEmails)
+      // 권한 체크 (admin_settings 우선, 실시간 확인)
       const isAdmin = await checkAdminRole(
         firebaseUser.uid,
         firebaseUser.email || '',
@@ -67,76 +67,57 @@ const AdminSettingsPage = () => {
   }, [navigate]);
 
   // ──────────────────────────────────────────────
-  // 관리자 권한 체크
-  //   1) user_profiles/{uid}.role === 'admin'
-  //   2) admin_settings/main.adminEmails 에 내 이메일이 있으면
-  //      => 자동 admin 인정 + user_profiles 문서에 role 저장(병합)
+  // 관리자 권한 체크 (실시간 admin_settings 우선 확인)
+  //   1) admin_settings/main.adminEmails 먼저 확인 (최우선)
+  //   2) 있으면 user_profiles에 role 자동 저장
+  //   3) 없으면 user_profiles의 role 확인
   // ──────────────────────────────────────────────
+  const checkAdminRole = async (userId, email, displayName) => {
+    try {
+      const userRef = doc(db, 'user_profiles', userId);
+      
+      // 1) 🔹 먼저 admin_settings에서 최신 adminEmails 확인
+      const s = await fetchAdminSettings();
+      const isInAdminList = 
+        Array.isArray(s.adminEmails) && email
+          ? s.adminEmails.includes(email)
+          : false;
+
+      // 2) admin_settings에 있으면 user_profiles 업데이트하고 통과
+      if (isInAdminList) {
+        await setDoc(
+          userRef,
+          {
+            uid: userId,
+            email,
+            name: displayName || '관리자',
+            role: 'admin',
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+        console.log('✅ admin_settings에서 관리자 확인:', email);
+        return true;
+      }
+
+      // 3) admin_settings에 없으면 user_profiles의 role 확인
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists() && userSnap.data()?.role === 'admin') {
+        console.log('✅ user_profiles에서 관리자 확인:', email);
+        return true;
+      }
+
+      console.log('❌ 관리자 권한 없음:', email);
+      return false;
+    } catch (err) {
+      console.error('Error checking admin role:', err);
+      return false;
+    }
+  };
+
   // ──────────────────────────────────────────────
-// 관리자 권한 체크
-//   1) user_profiles/{uid}.role === 'admin'
-//   2) admin_settings/main.adminEmails 에 내 이메일이 있으면
-//      => 자동 admin 인정 + user_profiles 문서에 role 저장(병합)
-//   3) 🆕 특정 이메일이면 무조건 관리자로 등록 (최초 설정용)
-// ──────────────────────────────────────────────
-const checkAdminRole = async (userId, email, displayName) => {
-  try {
-    // 🔹 여기에 본인의 이메일을 추가하세요!
-    const INITIAL_ADMIN_EMAILS = [
-      'your-email@example.com',  // ⬅️ 본인 이메일로 변경
-      'another-admin@example.com', // 추가 관리자 (선택)
-    ];
-
-    // 1) user_profiles에 admin이면 통과
-    const userRef = doc(db, 'user_profiles', userId);
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists() && userSnap.data()?.role === 'admin') return true;
-
-    // 2) 🆕 초기 관리자 이메일이면 자동 등록
-    if (email && INITIAL_ADMIN_EMAILS.includes(email.toLowerCase())) {
-      await setDoc(
-        userRef,
-        {
-          uid: userId,
-          email,
-          name: displayName || '관리자',
-          role: 'admin',
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      console.log('✅ 초기 관리자로 자동 등록:', email);
-      return true;
-    }
-
-    // 3) admin_settings의 adminEmails에 포함되어 있으면 admin으로 승격
-    const s = await fetchAdminSettings();
-    const listed =
-      Array.isArray(s.adminEmails) && email
-        ? s.adminEmails.includes(email)
-        : false;
-
-    if (listed) {
-      await setDoc(
-        userRef,
-        {
-          uid: userId,
-          email,
-          name: displayName || '관리자',
-          role: 'admin',
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      return true;
-    }
-
-    return false;
-  } catch (err) {
-    console.error('Error checking admin role:', err);
-    return false;
-  }
-};
+  // 설정 불러오기
+  // ──────────────────────────────────────────────
   const loadAdminSettings = async () => {
     try {
       const loaded = await fetchAdminSettings();
@@ -183,8 +164,8 @@ const checkAdminRole = async (userId, email, displayName) => {
         updatedBy: admin?.uid || 'unknown',
       });
 
-      setMessage({ type: 'success', text: '설정이 성공적으로 저장되었습니다.' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+      setMessage({ type: 'success', text: '설정이 성공적으로 저장되었습니다. 추가된 이메일은 즉시 관리자 권한을 받습니다.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
     } catch (error) {
       console.error('❌ Error saving settings:', error);
       setMessage({ type: 'error', text: '설정 저장 중 오류가 발생했습니다.' });
@@ -555,6 +536,7 @@ const checkAdminRole = async (userId, email, displayName) => {
             <li>연락처: 이메일 내용에 문의 연락처로 포함되어 사용자들이 연락할 수 있습니다.</li>
             <li>카카오톡 오픈채팅: Things Note 페이지에서 카카오톡 아이콘 클릭 시 이동할 오픈채팅방 링크입니다.</li>
             <li>이메일 목록: 대여 신청, 반납 요청 등의 알림을 받을 관리자들의 이메일입니다.</li>
+            <li><strong>⚡ 실시간 적용:</strong> 이메일 추가 시 해당 이메일로 로그인한 사용자는 즉시 관리자 권한을 받습니다.</li>
             <li>설정 변경 후 반드시 '설정 저장' 버튼을 클릭해야 변경사항이 적용됩니다.</li>
             <li>Firebase Functions가 자동으로 새로운 설정을 적용하여 이메일을 발송합니다.</li>
           </ul>
