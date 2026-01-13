@@ -6,7 +6,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 // 🔹 firebaseConfig에서 필요한 것들 모두 import
-import { db, getAuth, doc, getDoc, setDoc, serverTimestamp } from '../firebase/firebaseConfig';
+import { db, getAuth, doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from '../firebase/firebaseConfig';
 
 // 🔹 공용 유틸
 import { fetchAdminSettings, saveAdminSettings } from '../utils/adminSettings';
@@ -23,7 +23,7 @@ const AdminSettingsPage = () => {
     adminEmails: [],
     adminName: '',
     adminPhone: '',
-    kakaoOpenChatUrl: '', // 카카오톡 오픈채팅 링크 추가
+    kakaoOpenChatUrl: '',
   });
 
   const [newEmail, setNewEmail] = useState('');
@@ -39,7 +39,7 @@ const AdminSettingsPage = () => {
         return;
       }
 
-      // 권한 체크 (admin_settings 우선, 실시간 확인)
+      // 권한 체크
       const isAdmin = await checkAdminRole(
         firebaseUser.uid,
         firebaseUser.email || '',
@@ -52,14 +52,12 @@ const AdminSettingsPage = () => {
         return;
       }
 
-      // 헤더 표시용 관리자 정보
       setAdmin({
         uid: firebaseUser.uid,
         email: firebaseUser.email,
         name: firebaseUser.displayName || '관리자',
       });
 
-      // 설정 로드
       await loadAdminSettings();
     });
 
@@ -67,23 +65,20 @@ const AdminSettingsPage = () => {
   }, [navigate]);
 
   // ──────────────────────────────────────────────
-  // 관리자 권한 체크 (실시간 admin_settings 우선 확인)
-  //   1) admin_settings/main.adminEmails 먼저 확인 (최우선)
-  //   2) 있으면 user_profiles에 role 자동 저장
-  //   3) 없으면 user_profiles의 role 확인
+  // 관리자 권한 체크
   // ──────────────────────────────────────────────
   const checkAdminRole = async (userId, email, displayName) => {
     try {
       const userRef = doc(db, 'user_profiles', userId);
       
-      // 1) 🔹 먼저 admin_settings에서 최신 adminEmails 확인
+      // 1) admin_settings에서 최신 adminEmails 확인
       const s = await fetchAdminSettings();
       const isInAdminList = 
         Array.isArray(s.adminEmails) && email
           ? s.adminEmails.includes(email)
           : false;
 
-      // 2) admin_settings에 있으면 user_profiles 업데이트하고 통과
+      // 2) admin_settings에 있으면 user_profiles 업데이트
       if (isInAdminList) {
         await setDoc(
           userRef,
@@ -100,7 +95,7 @@ const AdminSettingsPage = () => {
         return true;
       }
 
-      // 3) admin_settings에 없으면 user_profiles의 role 확인
+      // 3) user_profiles의 role 확인
       const userSnap = await getDoc(userRef);
       if (userSnap.exists() && userSnap.data()?.role === 'admin') {
         console.log('✅ user_profiles에서 관리자 확인:', email);
@@ -113,6 +108,70 @@ const AdminSettingsPage = () => {
       console.error('Error checking admin role:', err);
       return false;
     }
+  };
+
+  // ──────────────────────────────────────────────
+  // 🔹 새로운 함수: 이메일로 사용자 찾아서 관리자 역할 부여
+  // ──────────────────────────────────────────────
+  const grantAdminRoleToEmail = async (email) => {
+    try {
+      // user_profiles 컬렉션에서 해당 이메일을 가진 사용자 찾기
+      const usersRef = collection(db, 'user_profiles');
+      const q = query(usersRef, where('email', '==', email));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        console.log(`ℹ️ 이메일 ${email}에 해당하는 사용자가 아직 가입하지 않았습니다.`);
+        return { success: false, reason: 'not_found' };
+      }
+
+      // 찾은 사용자에게 관리자 역할 부여
+      const promises = [];
+      querySnapshot.forEach((docSnap) => {
+        const userRef = doc(db, 'user_profiles', docSnap.id);
+        promises.push(
+          setDoc(
+            userRef,
+            {
+              role: 'admin',
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          )
+        );
+      });
+
+      await Promise.all(promises);
+      console.log(`✅ 이메일 ${email}의 사용자에게 관리자 역할 부여 완료`);
+      return { success: true, count: querySnapshot.size };
+    } catch (error) {
+      console.error(`❌ 이메일 ${email}에 관리자 역할 부여 실패:`, error);
+      return { success: false, reason: 'error', error };
+    }
+  };
+
+  // ──────────────────────────────────────────────
+  // 🔹 모든 관리자 이메일에 역할 부여 (일괄 처리)
+  // ──────────────────────────────────────────────
+  const grantAdminRoleToAllEmails = async (emailList) => {
+    const results = {
+      granted: [],
+      notFound: [],
+      errors: [],
+    };
+
+    for (const email of emailList) {
+      const result = await grantAdminRoleToEmail(email);
+      if (result.success) {
+        results.granted.push(email);
+      } else if (result.reason === 'not_found') {
+        results.notFound.push(email);
+      } else {
+        results.errors.push(email);
+      }
+    }
+
+    return results;
   };
 
   // ──────────────────────────────────────────────
@@ -131,7 +190,7 @@ const AdminSettingsPage = () => {
   };
 
   // ──────────────────────────────────────────────
-  // 설정 저장
+  // 설정 저장 (관리자 역할 자동 부여 포함)
   // ──────────────────────────────────────────────
   const onSaveSettings = async () => {
     if (
@@ -144,7 +203,7 @@ const AdminSettingsPage = () => {
       return;
     }
 
-    // 카카오톡 링크 유효성 검사 (입력된 경우에만)
+    // 카카오톡 링크 유효성 검사
     if (settings.kakaoOpenChatUrl.trim()) {
       const isValidKakaoUrl = settings.kakaoOpenChatUrl.includes('open.kakao.com') ||
                               settings.kakaoOpenChatUrl.includes('kakaotalk://');
@@ -156,6 +215,7 @@ const AdminSettingsPage = () => {
 
     setSaving(true);
     try {
+      // 1) admin_settings 저장
       await saveAdminSettings({
         adminEmails: settings.adminEmails,
         adminName: settings.adminName.trim(),
@@ -164,8 +224,26 @@ const AdminSettingsPage = () => {
         updatedBy: admin?.uid || 'unknown',
       });
 
-      setMessage({ type: 'success', text: '설정이 성공적으로 저장되었습니다. 추가된 이메일은 즉시 관리자 권한을 받습니다.' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+      // 2) 🔹 모든 관리자 이메일에 자동으로 역할 부여
+      const roleResults = await grantAdminRoleToAllEmails(settings.adminEmails);
+
+      // 결과 메시지 생성
+      let resultMessage = '설정이 성공적으로 저장되었습니다.';
+      
+      if (roleResults.granted.length > 0) {
+        resultMessage += ` ${roleResults.granted.length}명의 사용자에게 관리자 권한이 부여되었습니다.`;
+      }
+      
+      if (roleResults.notFound.length > 0) {
+        resultMessage += ` ${roleResults.notFound.length}개의 이메일은 아직 가입하지 않았습니다. (가입 시 자동으로 관리자 권한 부여)`;
+      }
+      
+      if (roleResults.errors.length > 0) {
+        resultMessage += ` ⚠️ ${roleResults.errors.length}개의 이메일 처리 중 오류가 발생했습니다.`;
+      }
+
+      setMessage({ type: 'success', text: resultMessage });
+      setTimeout(() => setMessage({ type: '', text: '' }), 6000);
     } catch (error) {
       console.error('❌ Error saving settings:', error);
       setMessage({ type: 'error', text: '설정 저장 중 오류가 발생했습니다.' });
@@ -175,9 +253,9 @@ const AdminSettingsPage = () => {
   };
 
   // ──────────────────────────────────────────────
-  // 이메일 추가/삭제
+  // 이메일 추가 (즉시 역할 부여 시도)
   // ──────────────────────────────────────────────
-  const addEmail = () => {
+  const addEmail = async () => {
     const v = newEmail.trim();
     if (!v) return setMessage({ type: 'error', text: '이메일을 입력해주세요.' });
 
@@ -188,11 +266,35 @@ const AdminSettingsPage = () => {
     if (settings.adminEmails.includes(v))
       return setMessage({ type: 'error', text: '이미 존재하는 이메일입니다.' });
 
+    // 이메일 목록에 추가
     setSettings((prev) => ({ ...prev, adminEmails: [...prev.adminEmails, v] }));
     setNewEmail('');
-    setMessage({ type: '', text: '' });
+
+    // 🔹 즉시 해당 이메일에 관리자 역할 부여 시도
+    const result = await grantAdminRoleToEmail(v);
+    if (result.success) {
+      setMessage({ 
+        type: 'success', 
+        text: `이메일이 추가되었고, ${result.count}명의 사용자에게 즉시 관리자 권한이 부여되었습니다. '설정 저장'을 눌러 완료하세요.` 
+      });
+    } else if (result.reason === 'not_found') {
+      setMessage({ 
+        type: 'success', 
+        text: `이메일이 추가되었습니다. 해당 이메일로 가입 시 자동으로 관리자 권한이 부여됩니다. '설정 저장'을 눌러 완료하세요.` 
+      });
+    } else {
+      setMessage({ 
+        type: 'error', 
+        text: '이메일은 추가되었지만 역할 부여 중 오류가 발생했습니다. 설정 저장 후 다시 시도됩니다.' 
+      });
+    }
+
+    setTimeout(() => setMessage({ type: '', text: '' }), 5000);
   };
 
+  // ──────────────────────────────────────────────
+  // 이메일 삭제
+  // ──────────────────────────────────────────────
   const removeEmail = (emailToRemove) => {
     if (settings.adminEmails.length <= 1)
       return setMessage({ type: 'error', text: '최소 하나의 관리자 이메일이 필요합니다.' });
@@ -365,7 +467,7 @@ const AdminSettingsPage = () => {
           <small style={{ color: '#666', fontSize: '12px' }}>이메일 내용에 문의 연락처로 포함됩니다.</small>
         </div>
 
-        {/* 카카오톡 오픈채팅 링크 추가 */}
+        {/* 카카오톡 오픈채팅 링크 */}
         <div style={{ marginBottom: '25px' }}>
           <label
             style={{
@@ -491,7 +593,7 @@ const AdminSettingsPage = () => {
             </button>
           </div>
           <small style={{ color: '#666', fontSize: '12px' }}>
-            알림 메일을 받을 관리자 이메일을 추가하세요. 최소 1개 이상 필요합니다.
+            알림 메일을 받을 관리자 이메일을 추가하세요. 이메일 추가 시 해당 사용자에게 즉시 관리자 권한이 부여됩니다.
           </small>
         </div>
 
@@ -536,14 +638,14 @@ const AdminSettingsPage = () => {
             <li>연락처: 이메일 내용에 문의 연락처로 포함되어 사용자들이 연락할 수 있습니다.</li>
             <li>카카오톡 오픈채팅: Things Note 페이지에서 카카오톡 아이콘 클릭 시 이동할 오픈채팅방 링크입니다.</li>
             <li>이메일 목록: 대여 신청, 반납 요청 등의 알림을 받을 관리자들의 이메일입니다.</li>
-            <li><strong>⚡ 실시간 적용:</strong> 이메일 추가 시 해당 이메일로 로그인한 사용자는 즉시 관리자 권한을 받습니다.</li>
+            <li><strong>⚡ 자동 권한 부여:</strong> 이메일 추가 시 Firebase에서 해당 이메일의 사용자를 찾아 즉시 관리자 권한을 부여합니다.</li>
+            <li><strong>💡 미가입 사용자:</strong> 아직 가입하지 않은 이메일도 추가할 수 있으며, 해당 이메일로 로그인 시 자동으로 관리자 권한이 부여됩니다.</li>
             <li>설정 변경 후 반드시 '설정 저장' 버튼을 클릭해야 변경사항이 적용됩니다.</li>
-            <li>Firebase Functions가 자동으로 새로운 설정을 적용하여 이메일을 발송합니다.</li>
           </ul>
         </div>
       </div>
     </div>
   );
 };
-
+//
 export default AdminSettingsPage;
