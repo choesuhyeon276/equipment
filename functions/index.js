@@ -187,14 +187,15 @@ const getAdminEmails = async () => {
   return emails3;
 };
 
-// 📧 메일 전송 함수 (개선된 오류 처리)
-const sendMail = async (to, subject, text) => {
+// 📧 메일 전송 함수 (HTML 지원)
+const sendMail = async (to, subject, text, html = null) => {
   try {
     const mailOptions = {
-      from: `DKit 알림 <${gmailEmail}>`,
+      from: `DKit 장비대여 <${gmailEmail}>`,
       to: Array.isArray(to) ? to.join(', ') : to,
       subject,
       text,
+      ...(html && { html }),
     };
     
     console.log('📧 메일 전송 시도:', { to: mailOptions.to, subject });
@@ -211,6 +212,120 @@ const sendMail = async (to, subject, text) => {
     });
     throw error;
   }
+};
+
+// 📧 HTML 이메일 템플릿 생성 함수
+const createEmailTemplate = (title, content, footerText = 'DKit 장비대여 시스템') => {
+  return `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+    <!-- Header -->
+    <tr>
+      <td style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 32px 24px; text-align: center;">
+        <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">DKit</h1>
+        <p style="margin: 8px 0 0 0; color: #a0a0a0; font-size: 14px;">장비대여 시스템</p>
+      </td>
+    </tr>
+    <!-- Title -->
+    <tr>
+      <td style="padding: 32px 24px 16px 24px;">
+        <h2 style="margin: 0; color: #1a1a2e; font-size: 20px; font-weight: 600; border-left: 4px solid #4f46e5; padding-left: 12px;">${title}</h2>
+      </td>
+    </tr>
+    <!-- Content -->
+    <tr>
+      <td style="padding: 0 24px 32px 24px;">
+        ${content}
+      </td>
+    </tr>
+    <!-- Footer -->
+    <tr>
+      <td style="background-color: #f8f9fa; padding: 24px; text-align: center; border-top: 1px solid #e9ecef;">
+        <p style="margin: 0; color: #6c757d; font-size: 12px;">${footerText}</p>
+        <p style="margin: 8px 0 0 0; color: #adb5bd; font-size: 11px;">본 메일은 발신 전용입니다.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+};
+
+// 📦 정보 박스 HTML 생성
+const createInfoBox = (items) => {
+  const rows = items.map(item => `
+    <tr>
+      <td style="padding: 8px 12px; color: #6c757d; font-size: 14px; white-space: nowrap;">${item.label}</td>
+      <td style="padding: 8px 12px; color: #1a1a2e; font-size: 14px; font-weight: 500;">${item.value}</td>
+    </tr>
+  `).join('');
+  
+  return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8f9fa; border-radius: 8px; margin: 16px 0;">
+      ${rows}
+    </table>
+  `;
+};
+
+// 📋 장비 목록 HTML 생성
+const createEquipmentList = (items) => {
+  const listItems = items.map(item => `
+    <li style="padding: 8px 0; border-bottom: 1px solid #e9ecef; color: #1a1a2e; font-size: 14px;">
+      ${item.name || '이름 없음'}
+    </li>
+  `).join('');
+  
+  return `
+    <div style="margin: 16px 0;">
+      <p style="margin: 0 0 8px 0; color: #6c757d; font-size: 13px; font-weight: 600;">장비 목록</p>
+      <ul style="margin: 0; padding: 0 0 0 20px; list-style: none;">
+        ${listItems}
+      </ul>
+    </div>
+  `;
+};
+
+// ⚠️ 경고 박스 HTML 생성
+const createWarningBox = (message) => {
+  return `
+    <div style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 16px 0;">
+      <p style="margin: 0; color: #856404; font-size: 14px; font-weight: 500;">${message}</p>
+    </div>
+  `;
+};
+
+// ❌ 에러/벌점 박스 HTML 생성
+const createPenaltyBox = (points, reason) => {
+  return `
+    <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 16px; margin: 16px 0;">
+      <p style="margin: 0 0 8px 0; color: #721c24; font-size: 16px; font-weight: 700;">벌점 ${points}점 부과</p>
+      <p style="margin: 0; color: #721c24; font-size: 14px;">사유: ${reason}</p>
+    </div>
+  `;
+};
+
+// ✅ 성공 박스 HTML 생성
+const createSuccessBox = (message) => {
+  return `
+    <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 16px; margin: 16px 0;">
+      <p style="margin: 0; color: #155724; font-size: 14px; font-weight: 500;">${message}</p>
+    </div>
+  `;
+};
+
+// 🔗 버튼 HTML 생성
+const createButton = (text, url) => {
+  return `
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${url}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 6px; font-size: 14px; font-weight: 600;">${text}</a>
+    </div>
+  `;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -420,10 +535,31 @@ exports.onRentalCreatedAdminNotify = functions.firestore
       // 🎯 다중 방법으로 관리자 이메일 가져오기
       const adminEmails = await getAdminEmails();
 
+      // HTML 이메일 내용 생성
+      const htmlContent = `
+        <p style="margin: 0 0 16px 0; color: #495057; font-size: 15px; line-height: 1.6;">
+          새로운 장비 대여 신청이 접수되었습니다. 확인 후 승인 처리해 주세요.
+        </p>
+        ${createInfoBox([
+          { label: '신청 ID', value: rentalId },
+          { label: '신청자', value: userName },
+          { label: '학번', value: userStudentId },
+          { label: '연락처', value: userPhone },
+          { label: '이메일', value: userEmail },
+          { label: '대여 시작', value: `${startDate} ${startTime}` },
+          { label: '반납 예정', value: `${endDate} ${endTime}` },
+        ])}
+        ${createEquipmentList(items)}
+        ${createButton('관리자 페이지에서 확인하기', 'https://equipment-rental-system.vercel.app/admins')}
+      `;
+
+      const htmlEmail = createEmailTemplate('새로운 대여 신청', htmlContent);
+
       await sendMail(
         adminEmails,
-        '📥 새로운 장비 대여 신청이 접수되었습니다.',
-        `신청 ID: ${rentalId}\n신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n이메일: ${userEmail}\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n📦 장비 목록:\n${equipmentList}\n\nDKit 관리자 페이지\nhttps://equipment-rental-system.vercel.app/admins`
+        '새로운 장비 대여 신청이 접수되었습니다',
+        `신청 ID: ${rentalId}\n신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n이메일: ${userEmail}\n\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n장비 목록:\n${equipmentList}\n\nDKit 관리자 페이지\nhttps://equipment-rental-system.vercel.app/admins`,
+        htmlEmail
       );
       
       console.log('✅ 관리자 대여 신청 메일 전송 완료 - ID:', rentalId);
@@ -550,31 +686,50 @@ const handleRentalApproval = async (reservationData, rentalId) => {
       }
     }
 
-    // 📧 사용자 승인 메일 발송
-    if (userEmail && userEmail !== '이메일 없음') {
-      try {
-        const equipmentList = items.map(item => `- ${item.name || '이름 없음'}`).join('\n');
-        const startDate = items[0]?.rentalDate || '날짜 없음';
-        const startTime = items[0]?.rentalTime || '시간 없음';
-        const endDate = items[0]?.returnDate || '날짜 없음';
-        const endTime = items[0]?.returnTime || '시간 없음';
+  // 📧 사용자 승인 메일 발송
+  if (userEmail && userEmail !== '이메일 없음') {
+  try {
+  const equipmentListText = items.map(item => `- ${item.name || '이름 없음'}`).join('\n');
+  const startDate = items[0]?.rentalDate || '날짜 없음';
+  const startTime = items[0]?.rentalTime || '시간 없음';
+  const endDate = items[0]?.returnDate || '날짜 없음';
+  const endTime = items[0]?.returnTime || '시간 없음';
+  
+  // HTML 이메일 내용 생성
+  const htmlContent = `
+    <p style="margin: 0 0 16px 0; color: #495057; font-size: 15px; line-height: 1.6;">
+      안녕하세요, <strong>${userName}</strong>님!<br>
+      신청하신 장비 대여가 승인되었습니다.
+    </p>
+    ${createSuccessBox('대여가 승인되었습니다. 아래 일정에 맞춰 장비를 수령해 주세요.')}
+    ${createInfoBox([
+      { label: '예약 ID', value: rentalId },
+      { label: '대여 시작', value: `${startDate} ${startTime}` },
+      { label: '반납 예정', value: `${endDate} ${endTime}` },
+    ])}
+    ${createEquipmentList(items)}
+    ${createWarningBox('반납 기한을 준수해 주세요. 연체 시 벌점이 부과될 수 있습니다.')}
+  `;
 
-        await sendMail(
-          userEmail,
-          '✅ 장비 대여가 승인되었습니다.',
-          `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n예약 ID: ${rentalId}\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n📦 장비 목록:\n${equipmentList}\n\nDKit 장비대여 시스템`
-        );
-        console.log('✅ 사용자 승인 메일 전송 완료 - ID:', rentalId);
-      } catch (mailError) {
-        console.error('❌ 사용자 승인 메일 전송 실패:', {
-          rentalId,
-          userEmail,
-          error: mailError.message
-        });
-      }
-    } else {
-      console.warn('⚠️ 사용자 이메일 없음: 메일 생략됨 - ID:', rentalId);
-    }
+  const htmlEmail = createEmailTemplate('대여 승인 완료', htmlContent);
+  
+  await sendMail(
+  userEmail,
+  '장비 대여가 승인되었습니다',
+  `${userName}님, 신청하신 장비 대여가 승인되었습니다.\n\n예약 ID: ${rentalId}\n대여 시작: ${startDate} ${startTime}\n반납 예정: ${endDate} ${endTime}\n\n장비 목록:\n${equipmentListText}\n\nDKit 장비대여 시스템`,
+  htmlEmail
+  );
+  console.log('✅ 사용자 승인 메일 전송 완료 - ID:', rentalId);
+  } catch (mailError) {
+  console.error('❌ 사용자 승인 메일 전송 실패:', {
+  rentalId,
+  userEmail,
+  error: mailError.message
+  });
+  }
+  } else {
+  console.warn('⚠️ 사용자 이메일 없음: 메일 생략됨 - ID:', rentalId);
+  }
   } catch (error) {
     console.error('❌ 대여 승인 처리 실패:', {
       rentalId,
@@ -584,19 +739,64 @@ const handleRentalApproval = async (reservationData, rentalId) => {
   }
 };
 
-// 반납 완료 처리 함수
+// 반납 완료 처리 함수 (벌점 정보 포함)
 const handleReturnCompleted = async (reservationData, rentalId) => {
   try {
     const userEmail = reservationData.userEmail;
     const userName = reservationData.userName || reservationData.userId || '사용자';
-
+    const items = reservationData.items || [];
+    
+    // 벌점 정보 확인
+    const penaltyPoints = reservationData.penaltyPoints || 0;
+    const penaltyReason = reservationData.penaltyReason || '';
+    const hasPenalty = penaltyPoints > 0;
+    
     if (userEmail && userEmail !== '이메일 없음') {
+      const equipmentListText = items.map(item => `- ${item.name || '이름 없음'}`).join('\n');
+      
+      // HTML 이메일 내용 생성
+      let htmlContent = `
+        <p style="margin: 0 0 16px 0; color: #495057; font-size: 15px; line-height: 1.6;">
+          안녕하세요, <strong>${userName}</strong>님!<br>
+          장비 반납이 완료 처리되었습니다.
+        </p>
+        ${createSuccessBox('반납이 정상적으로 완료되었습니다. 이용해 주셔서 감사합니다.')}
+        ${createInfoBox([
+          { label: '예약 ID', value: rentalId },
+          { label: '반납 처리일', value: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) },
+        ])}
+        ${createEquipmentList(items)}
+      `;
+      
+      // 벌점이 부과된 경우 벌점 정보 추가
+      if (hasPenalty) {
+        htmlContent += createPenaltyBox(penaltyPoints, penaltyReason || '반납 지연 또는 장비 파손');
+      }
+      
+      htmlContent += `
+        <p style="margin: 16px 0 0 0; color: #6c757d; font-size: 13px; line-height: 1.6;">
+          DKit 장비대여 시스템을 이용해 주셔서 감사합니다.<br>
+          문의사항이 있으시면 관리자에게 연락해 주세요.
+        </p>
+      `;
+
+      const emailTitle = hasPenalty ? '반납 완료 (벌점 부과)' : '반납 완료';
+      const htmlEmail = createEmailTemplate(emailTitle, htmlContent);
+      
+      // 플레인 텍스트 버전
+      let plainText = `${userName}님, 장비 반납이 완료되었습니다.\n\n예약 ID: ${rentalId}\n\n장비 목록:\n${equipmentListText}`;
+      if (hasPenalty) {
+        plainText += `\n\n⚠️ 벌점 ${penaltyPoints}점이 부과되었습니다.\n사유: ${penaltyReason || '반납 지연 또는 장비 파손'}`;
+      }
+      plainText += '\n\n이용해주셔서 감사합니다.\n\nDKit 장비대여 시스템';
+      
       await sendMail(
         userEmail,
-        '✅ 장비 반납이 완료되었습니다.',
-        `${userName}님, 장비 반납이 완료되었습니다.\n\n예약 ID: ${rentalId}\n\n이용해주셔서 감사합니다.\n\nDKit 장비대여 시스템`
+        hasPenalty ? '장비 반납 완료 (벌점 부과 안내)' : '장비 반납이 완료되었습니다',
+        plainText,
+        htmlEmail
       );
-      console.log('✅ 반납 완료 메일 전송 완료 - ID:', rentalId);
+      console.log('✅ 반납 완료 메일 전송 완료 - ID:', rentalId, hasPenalty ? `(벌점 ${penaltyPoints}점)` : '');
     } else {
       console.warn('⚠️ 사용자 이메일 없음: 반납 메일 생략됨 - ID:', rentalId);
     }
@@ -620,23 +820,42 @@ exports.onReturnRequested = functions.firestore
       const before = change.before.data();
       const after = change.after.data();
 
-      if (before.status !== 'return_requested' && after.status === 'return_requested') {
-        console.log('🔥 반납 요청 감지됨 - ID:', rentalId);
-        
-        const userName = after.userName || after.userId || '이름 없음';
-        const userStudentId = after.userStudentId || '학번 없음';
-        const userPhone = after.userPhone || '전화번호 없음';
+  if (before.status !== 'return_requested' && after.status === 'return_requested') {
+  console.log('🔥 반납 요청 감지됨 - ID:', rentalId);
+  
+  const userName = after.userName || after.userId || '이름 없음';
+  const userStudentId = after.userStudentId || '학번 없음';
+  const userPhone = after.userPhone || '전화번호 없음';
+  const items = after.items || [];
+  
+  // 🎯 다중 방법으로 관리자 이메일 가져오기
+  const adminEmails = await getAdminEmails();
+  
+  // HTML 이메일 내용 생성
+  const htmlContent = `
+    <p style="margin: 0 0 16px 0; color: #495057; font-size: 15px; line-height: 1.6;">
+      반납 요청이 접수되었습니다. 확인 후 반납 처리해 주세요.
+    </p>
+    ${createInfoBox([
+      { label: '예약 ID', value: rentalId },
+      { label: '신청자', value: userName },
+      { label: '학번', value: userStudentId },
+      { label: '연락처', value: userPhone },
+    ])}
+    ${createEquipmentList(items)}
+    ${createButton('관리자 페이지에서 확인하기', 'https://equipment-rental-system.vercel.app/admins')}
+  `;
 
-        // 🎯 다중 방법으로 관리자 이메일 가져오기
-        const adminEmails = await getAdminEmails();
-
-        await sendMail(
-          adminEmails,
-          '📤 반납 요청이 접수되었습니다.',
-          `예약 ID: ${rentalId}\n신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n상태: ${after.status}\n\nDKit 관리자 시스템\nhttps://equipment-rental-system.vercel.app/admins`
-        );
-        console.log('✅ 반납 요청 관리자 메일 전송 완료 - ID:', rentalId);
-      }
+  const htmlEmail = createEmailTemplate('반납 요청 접수', htmlContent);
+  
+  await sendMail(
+  adminEmails,
+  '반납 요청이 접수되었습니다',
+  `예약 ID: ${rentalId}\n신청자: ${userName}\n학번: ${userStudentId}\n연락처: ${userPhone}\n상태: ${after.status}\n\nDKit 관리자 시스템\nhttps://equipment-rental-system.vercel.app/admins`,
+  htmlEmail
+  );
+  console.log('✅ 반납 요청 ��리자 메일 전송 완료 - ID:', rentalId);
+  }
     } catch (error) {
       console.error('❌ 반납 요청 처리 실패:', {
         rentalId,
@@ -645,3 +864,290 @@ exports.onReturnRequested = functions.firestore
       });
     }
   });
+
+///////////////////////////////////////////////////////////////////////////////////////
+// ✅ 5. 연체 독촉 메일 자동 발송 (매일 오전 9시 실행)
+///////////////////////////////////////////////////////////////////////////////////////
+exports.sendOverdueReminders = functions.pubsub
+  .schedule('0 9 * * *') // 매일 오전 9시 (한국 시간 기준)
+  .timeZone('Asia/Seoul')
+  .onRun(async (context) => {
+    console.log('🔔 연체 독촉 메일 발송 작업 시작...');
+    
+    try {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+      
+      // 대여 중(active)인 예약 중 반납 예정일이 지난 것 조회
+      const overdueSnapshot = await db.collection('reservations')
+        .where('status', '==', 'active')
+        .get();
+      
+      if (overdueSnapshot.empty) {
+        console.log('✅ 연체된 대여가 없습니다.');
+        return null;
+      }
+      
+      let overdueCount = 0;
+      const processedUsers = new Set(); // 같은 사용자에게 중복 발송 방지
+      
+      for (const doc of overdueSnapshot.docs) {
+        const reservation = doc.data();
+        const rentalId = doc.id;
+        const items = reservation.items || [];
+        
+        if (items.length === 0) continue;
+        
+        // 반납 예정일 확인
+        const returnDate = items[0]?.returnDate;
+        const returnTime = items[0]?.returnTime || '23:59';
+        
+        if (!returnDate) continue;
+        
+        // 반납 예정 날짜+시간을 Date 객체로 변환
+        const returnDateTime = new Date(`${returnDate}T${returnTime}:00`);
+        
+        // 연체 여부 확인 (현재 시간이 반납 예정 시간을 지났는지)
+        if (now <= returnDateTime) continue;
+        
+        // 연체일 계산
+        const overdueDays = Math.ceil((now - returnDateTime) / (1000 * 60 * 60 * 24));
+        
+        // 이미 연체 메일 발송 여부 확인 (하루에 한 번만 발송)
+        const lastReminderDate = reservation.lastOverdueReminderDate;
+        if (lastReminderDate === today) {
+          console.log(`⏭️ 이미 오늘 연체 메일 발송됨 - ID: ${rentalId}`);
+          continue;
+        }
+        
+        const userEmail = reservation.userEmail;
+        const userName = reservation.userName || reservation.userId || '사용자';
+        const userStudentId = reservation.userStudentId || '학번 없음';
+        
+        if (!userEmail || userEmail === '이메일 없음') {
+          console.warn(`⚠️ 사용자 이메일 없음 - ID: ${rentalId}`);
+          continue;
+        }
+        
+        // 연체 독촉 메일 발송
+        try {
+          const equipmentListText = items.map(item => `- ${item.name || '이름 없음'}`).join('\n');
+          
+          // HTML 이메일 내용 생성
+          const htmlContent = `
+            <p style="margin: 0 0 16px 0; color: #495057; font-size: 15px; line-height: 1.6;">
+              안녕하세요, <strong>${userName}</strong>님!<br>
+              대여하신 장비의 반납 기한이 <strong style="color: #dc3545;">${overdueDays}일</strong> 경과되었습니다.
+            </p>
+            ${createWarningBox(`반납 예정일(${returnDate} ${returnTime})이 지났습니다. 즉시 반납해 주세요.`)}
+            ${createInfoBox([
+              { label: '예약 ID', value: rentalId },
+              { label: '반납 예정일', value: `${returnDate} ${returnTime}` },
+              { label: '연체 일수', value: `${overdueDays}일` },
+            ])}
+            ${createEquipmentList(items)}
+            <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 16px; margin: 16px 0;">
+              <p style="margin: 0; color: #721c24; font-size: 14px; font-weight: 500;">
+                연체가 지속될 경우 벌점이 부과될 수 있습니다.<br>
+                빠른 시일 내에 반납 처리해 주시기 바랍니다.
+              </p>
+            </div>
+            <p style="margin: 16px 0 0 0; color: #6c757d; font-size: 13px; line-height: 1.6;">
+              문의사항이 있으시면 관리자에게 연락해 주세요.
+            </p>
+          `;
+
+          const htmlEmail = createEmailTemplate('반납 기한 초과 안내', htmlContent);
+          
+          await sendMail(
+            userEmail,
+            `[긴급] 장비 반납 기한이 ${overdueDays}일 초과되었습니다`,
+            `${userName}님, 대여하신 장비의 반납 기한이 ${overdueDays}일 경과되었습니다.\n\n예약 ID: ${rentalId}\n반납 예정일: ${returnDate} ${returnTime}\n\n장비 목록:\n${equipmentListText}\n\n연체가 지속될 경우 벌점이 부과될 수 있습니다.\n빠른 시일 내에 반납 처리해 주시기 바랍니다.\n\nDKit 장비대여 시스템`,
+            htmlEmail
+          );
+          
+          // 마지막 연체 메일 발송 날짜 업데이트
+          await db.collection('reservations').doc(rentalId).update({
+            lastOverdueReminderDate: today,
+            overdueReminderCount: (reservation.overdueReminderCount || 0) + 1
+          });
+          
+          overdueCount++;
+          console.log(`✅ 연체 독촉 메일 발송 완료 - ID: ${rentalId}, 연체 ${overdueDays}일`);
+          
+        } catch (mailError) {
+          console.error(`❌ 연체 메일 발송 실패 - ID: ${rentalId}:`, mailError.message);
+        }
+      }
+      
+      // 관리자에게 연체 현황 요약 메일 발송
+      if (overdueCount > 0) {
+        try {
+          const adminEmails = await getAdminEmails();
+          
+          const htmlContent = `
+            <p style="margin: 0 0 16px 0; color: #495057; font-size: 15px; line-height: 1.6;">
+              금일 연체 독촉 메일 발송이 완료되었습니다.
+            </p>
+            ${createWarningBox(`총 ${overdueCount}건의 연체 대여에 독촉 메일이 발송되었습니다.`)}
+            ${createButton('관리자 페이지에서 확인하기', 'https://equipment-rental-system.vercel.app/admins')}
+          `;
+
+          const htmlEmail = createEmailTemplate('연체 현황 알림', htmlContent);
+          
+          await sendMail(
+            adminEmails,
+            `[일일 보고] 연체 대여 ${overdueCount}건 독촉 메일 발송 완료`,
+            `금일 연체 독촉 메일 발송이 완료되었습니다.\n\n총 ${overdueCount}건의 연체 대여에 독촉 메일이 발송되었습니다.\n\nDKit 관리자 시스템\nhttps://equipment-rental-system.vercel.app/admins`,
+            htmlEmail
+          );
+          
+          console.log(`✅ 관리자 연체 현황 알림 발송 완료 - 총 ${overdueCount}건`);
+        } catch (adminMailError) {
+          console.error('❌ 관리자 연체 현황 알림 발송 실패:', adminMailError.message);
+        }
+      }
+      
+      console.log(`🔔 연체 독촉 메일 발송 작업 완료 - 총 ${overdueCount}건 발송`);
+      return null;
+      
+    } catch (error) {
+      console.error('❌ 연체 독촉 메일 발송 작업 실패:', {
+        error: error.message,
+        stack: error.stack
+      });
+      return null;
+    }
+  });
+
+///////////////////////////////////////////////////////////////////////////////////////
+// ✅ 6. 수동 연체 독촉 메일 발송 API (관리자용)
+///////////////////////////////////////////////////////////////////////////////////////
+exports.sendManualOverdueReminder = functions.https.onRequest(async (req, res) => {
+  // CORS 설정
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://equipment-rental-system.vercel.app',
+    'https://equipment-rental-system-838f0.web.app',
+    'https://equipment-rental-system-838f0.firebaseapp.com'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+  } else {
+    res.set('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const { rentalId } = req.body;
+
+    if (!rentalId) {
+      res.status(400).json({ 
+        error: 'Missing required parameter: rentalId'
+      });
+      return;
+    }
+
+    // 예약 정보 조회
+    const reservationDoc = await db.collection('reservations').doc(rentalId).get();
+    
+    if (!reservationDoc.exists) {
+      res.status(404).json({ error: 'Reservation not found' });
+      return;
+    }
+
+    const reservation = reservationDoc.data();
+    const items = reservation.items || [];
+    
+    if (reservation.status !== 'active') {
+      res.status(400).json({ error: 'Reservation is not active' });
+      return;
+    }
+
+    const userEmail = reservation.userEmail;
+    const userName = reservation.userName || reservation.userId || '사용자';
+    
+    if (!userEmail || userEmail === '이메일 없음') {
+      res.status(400).json({ error: 'User email not available' });
+      return;
+    }
+
+    // 연체일 계산
+    const now = new Date();
+    const returnDate = items[0]?.returnDate;
+    const returnTime = items[0]?.returnTime || '23:59';
+    const returnDateTime = new Date(`${returnDate}T${returnTime}:00`);
+    const overdueDays = Math.max(0, Math.ceil((now - returnDateTime) / (1000 * 60 * 60 * 24)));
+    
+    const equipmentListText = items.map(item => `- ${item.name || '이름 없음'}`).join('\n');
+    
+    // HTML 이메일 내용 생성
+    const htmlContent = `
+      <p style="margin: 0 0 16px 0; color: #495057; font-size: 15px; line-height: 1.6;">
+        안녕하세요, <strong>${userName}</strong>님!<br>
+        대여하신 장비의 반납을 요청드립니다.
+      </p>
+      ${overdueDays > 0 
+        ? createWarningBox(`반납 예정일(${returnDate} ${returnTime})이 ${overdueDays}일 지났습니다. 즉시 반납해 주세요.`)
+        : createWarningBox(`반납 예정일(${returnDate} ${returnTime})이 다가왔습니다. 기한 내 반납해 주세요.`)
+      }
+      ${createInfoBox([
+        { label: '예약 ID', value: rentalId },
+        { label: '반납 예정일', value: `${returnDate} ${returnTime}` },
+        ...(overdueDays > 0 ? [{ label: '연체 일수', value: `${overdueDays}일` }] : []),
+      ])}
+      ${createEquipmentList(items)}
+      <p style="margin: 16px 0 0 0; color: #6c757d; font-size: 13px; line-height: 1.6;">
+        문의사항이 있으시면 관리자에게 연락해 주세요.
+      </p>
+    `;
+
+    const htmlEmail = createEmailTemplate('반납 요청 안내', htmlContent);
+    
+    await sendMail(
+      userEmail,
+      overdueDays > 0 
+        ? `[긴급] 장비 반납 기한이 ${overdueDays}일 초과되었습니다`
+        : '장비 반납 기한 안내',
+      `${userName}님, 대여하신 장비의 반납을 요청드립니다.\n\n예약 ID: ${rentalId}\n반납 예정일: ${returnDate} ${returnTime}\n${overdueDays > 0 ? `연체 일수: ${overdueDays}일\n` : ''}\n장비 목록:\n${equipmentListText}\n\nDKit 장비대여 시스템`,
+      htmlEmail
+    );
+    
+    // 발송 기록 업데이트
+    const today = now.toISOString().split('T')[0];
+    await db.collection('reservations').doc(rentalId).update({
+      lastOverdueReminderDate: today,
+      overdueReminderCount: (reservation.overdueReminderCount || 0) + 1
+    });
+
+    console.log(`✅ 수동 연체 독촉 메일 발송 완료 - ID: ${rentalId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Overdue reminder sent successfully',
+      overdueDays: overdueDays
+    });
+
+  } catch (error) {
+    console.error('❌ 수동 연체 독촉 메일 발송 실패:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
