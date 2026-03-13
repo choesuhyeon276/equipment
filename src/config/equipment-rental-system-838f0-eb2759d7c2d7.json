@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "equipment-rental-system-838f0",
+  "private_key_id": "eb2759d7c2d721d9abd05a657fcfef1f301f447a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDDCybhKIi8qm0h\nKOoqdR5G+DzSZXUwPJKqkQZKemg8OdG+Iqia2fRbzZ88Ew7kX8oPwjAZIn/vCiHX\nZ6UKaijBqIWUDsDclgWESVXRxoVbZWBPMmllgGp3cJ0tqx1PFanRBgqWQSlTixTs\nRxZ5hwtWfF0tUx8niatQffpGKdA3P5qgPpKRbdGMtN0u0QrAhc3CQSzxn1Lr+EAU\nGRUkkbtgE9TYQR7ADuzBFShAjUJdIGRjHE/azsYnt3yRXp4g65CpW6J8LJLStFeg\nFzefI/dTR9FyLFDh7xuU2Uver+Li9k+P5QNJaBImZwQEt5YowZ8L0a8hgfQvzdKY\nCzH3gwz1AgMBAAECggEALCsFVe2w8VCCwASc6pp1Dcs/MsIJBLBi4j9PNmR74E+T\noMQGfHKo9HUe/yKtt6e9gU4PSFHYuNAJk9cDt9UMf7Zi8YFZyVory6Yzyfpzzpup\ncKXQ2kx3T67v2Ryr2XHlb9E3aok9C48uYMdEXqbnOWGWVCJDptd1NRgiKetkHG5k\nWiPsaODqRMrKH3Qb2ZBHD5f4kfGg6/JkZPC3KKXbOxrBHFFnJ89Vudf/sqECuhlN\nkaSE0zua5d79S15Tmkwh4NOCq4Pq7iVjSy1MLFH+Q44E7S2tfuNWdsVsE5VRcGql\nkbPw3BXCFavXq77YDdcJ0x8ZzIyupL6RV1jMzyADDQKBgQDxgbKr6ePoRmHR/y2E\natPu5Q/Gtv4nb/B9u39GguoQFJ7wEwTqxAvS/rnpm3a6yLbjfctN1whZJDv/bvbM\nhL2mt+Eh33E61G8O4bJafa/0k5BtybbxCWsfkHMk2QgwuwQIK/7lakORbVW92KyC\na4MYTVj9r97T5jzBpkxWH/nv6wKBgQDOv6KKRPyVXGKwwoyCN79ZUg7PrT/IDGLU\nqMq5nYPKz27RbrhSh5Yx+XTDv59uzrtxxNWHHcM/6khklQj7QcMRPQZRgN0cTw/W\na+WKAwoWsna/P+GsJdkWY8pxl3VYHkAti1/NYo5TXdYIi/ERfCkFoPELWri4HDbM\nSvC5cpyenwKBgQCEBxeajD8gGHoZx5smrRA3pdo+FIRVIwkic4JdFezH5b4OGRez\nEII2UzNn1qnN6zSwoXCnmUrjEMAMIKmjnV3g6t2VGwZX1xLv28sZVWUAHDv1CTWO\nCEwb8WhBWLT1jwfhP8wVt0ZBFritFOsaUZRVkNN5vM/goBnO9A7/dnO5CQKBgGio\n6gdE1PhnRC5mzeo9fkghGg5XjaofWwh8SeOcsVLBnz+15Okiag3yUgGlx3e4f3sg\nQVec4XJBj1QbfehzaeQYGFK6ATSLcWECTbiHwVusDCDUndEfd7211o2aNnTdG2/y\n1hSKh7H8FpVNAkPvrnSC/ILa8heBcNwKM8ItGsvRAoGAERcnxGf0GJVRAsC3E+1S\nbHJ0pIsPzrWR6vlZjavH0iBjX8hO4PBJ/nldtstMByeZnDXtVRnn0iwnc9gw4PQV\nnY0GJiMvREg0VmvncGuerioHPtczozQ6Ob2VYpzwqx1pFOudAScewMQkNAUG2htm\nwYcQdyWimI1FJs1WG0XyYuc=\n-----END PRIVATE KEY-----\n",
+  "client_email": "spredsheet@equipment-rental-system-838f0.iam.gserviceaccount.com",
+  "client_id": "102205751880555721797",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/spredsheet%40equipment-rental-system-838f0.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

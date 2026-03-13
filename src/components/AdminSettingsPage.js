@@ -203,15 +203,7 @@ const AdminSettingsPage = () => {
       return;
     }
 
-    // 카카오톡 링크 유효성 검사
-    if (settings.kakaoOpenChatUrl.trim()) {
-      const isValidKakaoUrl = settings.kakaoOpenChatUrl.includes('open.kakao.com') ||
-                              settings.kakaoOpenChatUrl.includes('kakaotalk://');
-      if (!isValidKakaoUrl) {
-        setMessage({ type: 'error', text: '올바른 카카오톡 오픈채팅 링크를 입력해주세요.' });
-        return;
-      }
-    }
+   
 
     setSaving(true);
     try {
@@ -486,7 +478,6 @@ const AdminSettingsPage = () => {
             value={settings.kakaoOpenChatUrl || ''}
             onChange={(e) => handleInputChange('kakaoOpenChatUrl', e.target.value)}
             onKeyDown={(e) => handleKeyDown(e, 'kakaoOpenChatUrl')}
-            placeholder="예: https://open.kakao.com/o/xxxxxxxx"
             autoComplete="off"
             style={{
               width: '100%',

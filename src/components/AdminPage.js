@@ -1650,6 +1650,37 @@ const AdminPage = () => {
                 </a>
               </div>
             )}
+            {/* 개별 유저 벌점 초기화 */}
+<div style={{ marginTop: 15, paddingTop: 15, borderTop: '1px solid #e0e0e0' }}>
+  <button
+    onClick={async () => {
+      if (!window.confirm(`${user.name || '해당 유저'}의 벌점을 초기화하시겠습니까?`)) return;
+      try {
+        await updateDoc(doc(db, 'user_profiles', user.id), {
+          penaltyPoints: 0,
+          penaltyHistory: [],
+        });
+        alert('벌점이 초기화되었습니다.');
+        fetchAllUsers();
+      } catch (e) {
+        console.error(e);
+        alert('초기화 중 오류가 발생했습니다.');
+      }
+    }}
+    style={{
+      padding: '8px 16px',
+      backgroundColor: '#e53935',
+      color: '#fff',
+      border: 'none',
+      borderRadius: 6,
+      cursor: 'pointer',
+      fontSize: 13,
+      fontWeight: 'bold',
+    }}
+  >
+    벌점 초기화
+  </button>
+</div>
           </div>
         )}
       </div>
@@ -1912,6 +1943,41 @@ const AdminPage = () => {
                 새로고침
               </button>
             </div>
+            <button
+  onClick={async () => {
+    if (!window.confirm('모든 유저의 벌점을 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+    try {
+      const batch = writeBatch(db);
+      allUsers.forEach((user) => {
+        batch.update(doc(db, 'user_profiles', user.id), {
+          penaltyPoints: 0,
+          penaltyHistory: [],
+        });
+      });
+      await batch.commit();
+      alert(`${allUsers.length}명의 벌점이 초기화되었습니다.`);
+      fetchAllUsers();
+    } catch (e) {
+      console.error(e);
+      alert('전체 초기화 중 오류가 발생했습니다.');
+    }
+  }}
+  style={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '8px 15px',
+    backgroundColor: '#e53935',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 'bold',
+  }}
+>
+  전체 벌점 초기화
+</button>
           </div>
           {renderUserSortControls()}
           {filteredUsers.length > 0 ? (

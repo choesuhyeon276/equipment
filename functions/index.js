@@ -7,8 +7,8 @@ const cors = require('cors')({ origin: true }); // ✅ CORS 패키지 추가
 admin.initializeApp();
 
 // 🔐 Gmail 환경변수
-const gmailEmail = functions.config().gmail.user;
-const gmailPassword = functions.config().gmail.pass;
+const gmailEmail = process.env.GMAIL_USER;
+const gmailPassword = process.env.GMAIL_PASS;
 
 // 📧 메일 전송 세팅
 const transporter = nodemailer.createTransport({
@@ -24,16 +24,14 @@ const db = admin.firestore();
 
 // 🔐 Service Account 인증 설정
 const getCalendarAuth = () => {
-  const serviceAccount = functions.config().google?.serviceaccount;
-  
-  if (!serviceAccount) {
-    throw new Error('Service Account 설정이 없습니다. firebase functions:config:set 명령어로 설정하세요.');
+  if (!process.env.CLIENT_EMAIL || !process.env.PRIVATE_KEY) {
+    throw new Error('CLIENT_EMAIL 또는 PRIVATE_KEY 환경변수가 없습니다.');
   }
 
   return new google.auth.JWT(
-    serviceAccount.client_email,
+    process.env.CLIENT_EMAIL,
     null,
-    serviceAccount.private_key.replace(/\\n/g, '\n'),
+    process.env.PRIVATE_KEY.replace(/\\n/g, '\n'),
     ['https://www.googleapis.com/auth/calendar']
   );
 };
@@ -45,7 +43,7 @@ const addEvent = async ({ title, description, startDate, startTime, endDate, end
     const calendar = google.calendar({ version: 'v3', auth });
 
     // 🔍 Firebase Functions 환경변수에서 Calendar ID 가져오기
-    const calendarId = functions.config().google?.calendar_id || 'primary';
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
     const event = {
       summary: title,
@@ -502,6 +500,198 @@ exports.deleteCalendarEvent = functions.https.onRequest(async (req, res) => {
 });
 
 ///////////////////////////////////////////////////////////////////////////////////////
+// 📊 Google Sheets 내보내기 API (Service Account 방식)
+///////////////////////////////////////////////////////////////////////////////////////
+const getSheetsAuth = () => {
+  if (!process.env.CLIENT_EMAIL || !process.env.PRIVATE_KEY) {
+    throw new Error('CLIENT_EMAIL 또는 PRIVATE_KEY 환경변수가 없습니다.');
+  }
+
+  return new google.auth.JWT(
+    process.env.CLIENT_EMAIL,
+    null,
+    process.env.PRIVATE_KEY.replace(/\\n/g, '\n'),
+    ['https://www.googleapis.com/auth/spreadsheets']
+  );
+};
+
+exports.exportToSheets = functions.https.onRequest(async (req, res) => {
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://equipment-rental-system.vercel.app',
+    'https://equipment-rental-system-838f0.web.app',
+    'https://equipment-rental-system-838f0.firebaseapp.com'
+  ];
+  
+  const origin = req.headers.origin;
+  res.set('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'Method Not Allowed' }); return; }
+
+  try {
+    const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+if (!SPREADSHEET_ID) throw new Error('SPREADSHEET_ID 환경변수가 없습니다.');
+
+    const auth = getSheetsAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+// Firebase에서 데이터 가져오기
+const snapshot = await db.collection('cameras').get();
+
+// 카테고리 순서 정의
+const categoryOrder = ['Camera', 'Lens', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC'];
+
+// 데이터 정렬 (카테고리 순서 → displayOrder 순)
+const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+items.sort((a, b) => {
+  const ai = categoryOrder.indexOf(a.category) === -1 ? 99 : categoryOrder.indexOf(a.category);
+  const bi = categoryOrder.indexOf(b.category) === -1 ? 99 : categoryOrder.indexOf(b.category);
+  if (ai !== bi) return ai - bi;
+  return (a.displayOrder || 0) - (b.displayOrder || 0);
+});
+
+const rows = [
+  ['카테고리', '이미지', '이름', '마운트', '특이사항'],
+  ...items.map(item => [
+    item.category || '',
+    item.imageURL ? `=IMAGE("${item.imageURL}")` : '',
+    item.name || '',
+    item.mountType || '',
+    item.issues || '',
+  ])
+];
+
+// 기존 데이터 초기화
+await sheets.spreadsheets.values.clear({
+  spreadsheetId: SPREADSHEET_ID,
+  range: 'Equipment',
+});
+
+// 새로 작성
+await sheets.spreadsheets.values.update({
+  spreadsheetId: SPREADSHEET_ID,
+  range: 'Equipment!A1',
+  valueInputOption: 'USER_ENTERED',
+  requestBody: { values: rows },
+});
+
+await sheets.spreadsheets.batchUpdate({
+  spreadsheetId: SPREADSHEET_ID,
+  requestBody: {
+    requests: [
+      {
+        updateDimensionProperties: {
+          range: {
+            sheetId: 0,
+            dimension: 'ROWS',
+            startIndex: 1,
+            endIndex: rows.length,
+          },
+          properties: { pixelSize: 80 },
+          fields: 'pixelSize',
+        },
+      },
+      {
+        updateDimensionProperties: {
+          range: {
+            sheetId: 0,
+            dimension: 'COLUMNS',
+            startIndex: 1,
+            endIndex: 2,
+          },
+          properties: { pixelSize: 100 },
+          fields: 'pixelSize',
+        },
+      },
+    ],
+  },
+});
+
+console.log(`✅ Sheets 내보내기 완료 - ${rows.length - 1}개`);
+res.status(200).json({ success: true, count: rows.length - 1 });
+
+  } catch (error) {
+    console.error('❌ Sheets 내보내기 실패:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+exports.importFromSheets = functions.https.onRequest(async (req, res) => {
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://equipment-rental-system.vercel.app',
+    'https://equipment-rental-system-838f0.web.app',
+    'https://equipment-rental-system-838f0.firebaseapp.com'
+  ];
+  
+  const origin = req.headers.origin;
+  res.set('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'Method Not Allowed' }); return; }
+
+  try {
+    const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+if (!SPREADSHEET_ID) throw new Error('SPREADSHEET_ID 환경변수가 없습니다.');
+
+    const auth = getSheetsAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Equipment',
+    });
+
+    const rows = response.data.values || [];
+    if (rows.length < 2) {
+      res.status(200).json({ success: true, updated: 0, created: 0 });
+      return;
+    }
+
+    const headers = rows[0]; // 첫 번째 행 = 헤더
+    const dataRows = rows.slice(1);
+
+    let updated = 0, created = 0;
+    const batch = db.batch();
+
+    for (const row of dataRows) {
+      const id = row[0];
+      if (!id) continue;
+
+      const data = {
+        name: row[1] || '',
+        category: row[2] || '',
+        status: row[3] || '',
+      };
+
+      const ref = db.collection('cameras').doc(id);
+      const existing = await ref.get();
+
+      if (existing.exists) {
+        batch.update(ref, data);
+        updated++;
+      } else {
+        batch.set(ref, data);
+        created++;
+      }
+    }
+
+    await batch.commit();
+    console.log(`✅ Sheets 가져오기 완료 - 업데이트: ${updated}, 생성: ${created}`);
+    res.status(200).json({ success: true, updated, created });
+
+  } catch (error) {
+    console.error('❌ Sheets 가져오기 실패:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+///////////////////////////////////////////////////////////////////////////////////////
 // ✅ 1. 대여 신청 생성 시 → 관리자에게 메일만 발송
 ///////////////////////////////////////////////////////////////////////////////////////
 exports.onRentalCreatedAdminNotify = functions.firestore
@@ -914,11 +1104,11 @@ exports.sendOverdueReminders = functions.pubsub
         const overdueDays = Math.ceil((now - returnDateTime) / (1000 * 60 * 60 * 24));
         
         // 이미 연체 메일 발송 여부 확인 (하루에 한 번만 발송)
-        const lastReminderDate = reservation.lastOverdueReminderDate;
-        if (lastReminderDate === today) {
-          console.log(`⏭️ 이미 오늘 연체 메일 발송됨 - ID: ${rentalId}`);
-          continue;
-        }
+        const reminderCount = reservation.overdueReminderCount || 0;
+if (reminderCount >= 1) {
+  console.log(`⏭️ 이미 연체 메일 발송됨 (총 ${reminderCount}회) - ID: ${rentalId}`);
+  continue;
+}
         
         const userEmail = reservation.userEmail;
         const userName = reservation.userName || reservation.userId || '사용자';
