@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase/firebaseConfig';
 import { ChevronUp } from 'lucide-react';
+import FloatingCart from '../../components/cart/FloatingCart';
 
 // CSS 파일 임포트 추가
 import './styles/musinsa-style.css';
@@ -532,6 +533,9 @@ useEffect(() => {
       color: '#000000',
       overflowX: 'hidden'
     }}>
+
+      <FloatingCart />
+      
       <style>{additionalStyles}</style>
       
       {/* Header Component */}

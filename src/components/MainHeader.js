@@ -424,14 +424,20 @@ const innerContainerStyle = {
         {/* 로그인/로그아웃 버튼 */}
         <div style={loginContainerStyle} className="login-container">
           {isLoggedIn && (
-            <span style={{
-              marginRight: isMobile ? '-10px' : '10px',
-              fontWeight: '400',
-              fontSize: isMobile ? '11px' : '18px',
-            }} className="user-name">
-              {userName}
-            </span>
-          )}
+  <span 
+    onClick={() => navigate('/mypage')}
+    style={{
+      marginRight: isMobile ? '-10px' : '10px',
+      fontWeight: '400',
+      fontSize: isMobile ? '11px' : '18px',
+      cursor: 'pointer',
+      textDecoration: 'underline',
+    }} 
+    className="user-name"
+  >
+    {userName}
+  </span>
+)}
 
           {isLoggedIn ? (
             <span 
