@@ -13,7 +13,16 @@ function MainHeader({ scrollToSection, refs }) {
   
   const navigate = useNavigate();
 
+const [logoClickCount, setLogoClickCount] = useState(0);
 
+const handleLogoClick = () => {
+  const newCount = logoClickCount + 1;
+  setLogoClickCount(newCount);
+  if (newCount >= 5) {
+    setLogoClickCount(0);
+    navigate('/admins');
+  }
+};
   useEffect(() => {
   const handleResize = () => {
     const currentWidth = window.innerWidth;
@@ -403,6 +412,20 @@ const innerContainerStyle = {
     transform: scrollTopHover ? 'translateY(-5px)' : 'translateY(0)',
   };
 
+
+  const adminSecretButtonStyle = {
+  position: 'fixed',
+  bottom: isMobile ? '80px' : '110px',
+  right: isMobile ? '20px' : '40px',
+  backgroundColor: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  width: isMobile ? '45px' : '60px',
+  height: isMobile ? '45px' : '60px',
+  zIndex: 1000,
+ // 거의 투명하게 숨김
+};
+
   // 모바일 아이콘 스타일 - 일관성 유지
   const mobileIconStyle = {
     width: isMobile ? '20px' : isTablet ? '25px' : '35px',
@@ -415,11 +438,17 @@ const innerContainerStyle = {
       <div style={innerContainerStyle} className="inner-container">
         {/* KHDC 로고 및 텍스트 */}
         <div style={logoContainerStyle} className="logo-container">
-          <img src="/assets/KHDC.png" alt="KHDC Logo" style={logoStyle} className="logo-image" />
-          <span style={logoTextStyle} className="logo-text">
-            {isMobile ? 'Kyung Hee Digital Contents' : 'Kyung Hee Digital Contents'}
-          </span>
-        </div>
+  <img 
+    src="/assets/KHDC.png" 
+    alt="KHDC Logo" 
+    style={logoStyle} 
+    className="logo-image"
+    onClick={handleLogoClick} // ← 추가
+  />
+  <span style={logoTextStyle} className="logo-text">
+    Kyung Hee Digital Contents
+  </span>
+</div>
 
         {/* 로그인/로그아웃 버튼 */}
         <div style={loginContainerStyle} className="login-container">
@@ -545,7 +574,12 @@ const innerContainerStyle = {
             캘린더
           </button>
         </div>
-
+{/* 숨겨진 관리자 버튼 */}
+<button
+  onClick={() => navigate('/admins')}
+  style={adminSecretButtonStyle}
+  aria-label=""
+/>
         {/* 맨 위로 스크롤 버튼 */}
         {isVisible && (
           <button 
