@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../firebase/firebaseConfig';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 const FloatingCart = ({ userId: propUserId }) => {
   const navigate = useNavigate();
@@ -11,6 +11,12 @@ const FloatingCart = ({ userId: propUserId }) => {
   const [newItemId, setNewItemId] = useState(null);
   const [prevCount, setPrevCount] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // 드래그 관련 상태
+  const [position, setPosition] = useState({ top: 120, right: 20 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef(null);
+  const wrapperRef = useRef(null);
 
   const getUserId = () => {
     if (propUserId) return propUserId;
@@ -56,6 +62,70 @@ const FloatingCart = ({ userId: propUserId }) => {
     return () => unsubscribe();
   }, [propUserId]);
 
+  // 아이템 삭제
+  const handleDeleteItem = async (e, itemId) => {
+    e.stopPropagation();
+    const userId = getUserId();
+    if (!userId) return;
+
+    const updatedItems = cartItems.filter((item) => item.id !== itemId);
+    const userCartRef = doc(db, 'user_carts', userId);
+    await updateDoc(userCartRef, { items: updatedItems });
+  };
+
+  // 드래그 - mousedown
+  const handleMouseDown = useCallback((e) => {
+    // 닫기 버튼, 삭제 버튼 등 data-no-drag 영역 제외
+    if (e.target.closest('[data-no-drag]')) return;
+    const w = wrapperRef.current?.offsetWidth || 260;
+    dragStart.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startTop: position.top,
+      startLeft: window.innerWidth - position.right - w,
+      moved: false,
+    };
+    e.preventDefault();
+  }, [position]);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!dragStart.current) return;
+      const dx = e.clientX - dragStart.current.mouseX;
+      const dy = e.clientY - dragStart.current.mouseY;
+      if (!dragStart.current.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      dragStart.current.moved = true;
+      setIsDragging(true);
+
+      const newLeft = dragStart.current.startLeft + dx;
+      const newTop = dragStart.current.startTop + dy;
+      const w = wrapperRef.current?.offsetWidth || 260;
+      const h = wrapperRef.current?.offsetHeight || 100;
+
+      const clampedLeft = Math.max(0, Math.min(window.innerWidth - w, newLeft));
+      const clampedTop = Math.max(0, Math.min(window.innerHeight - h, newTop));
+      setPosition({ top: clampedTop, right: window.innerWidth - clampedLeft - w });
+    };
+
+    const handleMouseUp = () => {
+      if (dragStart.current?.moved) {
+        setTimeout(() => setIsDragging(false), 0);
+      }
+      dragStart.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleHeaderClick = () => {
+    if (!isDragging) setIsMinimized((prev) => !prev);
+  };
+
   const totalCount = cartItems.length;
 
   const formatDate = (dateStr) => {
@@ -74,8 +144,23 @@ const FloatingCart = ({ userId: propUserId }) => {
   if (!isOpen) return null;
 
   return (
-    <div style={styles.wrapper}>
-      <div style={styles.header} onClick={() => setIsMinimized(!isMinimized)}>
+    <div
+      ref={wrapperRef}
+      style={{
+        ...styles.wrapper,
+        top: `${position.top}px`,
+        right: `${position.right}px`,
+        cursor: isDragging ? 'grabbing' : 'default',
+      }}
+    >
+      <div
+        style={{
+          ...styles.header,
+          cursor: isDragging ? 'grabbing' : 'grab',
+        }}
+        onMouseDown={handleMouseDown}
+        onClick={handleHeaderClick}
+      >
         <div style={styles.headerLeft}>
           <span style={styles.headerIcon}>🛒</span>
           <span style={styles.headerTitle}>담은 장비</span>
@@ -83,10 +168,8 @@ const FloatingCart = ({ userId: propUserId }) => {
             <span style={styles.badge}>{totalCount}</span>
           )}
         </div>
-        <div style={styles.headerActions}>
-          <span style={styles.chevron}>
-            {isMinimized ? '▲' : '▼'}
-          </span>
+        <div style={styles.headerActions} data-no-drag="true">
+          <span style={styles.chevron}>{isMinimized ? '▲' : '▼'}</span>
           <span
             style={styles.closeBtn}
             onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
@@ -117,11 +200,7 @@ const FloatingCart = ({ userId: propUserId }) => {
                   >
                     <div style={styles.itemImageWrap}>
                       {item.imageURL ? (
-                        <img
-                          src={item.imageURL}
-                          alt={item.name}
-                          style={styles.itemImage}
-                        />
+                        <img src={item.imageURL} alt={item.name} style={styles.itemImage} />
                       ) : (
                         <div style={styles.itemImagePlaceholder}>📷</div>
                       )}
@@ -138,6 +217,26 @@ const FloatingCart = ({ userId: propUserId }) => {
                         </p>
                       )}
                     </div>
+
+                    {/* 삭제 버튼 */}
+                    <button
+                      data-no-drag="true"
+                      style={styles.deleteBtn}
+                      onClick={(e) => handleDeleteItem(e, item.id)}
+                      title="장바구니에서 제거"
+                      onMouseEnter={e => Object.assign(e.currentTarget.style, {
+                        backgroundColor: '#fee2e2',
+                        color: '#dc2626',
+                        borderColor: '#fca5a5',
+                      })}
+                      onMouseLeave={e => Object.assign(e.currentTarget.style, {
+                        backgroundColor: 'transparent',
+                        color: '#ccc',
+                        borderColor: 'transparent',
+                      })}
+                    >
+                      ✕
+                    </button>
 
                     {newItemId === item.id && (
                       <span style={styles.newBadge}>NEW</span>
@@ -165,8 +264,6 @@ const FloatingCart = ({ userId: propUserId }) => {
 const styles = {
   wrapper: {
     position: 'fixed',
-    top: '120px',
-    right: '20px',
     width: '260px',
     backgroundColor: '#fff',
     borderRadius: '16px',
@@ -176,6 +273,7 @@ const styles = {
     border: '1px solid #E8E8E8',
     overflow: 'hidden',
     transition: 'box-shadow 0.2s',
+    userSelect: 'none',
   },
   header: {
     display: 'flex',
@@ -183,17 +281,13 @@ const styles = {
     alignItems: 'center',
     padding: '14px 16px',
     backgroundColor: '#000',
-    cursor: 'pointer',
-    userSelect: 'none',
   },
   headerLeft: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
   },
-  headerIcon: {
-    fontSize: '16px',
-  },
+  headerIcon: { fontSize: '16px' },
   headerTitle: {
     color: '#fff',
     fontSize: '14px',
@@ -215,10 +309,7 @@ const styles = {
     alignItems: 'center',
     gap: '10px',
   },
-  chevron: {
-    color: '#aaa',
-    fontSize: '10px',
-  },
+  chevron: { color: '#aaa', fontSize: '10px' },
   closeBtn: {
     color: '#aaa',
     fontSize: '12px',
@@ -239,15 +330,8 @@ const styles = {
     padding: '30px 10px',
     gap: '8px',
   },
-  emptyIcon: {
-    fontSize: '32px',
-    opacity: 0.4,
-  },
-  emptyText: {
-    color: '#aaa',
-    fontSize: '13px',
-    margin: 0,
-  },
+  emptyIcon: { fontSize: '32px', opacity: 0.4 },
+  emptyText: { color: '#aaa', fontSize: '13px', margin: 0 },
   itemList: {
     display: 'flex',
     flexDirection: 'column',
@@ -281,19 +365,9 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  itemImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  },
-  itemImagePlaceholder: {
-    fontSize: '20px',
-    opacity: 0.5,
-  },
-  itemInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
+  itemImage: { width: '100%', height: '100%', objectFit: 'cover' },
+  itemImagePlaceholder: { fontSize: '20px', opacity: 0.5 },
+  itemInfo: { flex: 1, minWidth: 0 },
   itemName: {
     fontSize: '13px',
     fontWeight: '700',
@@ -303,11 +377,7 @@ const styles = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
-  itemCategory: {
-    fontSize: '11px',
-    color: '#999',
-    margin: '0 0 3px 0',
-  },
+  itemCategory: { fontSize: '11px', color: '#999', margin: '0 0 3px 0' },
   itemDate: {
     fontSize: '11px',
     color: '#666',
@@ -315,6 +385,23 @@ const styles = {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+  },
+  deleteBtn: {
+    flexShrink: 0,
+    width: '24px',
+    height: '24px',
+    border: '1px solid transparent',
+    borderRadius: '6px',
+    backgroundColor: 'transparent',
+    color: '#ccc',
+    fontSize: '11px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'background-color 0.15s, color 0.15s, border-color 0.15s',
+    padding: 0,
+    lineHeight: 1,
   },
   newBadge: {
     position: 'absolute',
