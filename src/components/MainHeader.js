@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from "../firebase/firebaseConfig";
 import { toast } from 'react-toastify';
 
-function MainHeader({ scrollToSection, refs }) {
+function MainHeader() {
   
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState('');
@@ -136,7 +136,7 @@ useEffect(() => {
 
   // 버튼 호버 효과를 위한 상태 변수
   const [reserveHover, setReserveHover] = useState(false);
-  const [calendarHover, setCalendarHover] = useState(false);
+  const [returnHover, setReturnHover] = useState(false);
   const [scrollTopHover, setScrollTopHover] = useState(false);
 
  // 메인 컨테이너 스타일 - 높이 조정
@@ -376,15 +376,15 @@ const innerContainerStyle = {
     justifyContent: 'center', // 항상 중앙 정렬
   };
 
-  // 캘린더 버튼 스타일 개선
-  const calendarButtonStyle = {
+  // 반납하기 버튼 스타일
+  const returnButtonStyle = {
     ...buttonStyle,
-    backgroundColor: calendarHover ? '#C0C0C0' : '#D3D3D3',
-    transform: calendarHover ? 'translateY(-3px)' : 'translateY(0)',
-    boxShadow: calendarHover 
-      ? '0 10px 15px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.15)' 
+    backgroundColor: returnHover ? '#C0C0C0' : '#D3D3D3',
+    transform: returnHover ? 'translateY(-3px)' : 'translateY(0)',
+    boxShadow: returnHover
+      ? '0 10px 15px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.15)'
       : '0 6px 10px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.1)',
-    justifyContent: 'center', // 항상 중앙 정렬
+    justifyContent: 'center',
   };
 
   // 스크롤 업 버튼 스타일 - 모바일에서 위치와 크기 최적화
@@ -557,21 +557,21 @@ const innerContainerStyle = {
             예약하기
           </button>
 
-          {/* 캘린더 버튼 */}
-          <button 
-            onClick={() => scrollToSection(refs.calendar)}
-            onMouseEnter={() => setCalendarHover(true)}
-            onMouseLeave={() => setCalendarHover(false)}
-            style={calendarButtonStyle}
-            className="calendar-button"
+          {/* 반납하기 버튼 */}
+          <button
+            onClick={() => navigate('/mypage', { state: { activeTab: 'current' } })}
+            onMouseEnter={() => setReturnHover(true)}
+            onMouseLeave={() => setReturnHover(false)}
+            style={returnButtonStyle}
+            className="return-button"
           >
-            <img 
-              src="/assets/Calendar.png" 
-              alt="Calendar Icon"
+            <img
+              src="/assets/CheckMark.png"
+              alt="Return Icon"
               style={mobileIconStyle}
-              className="button-icon" 
+              className="button-icon"
             />
-            캘린더
+            반납하기
           </button>
         </div>
 {/* 숨겨진 관리자 버튼 */}

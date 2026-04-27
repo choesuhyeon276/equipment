@@ -24,7 +24,6 @@ function Login() {
   const handleGoogleLogin = useCallback(async () => {
     setLoading(true);
     setError("");
-    console.log("구글 로그인 시작");
 
     try {
       const provider = new GoogleAuthProvider();
@@ -81,16 +80,13 @@ function Login() {
         !profile?.agreementURL;
 
       if (isIncomplete) {
-        console.log("정보 누락 → MyPage로 리디렉션");
         navigate("/mypage", { state: { showAgreementReminder: true } });
       } else {
-        console.log("정보 완전 → 메인으로 이동");
-        navigate("/Main");
+        navigate("/main");
       }
 
       setLoading(false);
     } catch (err) {
-      console.error("로그인 오류(raw):", err);
       setLoading(false);
       setError("로그인 실패: " + friendly(err));
       // ❗ 여기서 Redirect로 폴백하지 않습니다.

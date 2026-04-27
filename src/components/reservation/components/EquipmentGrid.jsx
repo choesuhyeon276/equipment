@@ -326,6 +326,11 @@ const InternalImageModal = ({ isOpen, onClose, equipment }) => {
   );
 };
 
+const hasInternalImages = (camera) =>
+  (Array.isArray(camera.internalImageURLs) && camera.internalImageURLs.length > 0) ||
+  (typeof camera.internalImageURL === 'string' && camera.internalImageURL.trim() !== '') ||
+  (typeof camera.internalImageURLs === 'string' && camera.internalImageURLs.trim() !== '');
+
 const EquipmentGrid = ({
   currentCameras = [],
   selectedCameraId,
@@ -673,7 +678,7 @@ const EquipmentGrid = ({
           <div style={{
             position: 'absolute',
             top: '10px',
-            right: '10px',
+            right: hasInternalImages(camera) ? '50px' : '10px',
             backgroundColor: '#ff0000',
             color: 'white',
             padding: '6px 12px',
@@ -684,8 +689,8 @@ const EquipmentGrid = ({
             borderRadius: '6px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}>
-           대여 중
-          </div> 
+            대여 중
+          </div>
         )}
 
         {/* 내 장바구니에 있는 항목 표시 */}
@@ -793,7 +798,7 @@ const EquipmentGrid = ({
             borderRadius: '6px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}>
-            {camera.status === 'rented' ? '수리 중' : '수리 중'}
+            {camera.status === 'rented' ? '대여 중' : '수리 중'}
           </div>
         )}
 

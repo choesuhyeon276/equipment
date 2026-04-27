@@ -55,11 +55,8 @@ const CartPage = () => {
       const userCartRef = doc(db, 'user_carts', userId);
       const cartDoc = await getDoc(userCartRef);
       
-      console.log('Firebase Cart Document:', cartDoc.exists());
-
       if (cartDoc.exists()) {
         const firebaseCartItems = cartDoc.data().items || [];
-        console.log('Firebase Cart Items:', firebaseCartItems);
         setCartItems(firebaseCartItems);
         localStorage.setItem('cart', JSON.stringify(firebaseCartItems));
       }
@@ -76,11 +73,8 @@ const CartPage = () => {
       const userProfileRef = doc(db, 'user_profiles', userId);
       const profileDoc = await getDoc(userProfileRef);
       
-      console.log('Firebase User Profile Document:', profileDoc.exists());
-
       if (profileDoc.exists()) {
         const profileData = profileDoc.data();
-        console.log('User Profile Data:', profileData);
         setUserProfile(profileData);
       }
     } catch (error) {
@@ -127,8 +121,6 @@ const CartPage = () => {
         timeZone: 'Asia/Seoul'
       };
       
-      console.log('Creating admin calendar event:', eventData);
-      
       // 방법 1: 백엔드 API를 통해 이벤트 생성 (Firebase Function 또는 별도 서버)
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
@@ -142,9 +134,8 @@ const CartPage = () => {
         throw new Error('서버에서 오류가 발생했습니다.');
       }
       
-      const result = await response.json();
-      console.log('캘린더 등록 성공:', result);
-      
+      await response.json();
+
       // 성공 시 장바구니 비우기
       if (user) {
         try {
@@ -199,8 +190,6 @@ const CartPage = () => {
         itemsByDate[dateKey].items.push(item);
       });
 
-      console.log('📅 날짜별 그룹화된 아이템:', itemsByDate);
-
       // 각 날짜 그룹별로 예약 생성
       const reservationPromises = Object.values(itemsByDate).map(async (group) => {
         const startDateTime = `${group.rentalDate}T${group.rentalTime}:00`;
@@ -235,13 +224,9 @@ const CartPage = () => {
             });
 
             calendarEventId = response.result.id;
-            console.log('✅ 캘린더 이벤트 생성 완료:', calendarEventId);
           } catch (calError) {
-            console.error('⚠️ 캘린더 이벤트 생성 실패:', calError);
             // 캘린더 실패해도 예약은 진행
           }
-        } else {
-          console.warn('⚠️ Google Calendar API가 로드되지 않았습니다.');
         }
 
         // 2️⃣ Firestore에 예약 저장 (calendarEventId 포함)
@@ -255,23 +240,21 @@ const CartPage = () => {
           endDateTime,
           status: 'pending',
           createdAt: new Date().toISOString(),
-          
-          // 사용자 정보
           userName: userProfile?.name || '',
           userPhone: userProfile?.phoneNumber || '',
           userStudentId: userProfile?.studentId || '',
           userEmail: userProfile?.email || '',
           long_imageURL: uploadedFileURL || null,
-          
-          // 🔥 캘린더 이벤트 ID 저장
           calendarEventId: calendarEventId,
         });
-        
-        console.log(`✅ Firestore 예약 저장 완료 (${startDateTime} ~ ${endDateTime})`);
       });
 
       // 모든 예약 저장 완료 대기
-      await Promise.all(reservationPromises);
+      const results = await Promise.allSettled(reservationPromises);
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length > 0) {
+        throw new Error(`${failed.length}개 예약 저장에 실패했습니다.`);
+      }
 
       // 3️⃣ 장바구니 비우기
       if (user) {
@@ -306,11 +289,9 @@ const CartPage = () => {
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
-      console.log('Stored User:', parsedUser);
       fetchFirebaseCartItems(parsedUser.uid);
-      fetchUserProfile(parsedUser.uid); // 사용자 프로필 정보도 가져오기
+      fetchUserProfile(parsedUser.uid);
     } else {
-      console.log('No user found in localStorage');
       setLoading(false);
     }
   }, []);
@@ -377,15 +358,12 @@ const CartPage = () => {
     }
   
     const firstItem = cartItems[0];
-  
+
     if (!firstItem || !firstItem.rentalDate || !firstItem.returnDate) {
       toast.warn("대여 날짜와 반납 날짜를 선택해주세요.");
       return;
     }
-  
-    const startDate = firstItem.rentalDate;
-    const endDate = firstItem.returnDate;
-  
+
     saveReservationToFirebase();
   };
 
@@ -462,18 +440,18 @@ const CartPage = () => {
     );
   }
 
-  // 데스크탑 버전 렌더링 - 원래 디자인 완전 유지
+  // 데스크탑 버전 렌더링
   return (
     <div className="page-container" style={{
       position: 'relative',
-      width: '1440px', 
+      width: '100%',
+      maxWidth: '1440px',
       minHeight: '100vh',
       background: '#FFFFFF',
       margin: '0 auto',
       paddingBottom: '150px',
       fontFamily: 'Pretendard, sans-serif',
       color: '#000000',
-      overflowX: 'auto' // 가로 스크롤 허용 (화면이 작을 때 스크롤됨)
     }}>
       {/* 헤더 */}
       <div style={{

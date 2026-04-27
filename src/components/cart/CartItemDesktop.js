@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
+import { formatKoreanDateTime } from '../../pages/MyPage/utils/formatters';
 
 // 장바구니 아이템 컴포넌트 (데스크탑)
 const CartItemDesktop = ({ item, onRemove }) => {
@@ -51,15 +52,21 @@ const CartItemDesktop = ({ item, onRemove }) => {
           }}>
             {item.name}
           </h3>
-          <div 
-            style={{ 
-              cursor: 'pointer',
-              color: '#888'
-            }}
+          <button
+            aria-label={`${item.name} 삭제`}
             onClick={() => onRemove(item.id)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#888',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
           >
             <Trash2 size={20} />
-          </div>
+          </button>
         </div>
         <p style={{ color: '#666', marginTop: '5px' }}>
           {item.category} | {item.condition}
@@ -80,13 +87,13 @@ const CartItemDesktop = ({ item, onRemove }) => {
           alignItems: 'flex-start', 
           marginTop: '15px' 
         }}>
-          <div style={{ marginBottom: '0px' }}>
-            <span style={{ fontWeight: '', marginRight: '10px' }}>대여 시작:</span>
-            {item.rentalDate} {item.rentalTime}
+          <div style={{ marginBottom: '4px' }}>
+            <span style={{ fontWeight: 'bold', marginRight: '10px' }}>대여 시작:</span>
+            {formatKoreanDateTime(`${item.rentalDate}T${item.rentalTime}`)}
           </div>
           <div>
-            <span style={{ fontWeight: '', marginRight: '10px' }}>반납 예정:</span>
-            {item.returnDate} {item.returnTime}
+            <span style={{ fontWeight: 'bold', marginRight: '10px' }}>반납 예정:</span>
+            {formatKoreanDateTime(`${item.returnDate}T${item.returnTime}`)}
           </div>
         </div>
       </div>

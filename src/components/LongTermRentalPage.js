@@ -547,11 +547,10 @@ const LongTermRentalPage = () => {
       toast.warn('파일을 먼저 업로드해주세요.');
       return;
     }
-    navigate('/reservation-main', { state: { uploadedFileName } });
+    navigate('/reservation', { state: { uploadedFileName } });
   };
 
   const handleUploadComplete = (downloadURL) => {
-    console.log('✅ 업로드된 파일 URL:', downloadURL);
     setUploadedFileName(downloadURL);
     setIsReservationEnabled(true);
   };

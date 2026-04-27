@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase/firebaseConfig';
-import { ChevronUp } from 'lucide-react';
 import FloatingCart from '../../components/cart/FloatingCart';
 
 // CSS 파일 임포트 추가
@@ -40,8 +39,7 @@ const ReservationMainPage = () => {
   const location = useLocation();
   const uploadedFileURL = location.state?.uploadedFileName || localStorage.getItem('uploadedFileURL');
   const isLongTerm = Boolean(uploadedFileURL);
-  const maxDay = isLongTerm ? 30 : 8;
-  
+
   // 사용자 및 장비 상태
   const [user, setUser] = useState(null);
   const [cameras, setCameras] = useState([]);
@@ -67,7 +65,6 @@ const ReservationMainPage = () => {
   
   // 가용성 및 장바구니
   const [equipmentAvailability, setEquipmentAvailability] = useState({});
-  const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [cartItemCount, setCartItemCount] = useState(0);
   const [cartAnimation, setCartAnimation] = useState(false);
   
@@ -125,7 +122,6 @@ useEffect(() => {
   // 비로그인: 가용성 계산 스킵 (권한 에러/전부 불가 방지)
   if (!user) {
     setEquipmentAvailability({});
-    setCheckingAvailability(false);
     return;
   }
 
@@ -133,7 +129,6 @@ useEffect(() => {
 
   (async () => {
     try {
-      setCheckingAvailability(true);
       const startDate = `${rentalDate}T${rentalTime}`;
       const endDate = `${returnDate}T${returnTime}`;
 
@@ -146,16 +141,14 @@ useEffect(() => {
             auth,
             db
           );
-          return [camera.id, result]; // [id, result]
+          return [camera.id, result];
         })
       );
 
       if (cancelled) return;
       setEquipmentAvailability(Object.fromEntries(results));
     } catch (e) {
-      console.error('availability check error:', e);
-    } finally {
-      if (!cancelled) setCheckingAvailability(false);
+      // 가용성 체크 실패는 조용히 무시 (장비 목록은 그대로 유지)
     }
   })();
 
@@ -299,7 +292,6 @@ useEffect(() => {
   if (!(cameras.length > 0 && rentalDate && returnDate)) return;
 
   const refreshAvailability = async () => {
-    setCheckingAvailability(true);
     const startDate = `${rentalDate}T${rentalTime}`;
     const endDate = `${returnDate}T${returnTime}`;
     const newAvailability = {};
@@ -321,7 +313,6 @@ useEffect(() => {
     }
 
     setEquipmentAvailability(newAvailability);
-    setCheckingAvailability(false);
   };
 
   refreshAvailability();
@@ -330,17 +321,14 @@ useEffect(() => {
   
   // 대여 날짜 변경 핸들러
   const handleRentalDateChange = (date) => {
-    console.log('받은 날짜 값:', date, typeof date);
-  
     let fixedDate;
-  
+
     if (typeof date === 'string') {
       const [year, month, day] = date.split('-').map(Number);
-      fixedDate = new Date(year, month - 1, day, 9, 0, 0); // 👈 KST 기준 오전 9시
+      fixedDate = new Date(year, month - 1, day, 9, 0, 0);
     } else if (date instanceof Date) {
       fixedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 9, 0, 0);
     } else {
-      console.warn('날짜 형식 오류:', date);
       return;
     }
   
@@ -521,8 +509,54 @@ useEffect(() => {
     }
   `;
 
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '60vh',
+        fontFamily: 'Pretendard, sans-serif'
+      }}>
+        <div className="loading-spinner" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '60vh',
+        gap: '12px',
+        fontFamily: 'Pretendard, sans-serif'
+      }}>
+        <p style={{ fontSize: '16px', color: '#e74c3c', fontWeight: 'bold' }}>
+          장비 목록을 불러오는 데 실패했습니다.
+        </p>
+        <button
+          onClick={() => { setError(null); setLoading(true); fetchCameras(); }}
+          style={{
+            padding: '8px 20px',
+            backgroundColor: '#000',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          다시 시도
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className={isMobile ? 'mobile-container' : 'desktop-container'} style={{ 
+    <div className={isMobile ? 'mobile-container' : 'desktop-container'} style={{
       position: 'relative',
       width: '100%',
       maxWidth: '1440px',
@@ -649,10 +683,12 @@ useEffect(() => {
               />
 
               {/* Search Input Component */}
-              <SearchInput 
+              <SearchInput
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 isMobile={isMobile}
+                availableOnly={availableOnly}
+                setAvailableOnly={setAvailableOnly}
               />
 
               {/* Equipment Grid Component */}

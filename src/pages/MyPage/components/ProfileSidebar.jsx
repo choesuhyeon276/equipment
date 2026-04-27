@@ -115,7 +115,8 @@ const ProfileSidebar = ({
                 <h3 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0 0 2px 0' }}>{user?.name || '사용자'}</h3>
                 <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>{user?.email || ''}</p>
               </div>
-              <button 
+              <button
+                aria-label={isEditing ? '저장' : '편집'}
                 onClick={() => isEditing ? updateProfileData() : setIsEditing(true)}
                 style={{
                   marginLeft: 'auto',
@@ -125,11 +126,14 @@ const ProfileSidebar = ({
                   alignItems: 'center',
                   cursor: 'pointer',
                   color: '#4285f4',
-                  padding: '4px'
+                  padding: '12px',
+                  minWidth: '44px',
+                  minHeight: '44px',
+                  justifyContent: 'center'
                 }}
               >
                 {isEditing ? (
-                  <Save size={16} style={{ marginRight: '2px' }} />
+                  <Save size={16} />
                 ) : (
                   <Edit size={16} />
                 )}
@@ -366,7 +370,8 @@ const ProfileSidebar = ({
             marginBottom: '10px' 
           }}>
             <h4 style={{ fontSize: '16px', fontWeight: 'bold', color: '#000000' }}>프로필 정보</h4>
-            <button 
+            <button
+              aria-label={isEditing ? '저장' : '편집'}
               onClick={() => isEditing ? updateProfileData() : setIsEditing(true)}
               style={{
                 backgroundColor: 'transparent',

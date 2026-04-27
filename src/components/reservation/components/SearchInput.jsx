@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, X } from 'lucide-react';
 
-const SearchInput = ({ searchTerm, setSearchTerm, isMobile }) => {
+const SearchInput = ({ searchTerm, setSearchTerm, isMobile, availableOnly, setAvailableOnly }) => {
   // 무신사 스타일의 모바일 검색 입력
   if (isMobile) {
     return (
@@ -66,30 +66,52 @@ const SearchInput = ({ searchTerm, setSearchTerm, isMobile }) => {
 
   // 데스크탑은 기존 스타일 유지
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      width: '30%',
-      height: '35px',
-      borderBottom: '2px solid #000000',
-      borderRadius: '0px',
-      overflow: 'hidden',
-      marginBottom: '20px'
-    }}>
-      <input
-        type="text"
-        placeholder="이름, 브랜드, 용도 등"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        style={{
-          width: '100%',
-          padding: '10px',
-          fontSize: '18px', 
-          lineHeight: '5px',
-          border: 'none',
-          outline: 'none'
-        }}
-      />
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        width: '30%',
+        height: '35px',
+        borderBottom: '2px solid #000000',
+        borderRadius: '0px',
+        overflow: 'hidden',
+      }}>
+        <input
+          type="text"
+          placeholder="이름, 브랜드, 용도 등"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px',
+            fontSize: '18px',
+            lineHeight: '5px',
+            border: 'none',
+            outline: 'none'
+          }}
+        />
+      </div>
+
+      {setAvailableOnly && (
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          cursor: 'pointer',
+          fontSize: '14px',
+          color: '#333',
+          userSelect: 'none',
+          whiteSpace: 'nowrap'
+        }}>
+          <input
+            type="checkbox"
+            checked={availableOnly || false}
+            onChange={(e) => setAvailableOnly(e.target.checked)}
+            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#000' }}
+          />
+          대여 가능한 장비만 보기
+        </label>
+      )}
     </div>
   );
 };

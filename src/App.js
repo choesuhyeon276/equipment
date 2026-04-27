@@ -29,9 +29,7 @@ const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 function App() {
   const calendarRef = useRef(null);
-  const rentalMethodRef = useRef(null);
   const thingsNoteRef = useRef(null);
-  const longTermRentalRef = useRef(null);
 
   const [user, setUser] = useState(null);
   const [profileIncomplete, setProfileIncomplete] = useState(false);
@@ -92,32 +90,6 @@ function App() {
     return () => unsubscribe();
   }, [location.pathname, navigate]);
 
-  function scrollToRef(ref) {
-    if (ref && ref.current) {
-      ref.current.scrollIntoView({ 
-        behavior: isMobile ? "auto" : "smooth", 
-        block: "start" 
-      });
-    }
-  }
-
-  function scrollToSection(sectionId) {
-    const refMap = {
-      "calendar-section": calendarRef,
-      "rental-method-section": rentalMethodRef,
-      "things-note-section": thingsNoteRef,
-      "long-term-rental-section": longTermRentalRef,
-    };
-    const ref = refMap[sectionId];
-    
-    if (ref && ref.current) {
-      ref.current.scrollIntoView({ 
-        behavior: isMobile ? "auto" : "smooth",
-        block: "start" 
-      });
-    }
-  }
-
   if (loading) {
     return (
       <div className="loading-spinner-container">
@@ -166,17 +138,7 @@ function App() {
             path="/main"
             element={
               <div id="main-scroll-container" className="main-container">
-                <MainHeader
-                  scrollToSection={scrollToRef}
-                  refs={{
-                    calendar: calendarRef,
-                    rentalMethod: rentalMethodRef,
-                    thingsNote: thingsNoteRef,
-                    longTermRental: longTermRentalRef
-                  }}
-                  isMobile={isMobile}
-                  user={user}
-                />
+                <MainHeader isMobile={isMobile} user={user} />
                 <div ref={calendarRef} id="calendar-section" style={!isMobile ? sectionStyle : {}}>
                   {/* 여기서는 헤더가 없는 독립형 Calendar 사용 */}
                   <CalendarStandalone isMobile={isMobile} user={user} />
@@ -192,22 +154,10 @@ function App() {
             }
           />
           
-          {/* 예약 메인 페이지 - 로그인 없이도 접근 가능 */}
-          <Route 
-            path="/reservationMainPage" 
-            element={<div className="page-container"><ReservationMainPage user={user} /></div>} 
-          />
-          <Route 
-            path="/reservation-main" 
-            element={<div className="page-container"><ReservationMainPage user={user} /></div>} 
-          />
+          {/* 구버전 경로 호환 리다이렉트 */}
+          <Route path="/reservationMainPage" element={<Navigate to="/reservation" replace />} />
+          <Route path="/reservation-main" element={<Navigate to="/reservation" replace />} />
           
-          {/* 메인 헤더 - 로그인 없이도 접근 가능 */}
-          <Route 
-            path="/mainheader" 
-            element={<MainHeader isMobile={isMobile} user={user} />} 
-          />
-
           {/* 공지사항 페이지 - 로그인 없이도 접근 가능 */}
           <Route 
             path="/thingsnote-with-header" 

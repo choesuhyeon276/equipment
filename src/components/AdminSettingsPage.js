@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Settings, Save, Mail, Phone, User, Plus, X,
-  ArrowLeft, AlertTriangle, Check, MessageCircle
+  ArrowLeft, AlertTriangle, Check, MessageCircle, FileText, Palette
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,6 +24,7 @@ const AdminSettingsPage = () => {
     adminName: '',
     adminPhone: '',
     kakaoOpenChatUrl: '',
+    notesCards: [],
   });
 
   const [newEmail, setNewEmail] = useState('');
@@ -213,6 +214,7 @@ const AdminSettingsPage = () => {
         adminName: settings.adminName.trim(),
         adminPhone: settings.adminPhone.trim(),
         kakaoOpenChatUrl: settings.kakaoOpenChatUrl.trim(),
+        notesCards: settings.notesCards,
         updatedBy: admin?.uid || 'unknown',
       });
 
@@ -300,6 +302,29 @@ const AdminSettingsPage = () => {
   const handleInputChange = (field, value) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
     setMessage({ type: '', text: '' });
+  };
+
+  const updateNotesCard = (idx, field, value) => {
+    setSettings(prev => ({
+      ...prev,
+      notesCards: prev.notesCards.map((card, i) =>
+        i === idx ? { ...card, [field]: value } : card
+      )
+    }));
+  };
+
+  const removeNotesCard = (idx) => {
+    setSettings(prev => ({
+      ...prev,
+      notesCards: prev.notesCards.filter((_, i) => i !== idx)
+    }));
+  };
+
+  const addNotesCard = () => {
+    setSettings(prev => ({
+      ...prev,
+      notesCards: [...prev.notesCards, { title: '새 카드', color: '#607D8B', content: '' }]
+    }));
   };
 
   const handleKeyDown = (e, field) => {
@@ -586,6 +611,121 @@ const AdminSettingsPage = () => {
           <small style={{ color: '#666', fontSize: '12px' }}>
             알림 메일을 받을 관리자 이메일을 추가하세요. 이메일 추가 시 해당 사용자에게 즉시 관리자 권한이 부여됩니다.
           </small>
+        </div>
+
+        {/* 주의사항 카드 편집 */}
+        <div style={{ marginBottom: '25px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', marginBottom: '12px', fontWeight: 'bold', color: '#333' }}>
+            <FileText size={18} style={{ marginRight: '8px' }} />
+            주의사항 카드 편집 (Things Note 페이지에 표시)
+          </label>
+          <small style={{ color: '#666', fontSize: '12px', display: 'block', marginBottom: '12px' }}>
+            장비장 연락망 카드는 위의 관리자 정보에서 자동으로 반영됩니다. 아래에서 나머지 카드를 자유롭게 편집하세요.
+          </small>
+
+          {Array.isArray(settings.notesCards) && settings.notesCards.map((card, idx) => (
+            <div key={idx} style={{
+              marginBottom: '12px',
+              padding: '16px',
+              border: `2px solid ${card.color}22`,
+              borderLeft: `4px solid ${card.color}`,
+              borderRadius: '8px',
+              backgroundColor: '#fafafa'
+            }}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value={card.title}
+                  onChange={(e) => updateNotesCard(idx, 'title', e.target.value)}
+                  placeholder="카드 제목"
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    color: '#333'
+                  }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Palette size={16} color="#666" />
+                  <input
+                    type="color"
+                    value={card.color}
+                    onChange={(e) => updateNotesCard(idx, 'color', e.target.value)}
+                    title="카드 색상 선택"
+                    style={{
+                      width: '40px',
+                      height: '36px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      padding: '2px',
+                      cursor: 'pointer',
+                      backgroundColor: 'white'
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={() => removeNotesCard(idx)}
+                  title="카드 삭제"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '36px',
+                    height: '36px',
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <textarea
+                value={card.content}
+                onChange={(e) => updateNotesCard(idx, 'content', e.target.value)}
+                placeholder="카드 내용을 입력하세요. 줄바꿈은 Enter로 구분됩니다."
+                rows={4}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  lineHeight: '1.6',
+                  color: '#333',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          ))}
+
+          <button
+            onClick={addNotesCard}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '10px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              marginTop: '4px'
+            }}
+          >
+            <Plus size={16} />
+            카드 추가
+          </button>
         </div>
 
         {/* 저장 버튼 */}

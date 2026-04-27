@@ -14,7 +14,7 @@ function RentalMethodPage({ scrollToSection, isMobile }) {
   }, []);
 
   const navigateToReservation = () => {
-    window.location.href = "/ReservationMainPage"
+    navigate('/reservation');
   };
 
   // 모바일 버전 렌더링

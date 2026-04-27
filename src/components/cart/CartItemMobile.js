@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
+import { formatKoreanDateTime } from '../../pages/MyPage/utils/formatters';
 
 // 장바구니 아이템 컴포넌트 (모바일)
 const CartItemMobile = ({ item, onRemove }) => {
@@ -63,16 +64,24 @@ const CartItemMobile = ({ item, onRemove }) => {
             }}>
               {item.name}
             </h3>
-            <div 
-              style={{ 
+            <button
+              aria-label={`${item.name} 삭제`}
+              onClick={() => onRemove(item.id)}
+              style={{
+                background: 'none',
+                border: 'none',
                 cursor: 'pointer',
                 color: '#888',
-                padding: '4px'
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: '44px',
+                minHeight: '44px',
+                justifyContent: 'center'
               }}
-              onClick={() => onRemove(item.id)}
             >
               <Trash2 size={16} />
-            </div>
+            </button>
           </div>
           <p style={{ 
             color: '#666', 
@@ -103,11 +112,11 @@ const CartItemMobile = ({ item, onRemove }) => {
       }}>
         <div style={{ marginBottom: '4px' }}>
           <span style={{ fontWeight: 'bold', marginRight: '8px' }}>대여:</span>
-          {item.rentalDate} {item.rentalTime}
+          {formatKoreanDateTime(`${item.rentalDate}T${item.rentalTime}`)}
         </div>
         <div>
           <span style={{ fontWeight: 'bold', marginRight: '8px' }}>반납:</span>
-          {item.returnDate} {item.returnTime}
+          {formatKoreanDateTime(`${item.returnDate}T${item.returnTime}`)}
         </div>
       </div>
     </div>

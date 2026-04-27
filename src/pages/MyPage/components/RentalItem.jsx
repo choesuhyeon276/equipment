@@ -33,11 +33,14 @@ const RentalItem = ({
         marginBottom: '8px',
         cursor: 'pointer'
       }}>
-        <p style={{ 
-          color: '#666', 
+        <p style={{
+          color: '#666',
           margin: '0',
           fontSize: '13px',
-          fontWeight: 'bold'
+          fontWeight: 'bold',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
         }}>
           {item.name}
           {item.brand && ` | ${item.brand}`}
@@ -156,7 +159,7 @@ const RentalItem = ({
               </h4>
               
               {item.items.map((equip, idx) => (
-                <div key={idx} style={{ 
+                <div key={equip.id || `${item.id}-${idx}`} style={{ 
                   display: 'flex', 
                   marginBottom: '10px',
                   background: '#f9f9f9',

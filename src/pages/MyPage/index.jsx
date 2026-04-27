@@ -1,6 +1,6 @@
 // src/pages/MyPage/index.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db, storage, ref, uploadBytesResumable, getDownloadURL } from '../../firebase/firebaseConfig';
@@ -18,11 +18,12 @@ import { formatPhoneNumber } from './utils/formatters';
 
 const MyPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = getAuth();
-  
+
   // 반응형 상태
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  
+
   // 사용자 상태
   const [user, setUser] = useState(null);
   const [studentId, setStudentId] = useState('');
@@ -30,7 +31,7 @@ const MyPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [agreementFile, setAgreementFile] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
-  const [activeTab, setActiveTab] = useState('current');
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'current');
   
   // 데이터 상태
   const [loading, setLoading] = useState(true);
@@ -325,49 +326,29 @@ const MyPage = () => {
         throw new Error('예약 정보를 찾을 수 없습니다.');
       }
 
-      console.log('🔍 예약 정보:', reservation);
-      console.log('📅 캘린더 이벤트 ID:', reservation.calendarEventId);
-
       // 2. Firestore에서 예약 취소
       const reservationRef = doc(db, 'reservations', reservationId);
       await updateDoc(reservationRef, {
         status: 'cancelled',
         cancelledAt: serverTimestamp()
       });
-      console.log('✅ Firestore 예약 취소 완료');
 
       // 3. 캘린더 이벤트 삭제 (Cloud Function 호출)
       if (reservation.calendarEventId) {
-        console.log('🔄 캘린더 이벤트 삭제 시도:', reservation.calendarEventId);
-        
         try {
-          // ⭐ Cloud Function 엔드포인트 URL
           const deleteEndpoint = 'https://us-central1-equipment-rental-system-838f0.cloudfunctions.net/deleteCalendarEvent';
-          
           const response = await fetch(deleteEndpoint, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               eventId: reservation.calendarEventId,
               calendarId: process.env.REACT_APP_GOOGLE_CALENDAR_ID || 'primary'
             })
           });
-
-          const result = await response.json();
-          
-          if (result.success) {
-            console.log('✅ 캘린더 이벤트 삭제 완료');
-          } else {
-            console.warn('⚠️ 캘린더 이벤트 삭제 실패:', result.error);
-          }
+          await response.json();
         } catch (calError) {
-          console.error('❌ 캘린더 이벤트 삭제 실패:', calError);
           // 캘린더 삭제 실패해도 예약은 취소됨
         }
-      } else {
-        console.warn('⚠️ calendarEventId가 없습니다.');
       }
 
       toast.success('대여가 취소되었습니다.');

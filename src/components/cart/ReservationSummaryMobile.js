@@ -10,7 +10,7 @@ const ReservationSummaryMobile = ({ cartItems, userProfile, isSubmitting, onSubm
       padding: '16px',
       borderTop: '1px solid #ddd',
       position: 'sticky',
-      bottom: '-10px',
+      bottom: 0,
       boxShadow: '0 -4px 6px rgba(0, 0, 0, 0.05)'
     }}>
       {/* 간단한 예약 요약 정보 */}
@@ -56,7 +56,7 @@ const ReservationSummaryMobile = ({ cartItems, userProfile, isSubmitting, onSubm
           fontSize: '12px',
           color: '#666'
         }}>
-          예약자: {userProfile.name} <br /> 연락처: {userProfile.phoneNumber}
+          예약자: {userProfile?.name || '미입력'} <br /> 연락처: {userProfile?.phoneNumber || '미입력'}
         </div>
       )}
     </div>

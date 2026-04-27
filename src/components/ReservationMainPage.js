@@ -116,43 +116,26 @@ const checkEquipmentAvailability = async (equipmentId, startDate, endDate) => {
     
     const querySnapshot = await getDocs(q);
     
-    // 디버깅을 위한 로그
-    console.log(`총 ${querySnapshot.size}개의 active 예약을 확인 중`);
-    
-    // 각 예약 문서를 확인
     querySnapshot.forEach(doc => {
       const reservationData = doc.data();
-      
-      // items 배열이 있는지 확인
+
       if (!reservationData.items || !Array.isArray(reservationData.items)) {
-        console.log('items 배열이 없는 예약:', doc.id);
         return;
       }
-      
-      // 해당 장비가 포함된 예약인지 확인
+
       const matchingItem = reservationData.items.find(item => item.id === equipmentId);
-      
+
       if (matchingItem) {
-        console.log(`장비 ID ${equipmentId}가 예약 ${doc.id}에 포함됨`);
-        
-        // 예약의 시작/종료 시간
         const reservationStart = new Date(reservationData.startDateTime);
         const reservationEnd = new Date(reservationData.endDateTime);
-        
-        console.log('예약 기간:', reservationStart, '~', reservationEnd);
-        console.log('요청 기간:', startDateTime, '~', endDateTime);
-        
-        // 날짜가 겹치는지 확인
+
         if (startDateTime < reservationEnd && endDateTime > reservationStart) {
-          console.log('날짜가 겹치므로 불가능 처리');
           isAvailable = false;
           unavailablePeriods.push({
             start: reservationData.startDateTime,
             end: reservationData.endDateTime,
             isRental: true
           });
-        } else {
-          console.log('날짜가 겹치지 않음');
         }
       }
     });
@@ -288,32 +271,23 @@ const ImageWithPlaceholder = ({ camera, equipmentAvailability }) => {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    // URL 디버깅
-    console.log(`카메라 ${camera.id}의 이미지 URL:`, camera.imageURL);
-    
     if (!camera.imageURL) {
-      console.error(`카메라 ${camera.id}에 imageUrl이 없습니다`);
       setHasError(true);
       return;
     }
-
-    // URL이 유효한지 기본 검사
     try {
-      new URL(camera.imageURL); // URL이 유효한지 확인
+      new URL(camera.imageURL);
       setImageSrc(camera.imageURL);
     } catch (e) {
-      console.error(`유효하지 않은 URL: ${camera.imageURL}`, e);
       setHasError(true);
     }
   }, [camera.id, camera.imageURL]);
 
   const handleImageLoad = () => {
-    console.log(`카메라 ${camera.id} 이미지 로드 성공:`, camera.imageURL);
     setImageLoaded(true);
   };
 
   const handleImageError = () => {
-    console.error(`카메라 ${camera.id} 이미지 로드 실패:`, camera.imageURL);
     setHasError(true);  
     setImageLoaded(true); // 오류가 발생해도 "로드됨" 상태로 처리
   };
@@ -829,8 +803,6 @@ const returnTimeOptions = generateReturnTimeOptions();
   
   // 대여 날짜 변경 핸들러
   const handleRentalDateChange = (date) => {
-    console.log('받은 날짜 값:', date, typeof date);
-  
     let fixedDate;
   
     if (typeof date === 'string') {
@@ -839,7 +811,6 @@ const returnTimeOptions = generateReturnTimeOptions();
     } else if (date instanceof Date) {
       fixedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 9, 0, 0);
     } else {
-      console.warn('날짜 형식 오류:', date);
       return;
     }
   

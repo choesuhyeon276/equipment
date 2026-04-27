@@ -6,7 +6,12 @@ export const DEFAULT_SETTINGS = {
   adminEmails: ['choesuhyeon276@gmail.com'],
   adminName: 'DKit 관리자',
   adminPhone: '010-0000-0000',
-  kakaoOpenChatUrl: '', // 카카오톡 오픈채팅 링크 추가
+  kakaoOpenChatUrl: '',
+  notesCards: [
+    { title: '대여일', color: '#00bcd4', content: '• 대여일 1일 전에는 신청하기\n• 당일 대여 불가\n• 평일 9:00 - 17:00 동안 장비 수령 가능' },
+    { title: '반납시', color: '#f44336', content: '마이페이지에 현재 대여 장비란에\n장비가 나온 반납사진 첨부하여 반납신청하기' },
+    { title: '방학 중 장비 대여 안내', color: '#4caf50', content: '• 장비 교육 수료 여부와 없이\n• 디지털콘텐츠학과 학생이면 대여가 가능합니다.\n• 사무실은 9:00 - 15:00시까지 운영됩니다.' },
+  ],
 };
 
 // 타입 안전하게 보정
@@ -26,6 +31,10 @@ export function normalizeSettings(raw) {
       typeof data.kakaoOpenChatUrl === 'string'
         ? data.kakaoOpenChatUrl
         : DEFAULT_SETTINGS.kakaoOpenChatUrl,
+    notesCards:
+      Array.isArray(data.notesCards) && data.notesCards.length > 0
+        ? data.notesCards
+        : DEFAULT_SETTINGS.notesCards,
   };
 }
 
@@ -46,9 +55,9 @@ export function subscribeAdminSettings(callback) {
 }
 
 // 저장(병합)
-export async function saveAdminSettings({ adminEmails, adminName, adminPhone, kakaoOpenChatUrl, updatedBy = 'unknown' }) {
+export async function saveAdminSettings({ adminEmails, adminName, adminPhone, kakaoOpenChatUrl, notesCards, updatedBy = 'unknown' }) {
   const ref = doc(db, 'admin_settings', 'main');
-  const payload = normalizeSettings({ adminEmails, adminName, adminPhone, kakaoOpenChatUrl });
+  const payload = normalizeSettings({ adminEmails, adminName, adminPhone, kakaoOpenChatUrl, notesCards });
   await setDoc(
     ref,
     { ...payload, updatedAt: serverTimestamp(), updatedBy },

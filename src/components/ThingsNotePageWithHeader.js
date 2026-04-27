@@ -404,79 +404,30 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
               </div>
             </div>
 
-            {/* 카드 2 */}
-            <div style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              borderRadius: '10px',
-              padding: '16px',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
-              borderLeft: '3px solid #00bcd4',
-            }}>
-              <div style={{ 
-                fontWeight: '600', 
-                marginBottom: '8px', 
-                color: '#00bcd4',
-                fontSize: '16px',
-              }}>대여일</div>
-              <div style={{ 
-                lineHeight: '1.5', 
-                fontWeight: '300',
-                fontSize: '14px',
+            {settings.notesCards.map((card, idx) => (
+              <div key={idx} style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '10px',
+                padding: '16px',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
+                borderLeft: `3px solid ${card.color}`,
               }}>
-                • 대여일 1일 전에는 신청하기<br />
-                • 당일 대여 불가<br />
-                • 평일 9:00 - 17:00 동안 장비 수령 가능
+                <div style={{
+                  fontWeight: '600',
+                  marginBottom: '8px',
+                  color: card.color,
+                  fontSize: '16px',
+                }}>{card.title}</div>
+                <div style={{
+                  lineHeight: '1.5',
+                  fontWeight: '300',
+                  fontSize: '14px',
+                  whiteSpace: 'pre-line'
+                }}>
+                  {card.content}
+                </div>
               </div>
-            </div>
-
-            {/* 카드 3 */}
-            <div style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              borderRadius: '10px',
-              padding: '16px',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
-              borderLeft: '3px solid #f44336',
-            }}>
-              <div style={{ 
-                fontWeight: '600', 
-                marginBottom: '8px', 
-                color: '#f44336',
-                fontSize: '16px',
-              }}>반납시</div>
-              <div style={{ 
-                lineHeight: '1.5', 
-                fontWeight: '300',
-                fontSize: '14px',
-              }}>
-                마이페이지에 현재 대여 장비란에<br />
-                장비가 나온 반납사진 첨부하여 반납신청하기
-              </div>
-            </div>
-
-            {/* 카드 4 */}
-            <div style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              borderRadius: '10px',
-              padding: '16px',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
-              borderLeft: '3px solid #4caf50',
-            }}>
-              <div style={{ 
-                fontWeight: '600', 
-                marginBottom: '8px', 
-                color: '#4caf50',
-                fontSize: '16px',
-              }}>방학중 장비 대여 안내</div>
-              <div style={{ 
-                lineHeight: '1.5', 
-                fontWeight: '300',
-                fontSize: '14px',
-              }}>
-                • 장비 교육 수료 여부와 없이<br />
-                • 디지털콘텐츠학과 학생이면 대여가 가능합니다.<br />
-                • 사무실은 9:00 - 15:00시까지 운영됩니다.
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
@@ -560,37 +511,29 @@ const ThingsNotePageWithHeader = ({ isMobile }) => {
               margin: '0 0px'
             }} />
             <div>
-              <div style={{ fontWeight: '200', position: 'absolute', left: '300px' }}>대여일</div>
-              <div style={{ lineHeight: '1.2', position: 'absolute', left: '300px', top: '30px', fontWeight: '200' }}>
-                대여일 1일 전에는 신청하기<br />
-                당일 대여 불가<br />
-                평일 9:00 - 17:00 동안 장비 수령 가능
+              <div style={{ fontWeight: '200', position: 'absolute', left: '300px' }}>
+                {settings.notesCards[0]?.title ?? '대여일'}
+              </div>
+              <div style={{ lineHeight: '1.2', position: 'absolute', left: '300px', top: '30px', fontWeight: '200', whiteSpace: 'pre-line' }}>
+                {settings.notesCards[0]?.content ?? ''}
               </div>
             </div>
-            <div style={{
-              width: '0px',
-              height: '60px',
-              backgroundColor: 'white',
-              margin: '0 20px'
-            }} />
+            <div style={{ width: '0px', height: '60px', backgroundColor: 'white', margin: '0 20px' }} />
             <div>
-              <div style={{ fontWeight: '200', position: 'absolute', left: '650px' }}>반납시</div>
-              <div style={{ lineHeight: '1.2', fontWeight: '200', position: 'absolute', left: '650px', top: '30px' }}>
-                마이페이지에 현재 대여 장비란에<br />
-                장비가 나온 반납사진 첨부하여 반납신청하기<br />
+              <div style={{ fontWeight: '200', position: 'absolute', left: '650px' }}>
+                {settings.notesCards[1]?.title ?? '반납시'}
+              </div>
+              <div style={{ lineHeight: '1.2', fontWeight: '200', position: 'absolute', left: '650px', top: '30px', whiteSpace: 'pre-line' }}>
+                {settings.notesCards[1]?.content ?? ''}
               </div>
             </div>
-            <div style={{
-              width: '0px',
-              height: '60px',
-              backgroundColor: 'white',
-            }} />
+            <div style={{ width: '0px', height: '60px', backgroundColor: 'white' }} />
             <div>
-              <div style={{ fontWeight: '200' }}>방학 중 장비 대여 안내</div>
-              <div style={{ lineHeight: '1.2', fontWeight: '200' }}>
-                장비 교육 수료 여부와 없이<br />
-                디지털콘텐츠학과 학생이면 대여가 가능합니다.<br />
-                사무실은 9:00 - 15:00시까지 운영됩니다.
+              <div style={{ fontWeight: '200' }}>
+                {settings.notesCards[2]?.title ?? '방학 중 장비 대여 안내'}
+              </div>
+              <div style={{ lineHeight: '1.2', fontWeight: '200', whiteSpace: 'pre-line' }}>
+                {settings.notesCards[2]?.content ?? ''}
               </div>
             </div>
           </div>
