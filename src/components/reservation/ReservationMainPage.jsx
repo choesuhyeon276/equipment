@@ -24,15 +24,8 @@ import { checkEquipmentAvailability } from './utils/equipmentUtils';
 import { addToCart, fetchCartItemCount } from './utils/cartUtils';
 import { formatToKSTDateString, generateTimeOptions, generateReturnTimeOptions } from './utils/dateUtils.js';
 
-// 색상 정의 (공통으로 사용되는 상수)
-export const mountColors = {
-  'EF': '#e74c3c',       // 빨강
-  'FE': '#195c89',       // 파랑
-  '니콘 F': '#7d4798',   // 보라
-  '': '#1abc9c',         // 민트
-  'EF-S': '#f39c12',     // 주황
-  '기타': '#299616'      // 회색 (기본)
-};
+import mountColors from '../../constants/mountColors';
+import { subscribeAdminSettings } from '../../utils/adminSettings';
 
 const ReservationMainPage = () => {
   const navigate = useNavigate();
@@ -71,17 +64,9 @@ const ReservationMainPage = () => {
   // 무한 스크롤 용 상태
   const [displayedCameras, setDisplayedCameras] = useState([]);
   
-  // 카테고리 데이터
-  const [categories, setCategories] = useState([
-    { name: 'All', count: 0 },
-    { name: 'Camera', count: 0 },
-    { name: 'Lens', count: 0 },
-    { name: 'Lighting', count: 0 },
-    { name: 'Battery', count: 0 },
-    { name: 'Sound', count: 0 },
-    { name: 'VR device', count: 0 },
-    { name: 'ETC', count: 0 }
-  ]);
+  // 카테고리 데이터 (Firestore에서 로드, 기본값으로 초기화)
+  const [categoryNames, setCategoryNames] = useState(['Camera', 'Lens', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC']);
+  const [categories, setCategories] = useState([]);
   
   // 반응형 설정
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -92,9 +77,18 @@ const ReservationMainPage = () => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Firestore에서 카테고리 실시간 구독
+  useEffect(() => {
+    const unsubscribe = subscribeAdminSettings((s) => {
+      if (Array.isArray(s.categories) && s.categories.length > 0) {
+        setCategoryNames(s.categories);
+      }
+    });
+    return () => unsubscribe();
   }, []);
   
   // 인증 상태 모니터링
@@ -265,7 +259,7 @@ useEffect(() => {
       
       const updatedCategories = [
         { name: 'All', count: cameraData.length },
-        ...['Camera', 'Lens', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC'].map(catName => ({
+        ...categoryNames.map(catName => ({
           name: catName,
           count: cameraData.filter(c => c.category === catName).length
         }))
@@ -284,6 +278,18 @@ useEffect(() => {
   useEffect(() => {
     fetchCameras();
   }, []);
+
+  // 카테고리 이름이 변경되면 카운트 재계산
+  useEffect(() => {
+    if (cameras.length === 0) return;
+    setCategories([
+      { name: 'All', count: cameras.length },
+      ...categoryNames.map(catName => ({
+        name: catName,
+        count: cameras.filter(c => c.category === catName).length
+      }))
+    ]);
+  }, [categoryNames, cameras]);
 
   // 가용성 새로 고침
 useEffect(() => {
@@ -583,6 +589,25 @@ useEffect(() => {
         cartItemCount={cartItemCount}
         cartAnimation={cartAnimation}
       />
+
+      {/* 장기 대여 모드 배너 */}
+      {isLongTerm && (
+        <div style={{
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+          color: '#e0c97f',
+          padding: isMobile ? '10px 14px' : '12px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: isMobile ? '13px' : '14px',
+          fontWeight: '600',
+          borderBottom: '2px solid #e0c97f',
+          letterSpacing: '0.3px'
+        }}>
+          <span style={{ fontSize: isMobile ? '16px' : '18px' }}>📋</span>
+          장기 대여 신청 모드 — 최대 30일 대여 가능
+        </div>
+      )}
 
       {/* Main Content Area - 순서 변경 */}
       <div style={{

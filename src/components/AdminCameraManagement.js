@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   collection, 
   addDoc, 
@@ -68,6 +69,7 @@ const processImage = (file) => {
 };
 
 const AdminEquipmentManagement = () => {
+  const navigate = useNavigate();
   const [equipments, setEquipments] = useState([]);
   const [newEquipment, setNewEquipment] = useState({
     name: '',
@@ -85,6 +87,7 @@ const AdminEquipmentManagement = () => {
     recommendSDCard: ''
   });
   const [imageFile, setImageFile] = useState(null);
+  const [autoBgRemoval, setAutoBgRemoval] = useState(true);
   const [internalImageFiles, setInternalImageFiles] = useState([]); // 배열로 변경
   const [editingEquipment, setEditingEquipment] = useState(null);
   const [draggedItem, setDraggedItem] = useState(null);
@@ -105,16 +108,21 @@ const AdminEquipmentManagement = () => {
   // 카테고리별로 다음 displayOrder를 계산하는 함수
   const getNextDisplayOrder = (category, existingEquipments = []) => {
     const range = CATEGORY_ORDER_RANGES[category];
-    if (!range) return 601; // ETC 기본값
-    
+    if (!range) {
+      // 미등록 카테고리: 전체 최대값 + 1 (최소 701부터 시작해 ETC 범위 침범 안 함)
+      const allOrders = existingEquipments.map(eq => eq.displayOrder || 0);
+      const maxOrder = allOrders.length > 0 ? Math.max(...allOrders) : 700;
+      return Math.max(maxOrder + 1, 701);
+    }
+
     // 해당 카테고리의 기존 장비들의 displayOrder 찾기
     const categoryEquipments = existingEquipments.filter(eq => eq.category === category);
     const existingOrders = categoryEquipments.map(eq => eq.displayOrder || range.start).filter(order => order >= range.start && order <= range.end);
-    
+
     if (existingOrders.length === 0) {
       return range.start;
     }
-    
+
     // 가장 큰 displayOrder + 1 반환 (범위 내에서)
     const maxOrder = Math.max(...existingOrders);
     return Math.min(maxOrder + 1, range.end);
@@ -122,9 +130,9 @@ const AdminEquipmentManagement = () => {
 
   // 카테고리별 그룹핑 및 구분선을 위한 함수
   const groupEquipmentsByCategory = (equipments) => {
-    const categoryOrder = ['Camera', 'Lens', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC'];
+    const knownOrder = ['Camera', 'Lens', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC'];
     const grouped = {};
-    
+
     // 카테고리별로 그룹핑
     equipments.forEach(equipment => {
       const category = equipment.category || 'ETC';
@@ -133,18 +141,22 @@ const AdminEquipmentManagement = () => {
       }
       grouped[category].push(equipment);
     });
-    
+
     // 각 카테고리 내에서 displayOrder로 정렬
     Object.keys(grouped).forEach(category => {
       grouped[category].sort((a, b) => {
-        const range = CATEGORY_ORDER_RANGES[category] || CATEGORY_ORDER_RANGES['ETC'];
-        const orderA = a.displayOrder ?? range.start;
-        const orderB = b.displayOrder ?? range.start;
+        const orderA = a.displayOrder ?? 9999;
+        const orderB = b.displayOrder ?? 9999;
         return orderA - orderB;
       });
     });
-    
-    return grouped;
+
+    // 알려진 카테고리 먼저, 미등록 카테고리는 뒤에
+    const sortedGrouped = {};
+    knownOrder.forEach(cat => { if (grouped[cat]) sortedGrouped[cat] = grouped[cat]; });
+    Object.keys(grouped).forEach(cat => { if (!knownOrder.includes(cat)) sortedGrouped[cat] = grouped[cat]; });
+
+    return sortedGrouped;
   };
 
   useEffect(() => {
@@ -158,22 +170,22 @@ const AdminEquipmentManagement = () => {
             const userData = userDoc.data();
             if (userData.role !== 'admin') {
               toast.warn('관리자 권한이 없습니다.');
-              window.location.href = '/main';
+              navigate('/main');
             } else {
               fetchEquipments();
             }
           } else {
             toast.warn('사용자 정보가 존재하지 않습니다.');
-            window.location.href = '/main';
+            navigate('/main');
           }
         } catch (error) {
           console.error('관리자 권한 확인 중 오류:', error);
           toast.warn('인증 확인 중 오류가 발생했습니다.');
-          window.location.href = '/main';
+          navigate('/main');
         }
       } else {
         toast.warn('로그인이 필요합니다.');
-        window.location.href = '/login';
+        navigate('/login');
       }
     });
     return () => unsubscribe();
@@ -218,8 +230,8 @@ const AdminEquipmentManagement = () => {
   const handleImageUpload = async (file, folder = 'camera-images', isInternal = false) => {
     if (!file) return null;
     try {
-      // 내부사진이 아닌 경우에만 processImage 적용
-      const fileToUpload = isInternal ? file : await processImage(file);
+      // 내부사진이 아닌 경우, 그리고 배경 제거 ON일 때만 processImage 적용
+      const fileToUpload = isInternal || !autoBgRemoval ? file : await processImage(file);
       
       const uniqueFileName = `${Date.now()}_${fileToUpload.name}`;
       const storageRef = ref(storage, `${folder}/${uniqueFileName}`);
@@ -436,10 +448,10 @@ const AdminEquipmentManagement = () => {
     }
 
     const groupedEquipments = groupEquipmentsByCategory(equipments);
-    const categoryOrder = ['Camera', 'Lens', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC'];
-    const targetCategory = categoryOrder[targetCategoryIndex];
-    const sourceCategory = categoryOrder[draggedItem.categoryIndex];
-    
+    const categoryKeys = Object.keys(groupedEquipments);
+    const targetCategory = categoryKeys[targetCategoryIndex];
+    const sourceCategory = categoryKeys[draggedItem.categoryIndex];
+
     // 카테고리 내에서만 이동 허용
     if (sourceCategory !== targetCategory) {
       toast.warn('같은 카테고리 내에서만 순서 변경이 가능합니다.');
@@ -447,16 +459,19 @@ const AdminEquipmentManagement = () => {
       setDragOverIndex(null);
       return;
     }
-    
+
     const categoryEquipments = [...groupedEquipments[targetCategory]];
     const [draggedEquipment] = categoryEquipments.splice(draggedItem.itemIndex, 1);
     categoryEquipments.splice(targetItemIndex, 0, draggedEquipment);
-    
-    // displayOrder 재계산
+
+    // displayOrder 재계산 (미등록 카테고리는 현재 최솟값 기준)
     const range = CATEGORY_ORDER_RANGES[targetCategory];
+    const baseOrder = range
+      ? range.start
+      : Math.min(...categoryEquipments.map(eq => eq.displayOrder ?? 701), 701);
     const updatedEquipments = categoryEquipments.map((equipment, index) => ({
       ...equipment,
-      displayOrder: range.start + index
+      displayOrder: baseOrder + index
     }));
     
     // 전체 장비 목록 업데이트
@@ -479,9 +494,12 @@ const AdminEquipmentManagement = () => {
       const updatePromises = [];
       
       Object.entries(groupedEquipments).forEach(([category, categoryEquipments]) => {
-        const range = CATEGORY_ORDER_RANGES[category] || CATEGORY_ORDER_RANGES['ETC'];
+        const range = CATEGORY_ORDER_RANGES[category];
+        const baseOrder = range
+          ? range.start
+          : Math.min(...categoryEquipments.map(eq => eq.displayOrder ?? 701), 701);
         categoryEquipments.forEach((equipment, index) => {
-          const newDisplayOrder = range.start + index;
+          const newDisplayOrder = baseOrder + index;
           updatePromises.push(
             updateDoc(doc(db, 'cameras', equipment.id), { displayOrder: newDisplayOrder })
           );
@@ -500,8 +518,7 @@ const AdminEquipmentManagement = () => {
   // 카테고리별로 그룹핑된 장비들을 렌더링하는 함수
   const renderGroupedEquipments = () => {
     const groupedEquipments = groupEquipmentsByCategory(equipments);
-    const categoryOrder = ['Camera', 'Lens', 'Lighting', 'Battery', 'Sound', 'VR device', 'ETC'];
-    const categoryNames = {
+    const CATEGORY_DISPLAY_NAMES = {
       'Camera': '📷 카메라',
       'Lens': '🔍 렌즈',
       'Lighting': '💡 조명 장비',
@@ -510,15 +527,13 @@ const AdminEquipmentManagement = () => {
       'VR device': '🥽 VR 장비',
       'ETC': '📦 기타'
     };
-    
-    return categoryOrder.map((category, categoryIndex) => {
-      if (!groupedEquipments[category] || groupedEquipments[category].length === 0) {
-        return null;
-      }
-      
-      const categoryEquipments = groupedEquipments[category];
+
+    return Object.entries(groupedEquipments).map(([category, categoryEquipments], categoryIndex) => {
+      if (!categoryEquipments || categoryEquipments.length === 0) return null;
+
       const range = CATEGORY_ORDER_RANGES[category];
-      
+      const displayName = CATEGORY_DISPLAY_NAMES[category] || `📁 ${category}`;
+
       return (
         <div key={category} style={{ marginBottom: '40px' }}>
           {/* 카테고리 구분선 */}
@@ -539,10 +554,12 @@ const AdminEquipmentManagement = () => {
               alignItems: 'center',
               gap: '8px'
             }}>
-              {categoryNames[category]} ({categoryEquipments.length})
-              <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                ({range.start}-{range.end})
-              </span>
+              {displayName} ({categoryEquipments.length})
+              {range && (
+                <span style={{ fontSize: '12px', opacity: 0.8 }}>
+                  ({range.start}-{range.end})
+                </span>
+              )}
             </div>
             <div style={{
               flex: 1,
@@ -811,7 +828,18 @@ const AdminEquipmentManagement = () => {
           />
 
           <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>메인 이미지 (압축됨)</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+              <label style={{ fontWeight: 'bold' }}>메인 이미지</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={autoBgRemoval}
+                  onChange={(e) => setAutoBgRemoval(e.target.checked)}
+                  style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                />
+                배경 자동 제거 (흰색 → 투명)
+              </label>
+            </div>
             <input
               type="file"
               onChange={(e) => setImageFile(e.target.files[0])}

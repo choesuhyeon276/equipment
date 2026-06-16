@@ -25,9 +25,11 @@ const AdminSettingsPage = () => {
     adminPhone: '',
     kakaoOpenChatUrl: '',
     notesCards: [],
+    categories: [],
   });
 
   const [newEmail, setNewEmail] = useState('');
+  const [newCategory, setNewCategory] = useState('');
 
   // ──────────────────────────────────────────────
   // 로그인/권한 체크 + 설정 로드
@@ -48,7 +50,6 @@ const AdminSettingsPage = () => {
       );
 
       if (!isAdmin) {
-        alert('관리자 권한이 없습니다.');
         navigate('/main');
         return;
       }
@@ -215,6 +216,7 @@ const AdminSettingsPage = () => {
         adminPhone: settings.adminPhone.trim(),
         kakaoOpenChatUrl: settings.kakaoOpenChatUrl.trim(),
         notesCards: settings.notesCards,
+        categories: settings.categories,
         updatedBy: admin?.uid || 'unknown',
       });
 
@@ -327,10 +329,23 @@ const AdminSettingsPage = () => {
     }));
   };
 
+  const addCategory = () => {
+    const v = newCategory.trim();
+    if (!v) return;
+    if (settings.categories && settings.categories.includes(v)) return;
+    setSettings(prev => ({ ...prev, categories: [...(prev.categories || []), v] }));
+    setNewCategory('');
+  };
+
+  const removeCategory = (cat) => {
+    setSettings(prev => ({ ...prev, categories: (prev.categories || []).filter(c => c !== cat) }));
+  };
+
   const handleKeyDown = (e, field) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (field === 'newEmail') addEmail();
+      if (field === 'newCategory') addCategory();
     }
   };
 
@@ -611,6 +626,64 @@ const AdminSettingsPage = () => {
           <small style={{ color: '#666', fontSize: '12px' }}>
             알림 메일을 받을 관리자 이메일을 추가하세요. 이메일 추가 시 해당 사용자에게 즉시 관리자 권한이 부여됩니다.
           </small>
+        </div>
+
+        {/* 카테고리 관리 */}
+        <div style={{ marginBottom: '25px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', fontWeight: 'bold', color: '#333' }}>
+            <Settings size={18} style={{ marginRight: '8px' }} />
+            장비 카테고리 관리
+          </label>
+          <small style={{ color: '#666', fontSize: '12px', display: 'block', marginBottom: '12px' }}>
+            예약 페이지의 카테고리 목록을 편집합니다. 'All'은 항상 자동으로 추가됩니다.
+          </small>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+            {(settings.categories || []).map((cat, idx) => (
+              <div key={idx} style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '6px 12px',
+                backgroundColor: '#e3f2fd', border: '1px solid #90caf9',
+                borderRadius: '20px', fontSize: '14px', color: '#1565c0'
+              }}>
+                {cat}
+                <button
+                  onClick={() => removeCategory(cat)}
+                  style={{
+                    display: 'flex', alignItems: 'center', background: 'none', border: 'none',
+                    cursor: 'pointer', padding: '0', color: '#e53935'
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input
+              type="text"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, 'newCategory')}
+              placeholder="새 카테고리 이름 (예: Tripod)"
+              style={{
+                flex: 1, padding: '10px', border: '1px solid #ddd',
+                borderRadius: '6px', fontSize: '14px', color: '#000',
+              }}
+            />
+            <button
+              onClick={addCategory}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '10px 15px', backgroundColor: '#1976d2', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px',
+              }}
+            >
+              <Plus size={16} />
+              추가
+            </button>
+          </div>
         </div>
 
         {/* 주의사항 카드 편집 */}

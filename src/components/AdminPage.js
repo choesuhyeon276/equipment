@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import {
   User,
@@ -99,7 +100,20 @@ const AdminPage = () => {
   const [penaltyReason, setPenaltyReason] = useState('');
   const [selectedPenaltyType, setSelectedPenaltyType] = useState('');
   const [customReason, setCustomReason] = useState('');
-  const [forceReturnMode, setForceReturnMode] = useState(false); // 강제 반납 여부
+  const [forceReturnMode, setForceReturnMode] = useState(false);
+
+  // confirm modal
+  const [confirmState, setConfirmState] = useState(null);
+  const showConfirm = (message) => new Promise((resolve) => {
+    setConfirmState({ message, resolve });
+  });
+  const handleConfirmYes = () => { confirmState?.resolve(true); setConfirmState(null); };
+  const handleConfirmNo = () => { confirmState?.resolve(false); setConfirmState(null); };
+
+  // penalty adjust (감점) modal
+  const [adjustModal, setAdjustModal] = useState(null); // { userId, userName, currentPoints }
+  const [adjustDelta, setAdjustDelta] = useState(0);
+  const [adjustReason, setAdjustReason] = useState('');
 
   // ------- Nav Handlers -------
   const handleHomeNavigation = () => navigate('/main');
@@ -121,7 +135,7 @@ const AdminPage = () => {
       }
       const isAdmin = await checkAdminRole(firebaseUser.uid);
       if (!isAdmin) {
-        alert('관리자 권한이 없습니다.');
+        toast.error('관리자 권한이 없습니다.');
         navigate('/main');
         return;
       }
@@ -347,11 +361,11 @@ const AdminPage = () => {
           lastRentalId: rentalId,
         });
       }
-      alert('대여 신청이 승인되었습니다.');
+      toast.success('대여 신청이 승인되었습니다.');
       fetchRentalData();
     } catch (e) {
       console.error('Error approving rental:', e);
-      alert('승인 처리 중 오류가 발생했습니다.');
+      toast.error('승인 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -362,17 +376,17 @@ const AdminPage = () => {
         rejectedAt: serverTimestamp(),
         rejectedBy: admin.uid,
       });
-      alert('대여 신청이 거절되었습니다.');
+      toast.success('대여 신청이 거절되었습니다.');
       fetchRentalData();
     } catch (e) {
       console.error('Error rejecting rental:', e);
-      alert('처리 중 오류가 발생했습니다.');
+      toast.error('처리 중 오류가 발생했습니다.');
     }
   };
 
   const approveSelectedRentals = async () => {
-    if (selectedItems.length === 0) return alert('선택된 항목이 없습니다.');
-    if (!confirm(`선택한 ${selectedItems.length}개 항목을 승인하시겠습니까?`)) return;
+    if (selectedItems.length === 0) { toast.warn('선택된 항목이 없습니다.'); return; }
+    if (!(await showConfirm(`선택한 ${selectedItems.length}개 항목을 승인하시겠습니까?`))) return;
     try {
       const batch = writeBatch(db);
       selectedItems.forEach((id) => {
@@ -393,18 +407,18 @@ const AdminPage = () => {
           });
         }
       }
-      alert(`${selectedItems.length}개 항목이 승인되었습니다.`);
+      toast.success(`${selectedItems.length}개 항목이 승인되었습니다.`);
       setSelectedItems([]);
       fetchRentalData();
     } catch (e) {
       console.error('Error approving rentals:', e);
-      alert('일괄 승인 중 오류가 발생했습니다.');
+      toast.error('일괄 승인 중 오류가 발생했습니다.');
     }
   };
 
   const rejectSelectedRentals = async () => {
-    if (selectedItems.length === 0) return alert('선택된 항목이 없습니다.');
-    if (!confirm(`선택한 ${selectedItems.length}개 항목을 거절하시겠습니까?`)) return;
+    if (selectedItems.length === 0) { toast.warn('선택된 항목이 없습니다.'); return; }
+    if (!(await showConfirm(`선택한 ${selectedItems.length}개 항목을 거절하시겠습니까?`))) return;
     try {
       const batch = writeBatch(db);
       selectedItems.forEach((id) => {
@@ -415,12 +429,12 @@ const AdminPage = () => {
         });
       });
       await batch.commit();
-      alert(`${selectedItems.length}개 항목이 거절되었습니다.`);
+      toast.success(`${selectedItems.length}개 항목이 거절되었습니다.`);
       setSelectedItems([]);
       fetchRentalData();
     } catch (e) {
       console.error('Error rejecting rentals:', e);
-      alert('일괄 거절 중 오류가 발생했습니다.');
+      toast.error('일괄 거절 중 오류가 발생했습니다.');
     }
   };
 
@@ -444,8 +458,8 @@ const AdminPage = () => {
     const rentalDoc = await getDoc(rentalRef);
     const rentalData = rentalDoc.data();
 
-    const hasIssues = confirm(
-      '반납된 장비에 문제가 있습니까?\n\n확인 = 문제 있음 (벌점 부과)\n취소 = 정상 반납'
+    const hasIssues = await showConfirm(
+      '반납된 장비에 문제가 있습니까?\n확인 = 문제 있음 (벌점 부과) / 취소 = 정상 반납'
     );
 
     if (hasIssues) {
@@ -476,11 +490,11 @@ const AdminPage = () => {
           lastRentalId: null,
         });
       }
-      alert('정상 반납 처리가 완료되었습니다.');
+      toast.success('정상 반납 처리가 완료되었습니다.');
       fetchRentalData();
     } catch (e) {
       console.error('Error processing return:', e);
-      alert('처리 중 오류가 발생했습니다.');
+      toast.error('처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -497,7 +511,7 @@ const AdminPage = () => {
   // ------- 벌점 부과 + 반납 처리 -------
   const applyPenaltyAndProcessReturn = async () => {
     if (!currentUser || penaltyPoints <= -1) {
-      alert('벌점 정보를 입력해주세요.');
+      toast.warn('벌점 정보를 입력해주세요.');
       return;
     }
 
@@ -507,7 +521,7 @@ const AdminPage = () => {
         : PENALTY_REASONS.find((r) => r.value === selectedPenaltyType)?.label || '사유 없음';
 
     if (!finalReason.trim()) {
-      alert('벌점 사유를 입력해주세요.');
+      toast.warn('벌점 사유를 입력해주세요.');
       return;
     }
 
@@ -563,7 +577,7 @@ const AdminPage = () => {
         }
       }
 
-      alert(`반납 처리 및 ${penaltyPoints}점의 벌점이 부과되었습니다.`);
+      toast.success(`반납 처리 및 ${penaltyPoints}점의 벌점이 부과되었습니다.`);
       setPenaltyModalOpen(false);
       setPenaltyPoints(0);
       setSelectedPenaltyType('');
@@ -574,14 +588,13 @@ const AdminPage = () => {
       fetchAllUsers();
     } catch (e) {
       console.error('Error applying penalty:', e);
-      alert('처리 중 오류가 발생했습니다.');
+      toast.error('처리 중 오류가 발생했습니다.');
     }
   };
 
   const processSelectedReturns = async () => {
-    if (selectedItems.length === 0) return alert('선택된 항목이 없습니다.');
-    if (!confirm(`선택한 ${selectedItems.length}개 항목을 정상 반납 처리하시겠습니까?`))
-      return;
+    if (selectedItems.length === 0) { toast.warn('선택된 항목이 없습니다.'); return; }
+    if (!(await showConfirm(`선택한 ${selectedItems.length}개 항목을 정상 반납 처리하시겠습니까?`))) return;
     try {
       const batch = writeBatch(db);
       selectedItems.forEach((id) => {
@@ -603,12 +616,12 @@ const AdminPage = () => {
           });
         }
       }
-      alert(`${selectedItems.length}개 항목이 반납 처리되었습니다.`);
+      toast.success(`${selectedItems.length}개 항목이 반납 처리되었습니다.`);
       setSelectedItems([]);
       fetchRentalData();
     } catch (e) {
       console.error('Error batch processing returns:', e);
-      alert('일괄 처리 중 오류가 발생했습니다.');
+      toast.error('일괄 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -676,6 +689,84 @@ const AdminPage = () => {
       ))}
     </div>
   );
+
+  // ------- 벌점 감점/조정 -------
+  const adjustPenalty = async () => {
+    if (!adjustModal || !adjustReason.trim()) {
+      toast.warn('사유를 입력해주세요.');
+      return;
+    }
+    const delta = Number(adjustDelta);
+    if (delta === 0) { toast.warn('조정 점수를 입력해주세요.'); return; }
+    try {
+      const userRef = doc(db, 'user_profiles', adjustModal.userId);
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) { toast.error('사용자를 찾을 수 없습니다.'); return; }
+      const current = userDoc.data().penaltyPoints || 0;
+      const next = Math.max(0, current + delta);
+      await updateDoc(userRef, {
+        penaltyPoints: next,
+        penaltyHistory: [
+          ...(userDoc.data().penaltyHistory || []),
+          { points: delta, reason: adjustReason.trim(), date: new Date(), adminId: admin.uid },
+        ],
+      });
+      toast.success(`벌점이 ${delta > 0 ? '+' : ''}${delta}점 조정되었습니다. (${current} → ${next}점)`);
+      setAdjustModal(null);
+      setAdjustDelta(0);
+      setAdjustReason('');
+      fetchAllUsers();
+    } catch (e) {
+      console.error(e);
+      toast.error('벌점 조정 중 오류가 발생했습니다.');
+    }
+  };
+
+  const renderConfirmModal = () => {
+    if (!confirmState) return null;
+    return (
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
+        <div style={{ backgroundColor: '#fff', padding: 28, borderRadius: 8, maxWidth: 420, width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+          <p style={{ marginTop: 0, fontSize: 16, color: '#222', whiteSpace: 'pre-wrap' }}>{confirmState.message}</p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button onClick={handleConfirmNo} style={{ padding: '9px 20px', border: '1px solid #ccc', borderRadius: 4, backgroundColor: '#f5f5f5', cursor: 'pointer', fontSize: 14 }}>취소</button>
+            <button onClick={handleConfirmYes} style={{ padding: '9px 20px', backgroundColor: '#1976d2', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14, fontWeight: 'bold' }}>확인</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAdjustModal = () => {
+    if (!adjustModal) return null;
+    return (
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+        <div style={{ backgroundColor: '#fff', padding: 28, borderRadius: 8, maxWidth: 440, width: '90%' }}>
+          <h3 style={{ marginTop: 0, color: '#1976d2' }}>벌점 조정 — {adjustModal.userName}</h3>
+          <p style={{ color: '#666', fontSize: 13 }}>현재 벌점: <strong>{adjustModal.currentPoints}점</strong></p>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 5 }}>조정 점수 (음수 = 감점, 양수 = 추가)</label>
+            <input type="number" value={adjustDelta} onChange={(e) => setAdjustDelta(e.target.value)}
+              style={{ width: '100%', padding: 9, border: '1px solid #ccc', borderRadius: 4, fontSize: 14, boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 5 }}>사유</label>
+            <input type="text" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)}
+              placeholder="예: 반납 기간 준수로 1점 감점"
+              style={{ width: '100%', padding: 9, border: '1px solid #ccc', borderRadius: 4, fontSize: 14, boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button onClick={() => { setAdjustModal(null); setAdjustDelta(0); setAdjustReason(''); }}
+              style={{ padding: '9px 20px', border: '1px solid #ccc', borderRadius: 4, backgroundColor: '#f5f5f5', cursor: 'pointer' }}>취소</button>
+            <button onClick={adjustPenalty}
+              style={{ padding: '9px 20px', backgroundColor: '#ff7043', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}>적용</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderPenaltyModal = () => {
     if (!penaltyModalOpen) return null;
@@ -1650,33 +1741,31 @@ const AdminPage = () => {
                 </a>
               </div>
             )}
-            {/* 개별 유저 벌점 초기화 */}
-<div style={{ marginTop: 15, paddingTop: 15, borderTop: '1px solid #e0e0e0' }}>
+            {/* 개별 유저 벌점 조정 + 초기화 */}
+<div style={{ marginTop: 15, paddingTop: 15, borderTop: '1px solid #e0e0e0', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+  <button
+    onClick={() => {
+      setAdjustDelta(0);
+      setAdjustReason('');
+      setAdjustModal({ userId: user.id, userName: user.name || '사용자', currentPoints: user.penaltyPoints || 0 });
+    }}
+    style={{ padding: '8px 16px', backgroundColor: '#ff7043', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' }}
+  >
+    벌점 조정
+  </button>
   <button
     onClick={async () => {
-      if (!window.confirm(`${user.name || '해당 유저'}의 벌점을 초기화하시겠습니까?`)) return;
+      if (!(await showConfirm(`${user.name || '해당 유저'}의 벌점을 초기화하시겠습니까?`))) return;
       try {
-        await updateDoc(doc(db, 'user_profiles', user.id), {
-          penaltyPoints: 0,
-          penaltyHistory: [],
-        });
-        alert('벌점이 초기화되었습니다.');
+        await updateDoc(doc(db, 'user_profiles', user.id), { penaltyPoints: 0, penaltyHistory: [] });
+        toast.success('벌점이 초기화되었습니다.');
         fetchAllUsers();
       } catch (e) {
         console.error(e);
-        alert('초기화 중 오류가 발생했습니다.');
+        toast.error('초기화 중 오류가 발생했습니다.');
       }
     }}
-    style={{
-      padding: '8px 16px',
-      backgroundColor: '#e53935',
-      color: '#fff',
-      border: 'none',
-      borderRadius: 6,
-      cursor: 'pointer',
-      fontSize: 13,
-      fontWeight: 'bold',
-    }}
+    style={{ padding: '8px 16px', backgroundColor: '#e53935', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' }}
   >
     벌점 초기화
   </button>
@@ -1945,21 +2034,18 @@ const AdminPage = () => {
             </div>
             <button
   onClick={async () => {
-    if (!window.confirm('모든 유저의 벌점을 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+    if (!(await showConfirm('모든 유저의 벌점을 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.'))) return;
     try {
       const batch = writeBatch(db);
       allUsers.forEach((user) => {
-        batch.update(doc(db, 'user_profiles', user.id), {
-          penaltyPoints: 0,
-          penaltyHistory: [],
-        });
+        batch.update(doc(db, 'user_profiles', user.id), { penaltyPoints: 0, penaltyHistory: [] });
       });
       await batch.commit();
-      alert(`${allUsers.length}명의 벌점이 초기화되었습니다.`);
+      toast.success(`${allUsers.length}명의 벌점이 초기화되었습니다.`);
       fetchAllUsers();
     } catch (e) {
       console.error(e);
-      alert('전체 초기화 중 오류가 발생했습니다.');
+      toast.error('전체 초기화 중 오류가 발생했습니다.');
     }
   }}
   style={{
@@ -2189,6 +2275,10 @@ const AdminPage = () => {
 
       {/* Penalty Modal */}
       {renderPenaltyModal()}
+      {/* Confirm Modal */}
+      {renderConfirmModal()}
+      {/* Adjust Penalty Modal */}
+      {renderAdjustModal()}
 
       {/* Footer */}
       <div style={{ marginTop: 30, textAlign: 'center', color: '#757575', fontSize: 14 }}>

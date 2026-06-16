@@ -24,44 +24,14 @@ const handleLogoClick = () => {
   }
 };
   useEffect(() => {
-  const handleResize = () => {
-    const currentWidth = window.innerWidth;
-    setIsMobile(currentWidth <= 768);
-    setIsTablet(currentWidth > 768 && currentWidth <= 1024);
-    
-    // 화면 리사이즈 시 필요하다면 스크롤 조정
-    if (currentWidth <= 768) {
-      // 모바일에서 전체 컨텐츠가 화면에 맞도록 높이 계산
-      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-    }
-  };
-
-  // 초기 로드 시 실행
-  handleResize();
-  
-  window.addEventListener('resize', handleResize);
-  return () => window.removeEventListener('resize', handleResize);
-}, []);
-
-// 컴포넌트 마운트 시 모바일 높이 문제 해결을 위한 useEffect 추가
-useEffect(() => {
-  // 모바일 브라우저에서 실제 화면 높이를 CSS 변수로 설정
-  const setAppHeight = () => {
-    document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-  };
-  
-  setAppHeight();
-  window.addEventListener('resize', setAppHeight);
-  
-  return () => window.removeEventListener('resize', setAppHeight);
-}, []);
-  // 화면 크기 감지
-  useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-      setIsTablet(window.innerWidth > 768 && window.innerWidth <= 1024);
+      const w = window.innerWidth;
+      setIsMobile(w <= 768);
+      setIsTablet(w > 768 && w <= 1024);
+      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
     };
 
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);

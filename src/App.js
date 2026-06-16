@@ -16,7 +16,7 @@ import { auth, db } from "./firebase/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import ScrollToTopButton from "./components/ScrollToTopButton";
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './styles/responsive.css';
 import ThingsNotePageWithHeader from "./components/ThingsNotePageWithHeader";
@@ -75,6 +75,7 @@ function App() {
             setProfileIncomplete(isIncomplete);
 
             if (isIncomplete && location.pathname !== "/mypage") {
+              toast.warn("프로필을 완성해주세요. 전화번호, 학번, 서약서가 필요합니다.", { autoClose: 4000 });
               navigate("/mypage", { state: { showAgreementReminder: true } });
             }
           }

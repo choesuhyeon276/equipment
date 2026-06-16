@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { auth, db } from "../firebase/firebaseConfig";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
@@ -8,6 +8,7 @@ function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // 🔒 에러 메시지 정리 함수 (사용자 친화적으로)
   const friendly = (err) => {
@@ -82,7 +83,7 @@ function Login() {
       if (isIncomplete) {
         navigate("/mypage", { state: { showAgreementReminder: true } });
       } else {
-        navigate("/main");
+        navigate(location.state?.from || "/main");
       }
 
       setLoading(false);
@@ -92,7 +93,7 @@ function Login() {
       // ❗ 여기서 Redirect로 폴백하지 않습니다.
       //    폴백 시 세션 스토리지 문제(초기 상태 누락)가 재발할 수 있어요.
     }
-  }, [navigate]);
+  }, [navigate, location]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-white px-4">
