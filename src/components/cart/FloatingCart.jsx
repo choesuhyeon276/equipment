@@ -200,7 +200,7 @@ const FloatingCart = ({ userId: propUserId }) => {
                   >
                     <div style={styles.itemImageWrap}>
                       {item.imageURL ? (
-                        <img src={item.imageURL} alt={item.name} style={styles.itemImage} />
+                        <img loading="lazy" decoding="async" src={item.imageURL} alt={item.name} style={styles.itemImage} />
                       ) : (
                         <div style={styles.itemImagePlaceholder}>📷</div>
                       )}

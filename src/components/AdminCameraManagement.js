@@ -245,7 +245,10 @@ const AdminEquipmentManagement = () => {
         toast.warn('파일 크기가 너무 큽니다. 10MB 이하의 파일만 업로드 가능합니다.');
         return null;
       }
-      const snapshot = await uploadBytes(storageRef, fileToUpload);
+      // 파일명이 업로드 시각으로 고유하므로 오래 캐시해도 안전 (재방문 시 다시 내려받지 않음 → 트래픽 절감)
+      const snapshot = await uploadBytes(storageRef, fileToUpload, {
+        cacheControl: 'public,max-age=31536000',
+      });
       const downloadURL = await getDownloadURL(snapshot.ref);
       return { downloadURL, storageRef };
     } catch (error) {
@@ -635,7 +638,7 @@ const AdminEquipmentManagement = () => {
                   </div>
 
                   {equipment.imageURL && (
-                    <img 
+                    <img loading="lazy" decoding="async" 
                       src={equipment.imageURL}
                       alt={equipment.name}
                       style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', marginTop: '15px' }}

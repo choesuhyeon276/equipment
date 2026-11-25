@@ -27,7 +27,7 @@ const ImageWithPlaceholder = ({ camera }) => {
   }
 
   return (
-    <img
+    <img loading="lazy" decoding="async"
       src={camera.imageURL}
       alt={camera.name}
       style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#f8f8f8' }}
@@ -196,7 +196,7 @@ const InternalImageModal = ({ isOpen, onClose, equipment }) => {
             </>
           )}
           
-          <img 
+          <img loading="lazy" decoding="async" 
             src={internalImages[currentImageIndex]}
             alt={`${equipment.name} 내부사진 ${currentImageIndex + 1}`}
             style={{
@@ -239,7 +239,7 @@ const InternalImageModal = ({ isOpen, onClose, equipment }) => {
                   transition: 'border-color 0.2s'
                 }}
               >
-                <img
+                <img loading="lazy" decoding="async"
                   src={imageUrl}
                   alt={`썸네일 ${index + 1}`}
                   style={{

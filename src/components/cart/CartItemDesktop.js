@@ -25,7 +25,7 @@ const CartItemDesktop = ({ item, onRemove }) => {
         alignItems: 'center'
       }}>
         {item.imageURL ? (
-          <img 
+          <img loading="lazy" decoding="async" 
             src={item.imageURL} 
             alt={item.name} 
             style={{ 

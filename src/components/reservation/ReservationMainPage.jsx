@@ -20,7 +20,12 @@ import SearchCategoryLayout from './components/SearchCategoryLayout';
 import InfiniteScroll from './components/InfiniteScroll';
 
 // 유틸리티 함수 임포트
-import { checkEquipmentAvailability } from './utils/equipmentUtils';
+import {
+  checkEquipmentAvailability,
+  checkMultipleAvailability,
+  loadAvailabilityData,
+  computeAvailability,
+} from './utils/equipmentUtils';
 import { addToCart, fetchCartItemCount } from './utils/cartUtils';
 import { formatToKSTDateString, generateTimeOptions, generateReturnTimeOptions } from './utils/dateUtils.js';
 
@@ -119,6 +124,8 @@ useEffect(() => {
     return;
   }
 
+  if (cameras.length === 0) return;
+
   let cancelled = false;
 
   (async () => {
@@ -126,21 +133,28 @@ useEffect(() => {
       const startDate = `${rentalDate}T${rentalTime}`;
       const endDate = `${returnDate}T${returnTime}`;
 
-      const results = await Promise.all(
-        cameras.map(async (camera) => {
-          const result = await checkEquipmentAvailability(
-            camera.id,
-            startDate,
-            endDate,
-            auth,
-            db
-          );
-          return [camera.id, result];
-        })
+      // 예약/장바구니를 한 번만 읽고 모든 장비를 계산 (장비 수만큼 읽지 않음)
+      const results = await checkMultipleAvailability(
+        cameras.map((camera) => camera.id),
+        startDate,
+        endDate,
+        auth,
+        db
       );
 
       if (cancelled) return;
-      setEquipmentAvailability(Object.fromEntries(results));
+
+      const nextAvailability = {};
+      cameras.forEach((camera) => {
+        const result = { ...results[camera.id] };
+        // 수리 중인 장비는 대여 불가 처리
+        if (camera.condition === '수리') {
+          result.available = false;
+          result.reason = '수리 중';
+        }
+        nextAvailability[camera.id] = result;
+      });
+      setEquipmentAvailability(nextAvailability);
     } catch (e) {
       // 가용성 체크 실패는 조용히 무시 (장비 목록은 그대로 유지)
     }
@@ -291,40 +305,6 @@ useEffect(() => {
     ]);
   }, [categoryNames, cameras]);
 
-  // 가용성 새로 고침
-useEffect(() => {
-  // 비로그인 또는 날짜 미선택 시 동작 안 함
-  if (!user) return;
-  if (!(cameras.length > 0 && rentalDate && returnDate)) return;
-
-  const refreshAvailability = async () => {
-    const startDate = `${rentalDate}T${rentalTime}`;
-    const endDate = `${returnDate}T${returnTime}`;
-    const newAvailability = {};
-
-    for (const camera of cameras) {
-      const result = await checkEquipmentAvailability(
-        camera.id,
-        startDate,
-        endDate,
-        auth,
-        db
-      );
-
-      if (camera.condition === '수리') {
-        result.available = false;
-        result.reason = '수리 중';
-      }
-      newAvailability[camera.id] = result;
-    }
-
-    setEquipmentAvailability(newAvailability);
-  };
-
-  refreshAvailability();
-}, [cameras, user, rentalDate, returnDate, rentalTime, returnTime]);
-
-  
   // 대여 날짜 변경 핸들러
   const handleRentalDateChange = (date) => {
     let fixedDate;
@@ -374,6 +354,8 @@ useEffect(() => {
     );
     
     const snapshot = await getDocs(batteryQuery);
+    // 후보 배터리마다 다시 읽지 않도록 가용성 데이터를 한 번만 읽음
+    const availabilityData = await loadAvailabilityData(db);
   
     const startDate = `${rentalDate}T${rentalTime}`;
     const endDate = `${returnDate}T${returnTime}`;
@@ -398,7 +380,13 @@ useEffect(() => {
       if (isAlreadyInCart) continue;
   
       // 가용성 확인
-      const result = await checkEquipmentAvailability(docSnap.id, startDate, endDate, auth, db);
+      const result = computeAvailability(
+        availabilityData,
+        docSnap.id,
+        startDate,
+        endDate,
+        auth.currentUser ? auth.currentUser.uid : null
+      );
       if (result.available) {
         const battery = { id: docSnap.id, ...data };
         const added = await addToCart(battery, rentalDate, rentalTime, returnDate, returnTime, auth, db);
@@ -432,6 +420,8 @@ useEffect(() => {
         where('status', '==', 'available')
       );
       const snapshot = await getDocs(sdQuery);
+      // 후보 SD카드마다 다시 읽지 않도록 가용성 데이터를 한 번만 읽음
+      const availabilityData = await loadAvailabilityData(db);
   
       // 현재 내 장바구니 아이템 ID 확인 (중복 방지)
       const userCartRef = doc(db, 'user_carts', user.uid);
@@ -453,7 +443,13 @@ useEffect(() => {
         if (isAlreadyAdded) continue;
   
         // 대여 가능 여부 확인
-        const result = await checkEquipmentAvailability(docSnap.id, `${rentalDate}T${rentalTime}`, `${returnDate}T${returnTime}`, auth, db);
+        const result = computeAvailability(
+          availabilityData,
+          docSnap.id,
+          `${rentalDate}T${rentalTime}`,
+          `${returnDate}T${returnTime}`,
+          auth.currentUser ? auth.currentUser.uid : null
+        );
   
         if (result.available) {
           const sd = { id: docSnap.id, ...data };

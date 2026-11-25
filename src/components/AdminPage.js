@@ -36,6 +36,7 @@ import {
   query,
   where,
   getDocs,
+  getCountFromServer,
   serverTimestamp,
   writeBatch,
 } from '../firebase/firebaseConfig';
@@ -170,12 +171,13 @@ const AdminPage = () => {
       // 각 유저의 대여 이력 수를 가져옴
       const usersWithRentalCount = await Promise.all(
         usersData.map(async (user) => {
-          const rentalSnapshot = await getDocs(
+          // 문서를 전부 읽지 않고 개수만 집계 (읽기 비용 절감)
+          const countSnapshot = await getCountFromServer(
             query(collection(db, 'reservations'), where('userId', '==', user.id))
           );
           return {
             ...user,
-            rentalCount: rentalSnapshot.docs.length,
+            rentalCount: countSnapshot.data().count,
           };
         })
       );
@@ -224,30 +226,32 @@ const AdminPage = () => {
   // ------- Fetch all rental data -------
   const fetchRentalData = async () => {
     setLoading(true);
+    // 같은 사용자의 프로필은 한 번만 읽도록 이번 조회 동안 공유
+    const profileCache = new Map();
     try {
       const pendingSnapshot = await getDocs(
         query(collection(db, 'reservations'), where('status', '==', 'pending'))
       );
       const pendingDataRaw = pendingSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const pendingData = await enrichWithUserProfiles(pendingDataRaw);
+      const pendingData = await enrichWithUserProfiles(pendingDataRaw, profileCache);
 
       const activeSnapshot = await getDocs(
         query(collection(db, 'reservations'), where('status', '==', 'active'))
       );
       const activeDataRaw = activeSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const activeData = await enrichWithUserProfiles(activeDataRaw);
+      const activeData = await enrichWithUserProfiles(activeDataRaw, profileCache);
 
       const returnSnapshot = await getDocs(
         query(collection(db, 'reservations'), where('status', '==', 'return_requested'))
       );
       const returnDataRaw = returnSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const returnData = await enrichWithUserProfiles(returnDataRaw);
+      const returnData = await enrichWithUserProfiles(returnDataRaw, profileCache);
 
       const completedSnapshot = await getDocs(
         query(collection(db, 'reservations'), where('status', '==', 'returned'))
       );
       const completedRaw = completedSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const completedData = (await enrichWithUserProfiles(completedRaw)).sort((a, b) => {
+      const completedData = (await enrichWithUserProfiles(completedRaw, profileCache)).sort((a, b) => {
         const at = a.returnedAt?.toDate ? a.returnedAt.toDate().getTime() : 0;
         const bt = b.returnedAt?.toDate ? b.returnedAt.toDate().getTime() : 0;
         return bt - at;
@@ -267,13 +271,19 @@ const AdminPage = () => {
     
   };
 
-  const enrichWithUserProfiles = async (list) => {
+  const enrichWithUserProfiles = async (list, profileCache = new Map()) => {
+    const getProfile = (userId) => {
+      if (!profileCache.has(userId)) {
+        profileCache.set(userId, getDoc(doc(db, 'user_profiles', userId)));
+      }
+      return profileCache.get(userId);
+    };
+
     return Promise.all(
       list.map(async (rental) => {
         if (!rental.userId) return rental;
         try {
-          const userRef = doc(db, 'user_profiles', rental.userId);
-          const userDoc = await getDoc(userRef);
+          const userDoc = await getProfile(rental.userId);
           if (userDoc.exists()) {
             const u = userDoc.data();
             return {

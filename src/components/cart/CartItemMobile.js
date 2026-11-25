@@ -25,7 +25,7 @@ const CartItemMobile = ({ item, onRemove }) => {
           overflow: 'hidden'
         }}>
           {item.imageURL ? (
-            <img 
+            <img loading="lazy" decoding="async" 
               src={item.imageURL} 
               alt={item.name} 
               style={{ 

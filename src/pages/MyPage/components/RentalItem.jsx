@@ -72,7 +72,7 @@ const RentalItem = ({
           overflow: 'hidden'
         }}>
           {imageUrls[item.id] ? (
-            <img 
+            <img loading="lazy" decoding="async" 
               src={imageUrls[item.id]} 
               alt={item.name} 
               style={{ 
@@ -168,7 +168,7 @@ const RentalItem = ({
                 }}>
                   <div style={{ marginRight: '12px' }}>
                     {equip.imageURL ? (
-                      <img 
+                      <img loading="lazy" decoding="async" 
                         src={equip.imageURL}
                         alt={equip.name}
                         style={{ 

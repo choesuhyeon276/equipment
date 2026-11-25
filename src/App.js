@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, lazy, Suspense } from "react";
 import { Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Login from "./components/Login";
 import MainHeader from "./components/MainHeader";
@@ -7,10 +7,6 @@ import CalendarWithHeader from "./components/CalendarWithHeader";
 import CalendarStandalone from "./components/CalendarStandalone"; 
 import ThingsNotePage from "./components/ThingsNotePage";
 import ReservationMainPage from "./components/reservation/ReservationMainPage";
-import AdminCameraManagement from "./components/AdminCameraManagement";
-import CartPage from "./components/cart";
-import MyPage from "./pages/MyPage";
-import AdminPage from "./components/AdminPage";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "./firebase/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
@@ -20,8 +16,20 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './styles/responsive.css';
 import ThingsNotePageWithHeader from "./components/ThingsNotePageWithHeader";
-import AdminSettingsPage from './components/AdminSettingsPage';
-import SyncManagement from './components/SyncManagement';
+
+// 필요한 화면에 들어갈 때만 불러옴 (일반 방문자의 첫 로딩 용량 절감)
+const AdminCameraManagement = lazy(() => import("./components/AdminCameraManagement"));
+const CartPage = lazy(() => import("./components/cart"));
+const MyPage = lazy(() => import("./pages/MyPage"));
+const AdminPage = lazy(() => import("./components/AdminPage"));
+const AdminSettingsPage = lazy(() => import('./components/AdminSettingsPage'));
+const SyncManagement = lazy(() => import('./components/SyncManagement'));
+
+const PageFallback = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', color: '#888' }}>
+    불러오는 중...
+  </div>
+);
 
 
 
@@ -113,6 +121,7 @@ function App() {
     <div className="app-container">
       <GoogleOAuthProvider clientId={clientId}>
         
+        <Suspense fallback={<PageFallback />}>
         <Routes>
           {/* 기본 경로를 메인으로 변경 */}
           <Route path="/" element={<Navigate to="/main" replace />} />
@@ -212,6 +221,7 @@ function App() {
             }
           />
         </Routes>
+        </Suspense>
 
         <ToastContainer 
           position={isMobile ? "bottom-center" : "top-center"}

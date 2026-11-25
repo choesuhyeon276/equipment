@@ -135,60 +135,28 @@ const MyPage = () => {
         reservationCountMap[reservation.id] = index + 1;
       });
   
-      // 현재 대여 가져오기
-      const currentRentalsQuery = query(
-        collection(db, 'reservations'),
-        where('userId', '==', userId),
-        where('status', '==', 'active')
-      );
-      const currentRentalsSnapshot = await getDocs(currentRentalsQuery);
-      const currentRentalsData = currentRentalsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        rentalCount: reservationCountMap[doc.id] || 0
-      }));
+      // 위에서 이미 읽은 예약 데이터를 상태별로 나눔 (상태마다 다시 읽지 않음)
+      // 기존 상태별 쿼리와 같은 순서(문서 ID 순)를 유지
+      const byStatus = (status) =>
+        sortedReservations
+          .filter((r) => r.status === status)
+          .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+          .map((r) => ({ ...r, rentalCount: reservationCountMap[r.id] || 0 }));
+
+      // 현재 대여
+      const currentRentalsData = byStatus('active');
       setCurrentRentals(currentRentalsData);
 
       // 대여 신청 중
-      const pendingQuery = query(
-        collection(db, 'reservations'),
-        where('userId', '==', userId),
-        where('status', '==', 'pending')
-      );
-      const pendingSnapshot = await getDocs(pendingQuery);
-      const pendingData = pendingSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        rentalCount: reservationCountMap[doc.id] || 0
-      }));
+      const pendingData = byStatus('pending');
       setPendingRentals(pendingData);
 
       // 반납 요청 중
-      const returnRequestedQuery = query(
-        collection(db, 'reservations'),
-        where('userId', '==', userId),
-        where('status', '==', 'return_requested')
-      );
-      const returnRequestedSnapshot = await getDocs(returnRequestedQuery);
-      const returnRequestedData = returnRequestedSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        rentalCount: reservationCountMap[doc.id] || 0
-      }));
+      const returnRequestedData = byStatus('return_requested');
       setReturnRequestedRentals(returnRequestedData);
-  
-      // 이력 불러오기
-      const historyQuery = query(
-        collection(db, 'reservations'),
-        where('userId', '==', userId),
-        where('status', '==', 'returned')
-      );
-      const historySnapshot = await getDocs(historyQuery);
-      const historyData = historySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        rentalCount: reservationCountMap[doc.id] || 0
-      }));
+
+      // 이력
+      const historyData = byStatus('returned');
       setRentalHistory(historyData);
   
       // 이미지 URL 가져오기
